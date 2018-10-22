@@ -3,6 +3,8 @@ from plotly.offline import init_notebook_mode, plot, iplot
 
 
 def in_ipython_notebook():
+    """Checks if the program is running in a ipython/jupyter notebook.
+    """
     try:
         ipython_class = get_ipython().__class__.__name__
         if 'ZMQInteractiveShell' in ipython_class:
@@ -16,8 +18,13 @@ def in_ipython_notebook():
 class PlotlyFigure:
     """Represents a Plotly figure and provides helper methods for plotting.
 
+    Many methods in this class support "Method Chaining", i.e. they return the PlotlyFigure instance itself.
+
     Attributes:
         __notebook_mode: Indicates if the plotly notebook mode has been initialized.
+
+    Examples:
+        PlotlyFigure().candle_stick(ts.df, "Daily Data").lines(tech_df).plot()
 
     """
 
@@ -36,6 +43,8 @@ class PlotlyFigure:
 
     @property
     def figure(self):
+        """Prepares the plotly figure.
+        """
         if self.layout is None:
             self.layout = go.Layout(
                 title=self.title,
@@ -64,11 +73,15 @@ class PlotlyFigure:
         raise NotImplementedError
 
     def plot(self):
+        """Plots the figure in a jupyter notebook
+        """
         if not self.__notebook_mode:
             init_notebook_mode(connected=True)
             self.__notebook_mode = True
         iplot(self.figure)
         return self
+
+    # The following methods support "Method Chaining"
 
     def candle_stick(self, df, name=None):
         if not self.title_x:
@@ -108,18 +121,27 @@ class PlotlyFigure:
 
         """
         y_list = []
-        name_list = []
-        for arg in args:
-            if isinstance(arg, str):
-                name_list.append(arg)
-            else:
-                y_list.append(arg)
+        y_name = []
+        # Check if x is a pandas data frame using strings to avoid importing pandas.
+        # So that pandas is not required in order to use this function.
+        if "pandas" and "DataFrame" in str(type(x)):
+            df = x
+            x = df.index
+            for c in df.columns.values:
+                y_list.append(df[c])
+                y_name.append(c)
+        else:
+            for arg in args:
+                if isinstance(arg, str):
+                    y_name.append(arg)
+                else:
+                    y_list.append(arg)
 
         for i in range(len(y_list)):
             trace = go.Scatter(
                 x=x,
                 y=y_list[i],
-                name=name_list[i] if i < len(name_list) else None
+                name=y_name[i] if i < len(y_name) else None
             )
             self.data.append(trace)
         return self
