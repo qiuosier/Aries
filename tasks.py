@@ -41,7 +41,7 @@ class ThreadLogHandler(logging.NullHandler):
         Args:
             thread_id: The ID of the thread
         """
-        super(self.__class__, self).__init__()
+        super(ThreadLogHandler, self).__init__()
         self.setFormatter(self.log_formatter)
         self.thread_id = thread_id
         self.logs = []
@@ -172,15 +172,6 @@ class Task:
         self.log_out = ""
         self.exc_out = ""
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Saves the exception outputs, if any.
-        """
-        if exc_type:
-            self.exc_out = traceback.format_exc()
-
     def print_outputs(self):
         """Prints the PID, return value, stdout, stderr and logs.
         """
@@ -269,7 +260,7 @@ class FunctionTask(Task):
             *args: A list of arguments for the function to be executed.
             **kwargs: A dictionary of keyword arguments for the function to be executed.
         """
-        super(self.__class__, self).__init__()
+        super(FunctionTask, self).__init__()
         self.func = func
         self.args = args
         self.kwargs = kwargs
@@ -308,6 +299,10 @@ class FunctionTask(Task):
         self.__unpack_outputs(out)
         if self.exc_out:
             print(self.exc_out)
+        self.exit_run()
+
+    def exit_run(self):
+        pass
 
     def run_profiler(self):
         """Runs the function with profiler.
@@ -348,7 +343,7 @@ class ShellCommand(Task):
     """Represents a task of running a function.
     """
     def __init__(self, cmd):
-        super(self.__class__, self).__init__()
+        super(ShellCommand, self).__init__()
         self.cmd = cmd
         self.process = None
 
