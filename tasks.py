@@ -94,6 +94,10 @@ class CaptureOutput:
         Using this class will set the level of root logger to DEBUG.
 
     """
+
+    sys_out = None
+    sys_err = None
+
     def __init__(self, suppress_exception=False):
         """Initializes log handler and attributes to store the outputs.
         """
@@ -133,6 +137,7 @@ class CaptureOutput:
         del self.string_io_err
         sys.stdout = self.saved_stdout
         sys.stderr = self.saved_stderr
+
         # Removes log handler
         root_logger = logging.getLogger()
         root_logger.removeHandler(self.log_handler)
@@ -207,7 +212,7 @@ class Task:
         thread.daemon = True
         thread.start()
         self.thread = thread
-        return thread
+        return self.thread
 
     def join(self):
         """Block the calling thread until the daemon thread running the task terminates.
@@ -265,6 +270,8 @@ class FunctionTask(Task):
         self.args = args
         self.kwargs = kwargs
 
+        self.out = None
+
     def __unpack_outputs(self, out):
         for k in self.__output_attributes:
             setattr(self, k, out.get(k))
@@ -274,29 +281,33 @@ class FunctionTask(Task):
             k: getattr(out, k) for k in self.__output_attributes
         }
 
-    def __run(self, pipe):
+    def __run(self):
         with CaptureOutput(suppress_exception=True) as out:
             # TODO: Returns may not be serializable.
             out.returns = str(self.func(*self.args, **self.kwargs))
         try:
             logger.debug("Sending captured outputs...")
-            pipe.send(self.__pack_outputs(out))
+            return self.__pack_outputs(out)
+            # pipe.send(self.__pack_outputs(out))
         except Exception as ex:
             print(ex)
-            pipe.send({
+            return {
                 "exc_out": traceback.format_exc()
-            })
+            }
 
     def run(self):
         """Runs the function in a separated process and captures the outputs.
         """
-        receiver, pipe = Pipe()
-        p = Process(target=self.__run, args=(pipe,))
-        p.start()
-        self.pid = p.pid
-        out = receiver.recv()
-        p.join()
-        self.__unpack_outputs(out)
+        # receiver, pipe = Pipe()
+        # p = Process(target=self.__run, args=(pipe,))
+        # p.start()
+        #
+        # self.pid = p.pid
+        # print("%s PROCESS STARTED" % p.pid)
+        # out = receiver.recv()
+        # print("%s MESSAGE RECEIVED" % p.pid)
+        # p.terminate()
+        self.__unpack_outputs(self.__run())
         if self.exc_out:
             print(self.exc_out)
         self.exit_run()
@@ -336,7 +347,8 @@ class FunctionTask(Task):
                 return results
         # The following will be executed only if for loop finishes without break/return
         else:
-            raise error
+            if error:
+                raise error
 
 
 class ShellCommand(Task):
