@@ -41,6 +41,20 @@ class PlotlyFigure:
         self.title_x = ""
         self.title_y = ""
 
+    @staticmethod
+    def __is_pandas_data_frame(x):
+        """Checks if x and args are pandas data frames using strings to avoid importing pandas.
+        So that pandas is not required in order to use this function.
+
+        Args:
+            x: A variable.
+
+        Returns: True if "pandas" and "DataFrame" are both in the type/class name of x
+
+        """
+        data_type = str(type(x))
+        return "pandas" in data_type and "DataFrame" in data_type
+
     @property
     def figure(self):
         """Prepares the plotly figure.
@@ -122,9 +136,8 @@ class PlotlyFigure:
         """
         y_list = []
         y_name = []
-        # Check if x is a pandas data frame using strings to avoid importing pandas.
-        # So that pandas is not required in order to use this function.
-        if "pandas" and "DataFrame" in str(type(x)):
+
+        if self.__is_pandas_data_frame(x):
             df = x
             x = df.index
             for c in df.columns.values:
