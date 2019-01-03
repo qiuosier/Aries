@@ -97,20 +97,20 @@ class ExcelFile(object):
         Args:
             headers: A list of strings, each is the name of a required column.
 
-        Returns: 0 if all strings in headers are found. Otherwise -1.
+        Returns: True if all strings in headers are found. Otherwise False.
 
         """
         row_values = self.get_first_row_values()
         if row_values is None:
             logger.error("Failed to find the header row in the Excel file.")
-            return -1
+            return False
 
         for header in headers:
             if header.upper() not in row_values:
                 logger.error("Column %s not found in the Excel file." % header)
                 logger.debug(row_values)
-                return -1
-        return 0
+                return False
+        return True
 
     def get_data_table(self, skip_first_row=True):
         """Reads the excel file into a 2D list in memory.
