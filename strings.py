@@ -11,15 +11,16 @@ class AString(str):
 
     For methods in python str returning a str, list, or tuple,
         additional post-processing are added to convert the returning str values to instances AString.
-    For example, AString("hello").title() will return AString("Hello").
-    This is designed to enable method chaining for AString methods.
+        e.g., AString("hello").title() will return AString("Hello").
+    This is designed to enable method chaining for AString methods,
+        e.g., AString("hello").title().append_today().
 
     """
     def __new__(cls, string_literal):
         return super(AString, cls).__new__(cls, string_literal)
 
     def __getattribute__(self, item):
-        """Wraps the existing methods of python str to return AString objects.
+        """Wraps the existing methods of python str to return AString objects instead of build-in strings.
         If the existing method returns a str, it will be converted to an instance of AString.
         If the existing method returns a list or tuple,
             the str values in the list or tuple will be converted to instances of AString.
@@ -69,7 +70,7 @@ class AString(str):
             s (str/list): A string or a list of strings to be appended to the filename.
             delimiter: A string concatenating the original filename and each of the appended strings.
 
-        Returns: FileName instance (self)
+        Returns: An AString instance
 
         """
         if not isinstance(s, list):
@@ -84,7 +85,7 @@ class AString(str):
             dt (datetime.datetime): A datetime.datetime instance.
             fmt (str): The format of the datetime.
 
-        Returns: FileName instance (self)
+        Returns: An AString instance
 
         """
         datetime_string = dt.strftime(fmt)
@@ -96,7 +97,7 @@ class AString(str):
         Args:
             fmt (str): The format of the date.
 
-        Returns: FileName instance (self)
+        Returns: An AString instance
 
         """
         return self.append_datetime(fmt=fmt)
@@ -108,19 +109,43 @@ class AString(str):
             choices (str): A string including the choices of characters.
             n (int): The number of characters to be appended.
 
-        Returns: FileName instance (self)
+        Returns: An AString instance
 
         """
         random_chars = ''.join(random.choice(choices) for _ in range(n))
         return self.append(random_chars)
 
     def append_random_letters(self, n):
+        """Appends a random string of letters.
+
+        Args:
+            n (int): The number of characters to be appended.
+
+        Returns: An AString instance
+
+        """
         return self.append_random(string.ascii_letters, n)
 
     def append_random_uppercase(self, n):
+        """Appends a random string of uppercase letters.
+
+        Args:
+            n (int): The number of characters to be appended.
+
+        Returns: An AString instance
+
+        """
         return self.append_random(string.ascii_uppercase, n)
 
     def append_random_lowercase(self, n):
+        """Appends a random string of lowercase letters.
+
+        Args:
+            n (int): The number of characters to be appended.
+
+        Returns: An AString instance
+
+        """
         return self.append_random(string.ascii_lowercase, n)
 
     def remove_non_alphanumeric(self):
@@ -159,7 +184,8 @@ class FileName(AString):
     Most methods in this class support "Method Chaining", i.e. they return the FileName instance itself.
 
     Warnings:
-        All methods will be operate on the "basename". len() will only return the length of the basename.
+        All methods will be operate on the "basename".
+        Especially, len() will only return the length of the basename.
 
     """
     def __new__(cls, string_literal):
@@ -172,16 +198,8 @@ class FileName(AString):
             a_string.extension = name_splits[1]
         return a_string
 
-    # def __init__(self, string_literal):
-    #     name_splits = string_literal.rsplit('.', 1)
-    #     self.basename = name_splits[0]
-    #     if len(name_splits) == 1:
-    #         self.extension = ""
-    #     else:
-    #         self.extension = name_splits[1]
-
     def __getattribute__(self, item):
-        """Wraps the existing methods of python str to return FileName objects.
+        """Wraps the existing methods of python AString to return FileName objects.
         """
         if item in dir(AString):
             def method(s, *args, **kwargs):
@@ -199,6 +217,8 @@ class FileName(AString):
             return super(FileName, self).__getattribute__(item)
 
     def __str__(self):
+        """Convert the FileName object to a string including basename and extension.
+        """
         if self.extension:
             return "%s.%s" % (self.basename, self.extension)
         else:
@@ -206,9 +226,13 @@ class FileName(AString):
 
     @property
     def name_without_extension(self):
+        """The filename without extension.
+        """
         return self.basename
 
     def to_string(self):
+        """Convert the FileName object to a string including basename and extension.
+        """
         return str(self)
 
 
