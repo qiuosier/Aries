@@ -1,198 +1,15 @@
-import io
 import math
 import logging
 import pstats
 import subprocess
-import sys
 import threading
 import time
 import traceback
-import uuid
-from multiprocessing import Process, Pipe
 from cProfile import Profile
+
+from outputs import CaptureOutput
+
 logger = logging.getLogger(__name__)
-
-
-class ThreadLogHandler(logging.NullHandler):
-    """Captures the logs of a particular thread.
-
-    Attributes:
-        thread_id: The ID of the thread of which the logs are being captured.
-        logs (list): A list of formatted log messages.
-
-    Examples:
-        log_handler = ThreadLogHandler(threading.current_thread().ident)
-        logger = logging.getLogger(__name__)
-        logger.addHandler(log_handler)
-
-    See Also:
-        https://docs.python.org/3.5/library/logging.html#handler-objects
-        https://docs.python.org/3.5/library/logging.html#logrecord-attributes
-
-    """
-    # This log_formatter is used to format the log messages.
-    log_formatter = logging.Formatter(
-            '%(asctime)s | %(levelname)-8s | %(lineno)4d@%(module)-12s | %(message)s',
-            '%Y-%m-%d %H:%M:%S'
-        )
-
-    def __init__(self, thread_id):
-        """Initialize the log handler for a particular thread.
-
-        Args:
-            thread_id: The ID of the thread
-        """
-        super(ThreadLogHandler, self).__init__()
-        self.setFormatter(self.log_formatter)
-        self.thread_id = thread_id
-        self.logs = []
-
-    def handle(self, record):
-        """Determine whether to emit base on the thread ID.
-        """
-        if record.thread == self.thread_id:
-            self.emit(record)
-
-    def emit(self, record):
-        """Formats and saves the log message.
-        """
-        message = self.format(record)
-        self.logs.append(message)
-
-
-class OutputWriter(io.StringIO):
-    def __init__(self, listeners=None):
-        """
-
-        Args:
-            listeners (list):
-        """
-        self.listeners = listeners
-        super(OutputWriter, self).__init__()
-
-    def write(self, *args, **kwargs):
-        for listener in self.listeners:
-            listener.write(*args, **kwargs)
-
-
-class CaptureOutput:
-    """Represents an object capturing the standard outputs and standard errors.
-
-    In Python 3.5 and up, redirecting stdout and stderr can be done by using:
-        from contextlib import redirect_stdout, redirect_stderr
-
-    Attributes:
-        std_out (str): Captured standard outputs.
-        std_err (str): Captured standard errors.
-        log_out (str): Captured log messages.
-        exc_out (str): Captured exception outputs.
-        returns: This is not used directly. It can be used to store the return value of a function/method.
-        log_handler (ThreadLogHandler): The log handler object for capturing the log messages.
-
-    Examples:
-        with CaptureOutput() as out:
-            do_something()
-
-        standard_output = out.std_out
-        standard_error = out.std_err
-        log_messages = out.log_out
-
-    Multi-Threading:
-        When using this class, stdout/stderr from all threads in the same process will be captured.
-        To capture the stdout/stderr of a particular thread, run the thread in an independent process.
-        Only the logs of the current thread will be captured.
-
-    See Also:
-        The __run() and run() methods in FunctionTask class uses this class and the multiprocessing package
-        to capture the outputs of a particular thread.
-
-    Warnings:
-        Using this class will set the level of root logger to DEBUG.
-
-    """
-
-    sys_out = None
-    sys_err = None
-
-    out_listeners = {}
-    err_listeners = {}
-
-    def __init__(self, suppress_exception=False):
-        """Initializes log handler and attributes to store the outputs.
-        """
-        self.uuid = uuid.uuid4()
-        self.suppress_exception = suppress_exception
-
-        self.log_handler = ThreadLogHandler(threading.current_thread().ident)
-        self.log_handler.setLevel(logging.DEBUG)
-
-        self.std_out = ""
-        self.std_err = ""
-
-        self.log_out = ""
-        self.exc_out = ""
-        self.returns = None
-
-    def config_sys_outputs(self):
-        if CaptureOutput.out_listeners:
-            out_listener_list = [l for l in CaptureOutput.out_listeners.values()]
-            out_listener_list.append(CaptureOutput.sys_out)
-            sys.stdout = OutputWriter(out_listener_list)
-        else:
-            sys.stdout = CaptureOutput.sys_out
-            CaptureOutput.sys_out = None
-
-        if CaptureOutput.err_listeners:
-            err_listener_list = [l for l in CaptureOutput.err_listeners.values()]
-            err_listener_list.append(CaptureOutput.sys_err)
-            sys.stderr = OutputWriter(err_listener_list)
-        else:
-            sys.stderr = CaptureOutput.sys_err
-            CaptureOutput.sys_err = None
-
-    def __enter__(self):
-        """Redirects stdout/stderr, and attaches the log handler to root logger.
-
-        Returns: A CaptureOutput object (self).
-
-        """
-        if CaptureOutput.sys_out is None:
-            CaptureOutput.sys_out = sys.stdout
-        if CaptureOutput.sys_err is None:
-            CaptureOutput.sys_err = sys.stderr
-
-        CaptureOutput.out_listeners[self.uuid] = io.StringIO()
-        CaptureOutput.err_listeners[self.uuid] = io.StringIO()
-
-        self.config_sys_outputs()
-
-        # Modify root logger level and add log handler.
-        root_logger = logging.getLogger()
-        root_logger.setLevel(logging.DEBUG)
-        root_logger.addHandler(self.log_handler)
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Saves the outputs, resets stdout/stderr, and removes log handler.
-        """
-        # Capture exceptions, if any
-        if exc_type:
-            self.exc_out = traceback.format_exc()
-
-        # Removes log handler
-        root_logger = logging.getLogger()
-        root_logger.removeHandler(self.log_handler)
-        self.log_out = "\n".join(self.log_handler.logs)
-
-        # Reset stdout and stderr
-        self.std_out = CaptureOutput.out_listeners.pop(self.uuid).getvalue()
-        self.std_err = CaptureOutput.err_listeners.pop(self.uuid).getvalue()
-        self.config_sys_outputs()
-
-        # Exception will be suppressed if returning True
-        if self.suppress_exception:
-            return True
-        return False
 
 
 class Task:
@@ -224,6 +41,8 @@ class Task:
 
     @property
     def log_list(self):
+        """Log messages as a list.
+        """
         return self.log_out.strip("\n").split("\n")
 
     def print_outputs(self):
