@@ -7,6 +7,7 @@ import sys
 import threading
 import time
 import traceback
+import uuid
 from multiprocessing import Process, Pipe
 from cProfile import Profile
 logger = logging.getLogger(__name__)
@@ -59,6 +60,21 @@ class ThreadLogHandler(logging.NullHandler):
         self.logs.append(message)
 
 
+class OutputWriter(io.StringIO):
+    def __init__(self, listeners=None):
+        """
+
+        Args:
+            listeners (list):
+        """
+        self.listeners = listeners
+        super(OutputWriter, self).__init__()
+
+    def write(self, *args, **kwargs):
+        for listener in self.listeners:
+            listener.write(*args, **kwargs)
+
+
 class CaptureOutput:
     """Represents an object capturing the standard outputs and standard errors.
 
@@ -98,18 +114,41 @@ class CaptureOutput:
     sys_out = None
     sys_err = None
 
+    out_listeners = {}
+    err_listeners = {}
+
     def __init__(self, suppress_exception=False):
         """Initializes log handler and attributes to store the outputs.
         """
+        self.uuid = uuid.uuid4()
+        self.suppress_exception = suppress_exception
+
         self.log_handler = ThreadLogHandler(threading.current_thread().ident)
         self.log_handler.setLevel(logging.DEBUG)
-        self.suppress_exception = suppress_exception
 
         self.std_out = ""
         self.std_err = ""
+
         self.log_out = ""
         self.exc_out = ""
         self.returns = None
+
+    def config_sys_outputs(self):
+        if CaptureOutput.out_listeners:
+            out_listener_list = [l for l in CaptureOutput.out_listeners.values()]
+            out_listener_list.append(CaptureOutput.sys_out)
+            sys.stdout = OutputWriter(out_listener_list)
+        else:
+            sys.stdout = CaptureOutput.sys_out
+            CaptureOutput.sys_out = None
+
+        if CaptureOutput.err_listeners:
+            err_listener_list = [l for l in CaptureOutput.err_listeners.values()]
+            err_listener_list.append(CaptureOutput.sys_err)
+            sys.stderr = OutputWriter(err_listener_list)
+        else:
+            sys.stderr = CaptureOutput.sys_err
+            CaptureOutput.sys_err = None
 
     def __enter__(self):
         """Redirects stdout/stderr, and attaches the log handler to root logger.
@@ -117,10 +156,16 @@ class CaptureOutput:
         Returns: A CaptureOutput object (self).
 
         """
-        self.saved_stdout = sys.stdout
-        self.saved_stderr = sys.stderr
-        sys.stdout = self.string_io_out = io.StringIO()
-        sys.stderr = self.string_io_err = io.StringIO()
+        if CaptureOutput.sys_out is None:
+            CaptureOutput.sys_out = sys.stdout
+        if CaptureOutput.sys_err is None:
+            CaptureOutput.sys_err = sys.stderr
+
+        CaptureOutput.out_listeners[self.uuid] = io.StringIO()
+        CaptureOutput.err_listeners[self.uuid] = io.StringIO()
+
+        self.config_sys_outputs()
+
         # Modify root logger level and add log handler.
         root_logger = logging.getLogger()
         root_logger.setLevel(logging.DEBUG)
@@ -130,21 +175,21 @@ class CaptureOutput:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Saves the outputs, resets stdout/stderr, and removes log handler.
         """
-        # Reset stdout and stderr
-        self.std_out = self.string_io_out.getvalue()
-        self.std_err = self.string_io_err.getvalue()
-        del self.string_io_out
-        del self.string_io_err
-        sys.stdout = self.saved_stdout
-        sys.stderr = self.saved_stderr
+        # Capture exceptions, if any
+        if exc_type:
+            self.exc_out = traceback.format_exc()
 
         # Removes log handler
         root_logger = logging.getLogger()
         root_logger.removeHandler(self.log_handler)
         self.log_out = "\n".join(self.log_handler.logs)
-        # Capture exceptions, if any
-        if exc_type:
-            self.exc_out = traceback.format_exc()
+
+        # Reset stdout and stderr
+        self.std_out = CaptureOutput.out_listeners.pop(self.uuid).getvalue()
+        self.std_err = CaptureOutput.err_listeners.pop(self.uuid).getvalue()
+        self.config_sys_outputs()
+
+        # Exception will be suppressed if returning True
         if self.suppress_exception:
             return True
         return False
@@ -176,6 +221,10 @@ class Task:
         self.std_err = ""
         self.log_out = ""
         self.exc_out = ""
+
+    @property
+    def log_list(self):
+        return self.log_out.strip("\n").split("\n")
 
     def print_outputs(self):
         """Prints the PID, return value, stdout, stderr and logs.

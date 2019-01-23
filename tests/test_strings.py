@@ -4,15 +4,16 @@ import unittest
 
 import sys
 from os.path import dirname
-sys.path.append(dirname(dirname(__file__)))
-
+sys.path.insert(0, dirname(dirname(__file__)))
 from strings import AString, FileName
+
 logger = logging.getLogger(__name__)
 
 
 class TestAString(unittest.TestCase):
     def test_str_methods(self):
-        """Tests calling methods of python str with AString"""
+        """Tests calling methods of python str with AString
+        """
         # Tests cases for methods returning a string
         test_cases = [
             # (input_value, method_to_call, expected_output)
@@ -49,7 +50,8 @@ class TestAString(unittest.TestCase):
         self.assertTrue(AString("test string").endswith("ing"), "endswith() Error.")
 
     def test_append_strings(self):
-        """Tests appending strings"""
+        """Tests appending strings
+        """
         test_string = "test"
         a_string = AString(test_string)
         # Append date
@@ -64,7 +66,8 @@ class TestAString(unittest.TestCase):
         # Append random
 
     def test_prepend_strings(self):
-        """Tests prepending strings"""
+        """Tests prepending strings
+        """
         test_string = "test"
         a_string = AString(test_string)
         # Prepend a list of strings
@@ -82,7 +85,9 @@ class TestAString(unittest.TestCase):
 
 
 class TestFileName(unittest.TestCase):
-    def test_filename_class_properties_w_extension(self):
+    def test_filename_properties_w_extension(self):
+        """Tests properties of the FileName class by initializing a FileName with extension.
+        """
         # Filename with extension
         input_string = "abc.def"
         filename = FileName(input_string)
@@ -97,7 +102,9 @@ class TestFileName(unittest.TestCase):
         extension = filename.extension
         self.assertEqual(str(extension), "def")
 
-    def test_filename_class_properties_wo_extension(self):
+    def test_filename_properties_wo_extension(self):
+        """Tests properties of the FileName class by initializing a FileName without extension.
+        """
         # Filename with extension
         input_string = "abc"
         filename = FileName(input_string)
@@ -111,7 +118,9 @@ class TestFileName(unittest.TestCase):
         extension = filename.extension
         self.assertEqual(str(extension), "")
 
-    def test_filename_class_methods(self):
+    def test_filename_methods(self):
+        """Tests the methods of the FileName class.
+        """
         input_string = "abc.def"
         filename = FileName(input_string)
         title = filename.title()
