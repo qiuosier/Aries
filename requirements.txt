@@ -1,2 +1,3 @@
-plotly
-openpyxl
+coverage==4.5
+openpyxl==2.4.8
+plotly~=3.5
