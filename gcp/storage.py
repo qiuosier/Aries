@@ -45,6 +45,15 @@ def upload_file_to_bucket_and_delete(local_file_path, cloud_file_path, bucket_na
     return upload_success
 
 
+def get_file_in_bucket(bucket, file_path):
+    client = storage.Client()
+    bucket = client.get_bucket(bucket)
+    blob = bucket.get_blob(file_path)
+    if blob is None:
+        blob = bucket.blob(file_path)
+    return blob
+
+
 def download_to_file(file_obj, cloud_file_path, bucket):
     """Downloads a file from the Google cloud bucket.
 
