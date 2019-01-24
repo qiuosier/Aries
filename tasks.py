@@ -8,7 +8,7 @@ import time
 import traceback
 from cProfile import Profile
 
-from outputs import CaptureOutput
+from .outputs import CaptureOutput
 
 logger = logging.getLogger(__name__)
 
