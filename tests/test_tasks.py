@@ -1,3 +1,5 @@
+"""Contains tests for the tasks module.
+"""
 import unittest
 import time
 import logging

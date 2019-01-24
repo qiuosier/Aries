@@ -1,4 +1,5 @@
-import math
+"""Contains classes for running functions/commands asynchronously.
+"""
 import logging
 import pstats
 import subprocess
@@ -83,7 +84,7 @@ class Task:
         return self.thread
 
     def join(self):
-        """Block the calling thread until the daemon thread running the task terminates.
+        """Blocks the calling thread until the daemon thread running the task terminates.
         """
         if self.thread and self.thread.isAlive():
             return self.thread.join()
@@ -95,11 +96,7 @@ class FunctionTask(Task):
     """Represents a task of running a function.
 
     The return value of the function to be executed should be serializable.
-
-    The function will be in a separated process, so that the stdout/stderr will be captured independently.
     The logging will be captured by identifying the thread ID of the thread running the function.
-    The captured outputs are sent back using the "Pipe" of python multiprocess package.
-    Data sending through "Pipe" must be serializable.
 
     Attributes:
         thread: The thread running the function, if the the function is running asynchronous.
@@ -111,9 +108,17 @@ class FunctionTask(Task):
         exc_out (str): Captured exception outputs.
         returns: Return value of the task.
         pid (int): The PID of the process running the task.
+
         func: The function to be executed.
         args: The arguments for executing the function.
         kwargs: The keyword arguments for executing the function.
+
+    Remarks:
+        std_out and std_err will contain the outputs from all threads running in the same process.
+
+    # TODO: Function will be running in a separated process, so that the stdout/stderr will be captured independently.
+    # TODO:     The captured outputs are sent back using the "Pipe" of python multiprocess package.
+    # TODO:     Data sending through "Pipe" must be serializable.
 
     """
     # Stores a list of attribute names to be captured from the process running the function
@@ -141,10 +146,23 @@ class FunctionTask(Task):
         self.out = None
 
     def __unpack_outputs(self, out):
+        """Sets a list of attributes (self.__output_attributes) by copying values from a dictionary.
+
+        Args:
+            out (dict): The dictionary containing the values for attributes.
+                The keys in the dictionary must be the same as the attribute names.
+
+        """
         for k in self.__output_attributes:
             setattr(self, k, out.get(k))
 
     def __pack_outputs(self, out):
+        """Saves a list of attributes (self.__output_attributes) to a dictionary.
+
+        Args:
+            out: An object with all attributes listed in self.__output_attributes.
+
+        """
         return {
             k: getattr(out, k) for k in self.__output_attributes
         }
@@ -163,8 +181,11 @@ class FunctionTask(Task):
                 "exc_out": traceback.format_exc()
             }
 
+    def __exit_run(self):
+        pass
+
     def run(self):
-        """Runs the function in a separated process and captures the outputs.
+        """Runs the function and captures the outputs.
         """
         # receiver, pipe = Pipe()
         # p = Process(target=self.__run, args=(pipe,))
@@ -178,10 +199,7 @@ class FunctionTask(Task):
         self.__unpack_outputs(self.__run())
         if self.exc_out:
             print(self.exc_out)
-        self.exit_run()
-
-    def exit_run(self):
-        pass
+        self.__exit_run()
 
     def run_profiler(self):
         """Runs the function with profiler.
@@ -210,7 +228,7 @@ class FunctionTask(Task):
                 results = self.func(*self.args, **self.kwargs)
             except exceptions as ex:
                 error = ex
-                time.sleep(math.exp(i))
+                time.sleep(2**i)
             else:
                 return results
         # The following will be executed only if for loop finishes without break/return

@@ -1,3 +1,5 @@
+"""Contains tests for the strings module.
+"""
 import datetime
 import logging
 import unittest

@@ -1,3 +1,5 @@
+"""Contains classes for handling outputs.
+"""
 import io
 import logging
 import sys
