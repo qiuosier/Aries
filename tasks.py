@@ -7,8 +7,15 @@ import threading
 import time
 import traceback
 from cProfile import Profile
-
-from .outputs import CaptureOutput
+try:
+    from .outputs import CaptureOutput
+except SystemError:
+    import sys
+    from os.path import dirname
+    aries_dir = dirname(__file__)
+    if aries_dir not in sys.path:
+        sys.path.append(aries_dir)
+    from outputs import CaptureOuput
 
 logger = logging.getLogger(__name__)
 

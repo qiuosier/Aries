@@ -6,7 +6,7 @@ import logging
 
 import sys
 from os.path import dirname
-sys.path.insert(0, dirname(dirname(__file__)))
+sys.path.append(dirname(dirname(__file__)))
 import tasks
 
 logger = logging.getLogger(__name__)

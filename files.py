@@ -2,7 +2,15 @@ import gzip
 import os
 import tempfile
 from shutil import copyfile
-from .strings import FileName
+try:
+    from .strings import FileName
+except SystemError:
+    import sys
+    from os.path import dirname
+    aries_dir = dirname(__file__)
+    if aries_dir not in sys.path:
+        sys.path.append(aries_dir)
+    from strings import FileName
 
 
 def unzip_gz_file(file_path):
