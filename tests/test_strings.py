@@ -6,7 +6,7 @@ import unittest
 
 import sys
 from os.path import dirname
-sys.path.insert(0, dirname(dirname(__file__)))
+sys.path.append(dirname(dirname(__file__)))
 from strings import AString, FileName
 
 logger = logging.getLogger(__name__)
