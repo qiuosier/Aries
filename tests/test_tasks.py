@@ -4,10 +4,12 @@ import unittest
 import time
 import logging
 
+import os
 import sys
-from os.path import dirname
-sys.path.append(dirname(dirname(__file__)))
-import tasks
+aries_parent = os.path.join(os.path.dirname(__file__), "..", "..")
+if aries_parent not in sys.path:
+    sys.path.append(aries_parent)
+from Aries import tasks
 
 logger = logging.getLogger(__name__)
 

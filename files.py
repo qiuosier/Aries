@@ -7,10 +7,10 @@ try:
 except SystemError:
     import sys
     from os.path import dirname
-    aries_dir = dirname(__file__)
-    if aries_dir not in sys.path:
-        sys.path.append(aries_dir)
-    from strings import FileName
+    aries_parent = dirname(dirname(__file__))
+    if aries_parent not in sys.path:
+        sys.path.append(aries_parent)
+    from Aries.strings import FileName
 
 
 def unzip_gz_file(file_path):

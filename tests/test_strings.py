@@ -4,10 +4,12 @@ import datetime
 import logging
 import unittest
 
+import os
 import sys
-from os.path import dirname
-sys.path.append(dirname(dirname(__file__)))
-from strings import AString, FileName
+aries_parent = os.path.join(os.path.dirname(__file__), "..", "..")
+if aries_parent not in sys.path:
+    sys.path.append(aries_parent)
+from Aries.strings import AString, FileName
 
 logger = logging.getLogger(__name__)
 

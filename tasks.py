@@ -12,10 +12,10 @@ try:
 except SystemError:
     import sys
     from os.path import dirname
-    aries_dir = dirname(__file__)
-    if aries_dir not in sys.path:
-        sys.path.append(aries_dir)
-    from outputs import CaptureOuput
+    aries_parent = dirname(dirname(__file__))
+    if aries_parent not in sys.path:
+        sys.path.append(aries_parent)
+    from Aries.outputs import CaptureOuput
 
 logger = logging.getLogger(__name__)
 
