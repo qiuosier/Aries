@@ -4,6 +4,21 @@ from gcloud import storage
 logger = logging.getLogger(__name__)
 
 
+def parse_gcs_uri(gs_path):
+    if isinstance(gs_path, str) and gs_path.startswith("gs://"):
+        gs_path = gs_path.strip("/")
+        bucket = gs_path.replace("gs://", "").split("/", 1)[0]
+        prefix = gs_path.replace("gs://" + bucket, "").strip("/")
+        return bucket, prefix
+    return None, None
+
+
+class StorageObject:
+    def __init__(self, gs_path):
+        self.gs_path = None
+        self.bucket, self.prefix = parse_gcs_uri(gs_path)
+
+
 def upload_file_to_bucket(local_file_path, cloud_file_path, bucket_name):
     """Uploads a file to Google cloud bucket.
 
