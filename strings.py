@@ -183,6 +183,10 @@ class FileName(AString):
     This class is a sub-class of AString
     Most methods in this class support "Method Chaining", i.e. they return the FileName instance itself.
 
+    Attributes:
+        basename: The filename without extension
+        extension: The file extension starting with "."
+
     Warnings:
         All methods will be operate on the "basename".
         Especially, len() will only return the length of the basename.
@@ -195,7 +199,7 @@ class FileName(AString):
         if len(name_splits) == 1:
             a_string.extension = ""
         else:
-            a_string.extension = name_splits[1]
+            a_string.extension = "." + name_splits[1]
         return a_string
 
     def __getattribute__(self, item):
@@ -220,7 +224,7 @@ class FileName(AString):
         """Convert the FileName object to a string including basename and extension.
         """
         if self.extension:
-            return "%s.%s" % (self.basename, self.extension)
+            return "%s%s" % (self.basename, self.extension)
         else:
             return self.basename
 
