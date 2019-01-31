@@ -2,13 +2,23 @@
 import requests
 import logging
 import os
+import json
 from django.conf import settings
 from ..gcp.storage import upload_file_to_bucket, get_file_in_bucket
-from ..private.credentials import BASESPACE
 
 logger = logging.getLogger(__name__)
 
 API_SERVER = "https://api.basespace.illumina.com/"
+# Load BaseSpace Credentials
+credential_file = os.environ.get("BASESPACE_CREDENTIALS")
+if not credential_file or not os.path.exists(credential_file):
+    raise EnvironmentError(
+        "BaseSpace credential json file path (BASESPACE_CREDENTIALS) not found in system environment variables."
+    )
+with open(credential_file, "r") as f:
+    BASESPACE = json.load(f)
+
+# TODO: Check if the json file contain credentials
 ACCESS_TOKEN = BASESPACE.get("access_token")
 CLIENT_ID = BASESPACE.get("client_id")
 CLIENT_SECRET = BASESPACE.get("client_secret")
