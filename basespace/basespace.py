@@ -151,6 +151,11 @@ def pack_sample_sheet(sample_sheet_lines):
     return sample_sheet
 
 
+def print_collection(collection):
+    for item in collection:
+        print("ID: %-15s | Name: %s" % (item.get("Id"), item.get("Name")))
+
+
 def download_file(basespace_file_href, output_filename):
     url = build_api_url(basespace_file_href + "/content")
     response = requests.get(url, stream=True)

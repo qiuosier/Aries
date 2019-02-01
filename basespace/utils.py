@@ -11,9 +11,13 @@ logger = logging.getLogger(__name__)
 API_SERVER = "https://api.basespace.illumina.com/"
 # Load BaseSpace Credentials
 credential_file = os.environ.get("BASESPACE_CREDENTIALS")
-if not credential_file or not os.path.exists(credential_file):
+if not credential_file:
     raise EnvironmentError(
         "BaseSpace credential json file path (BASESPACE_CREDENTIALS) not found in system environment variables."
+    )
+if not os.path.exists(credential_file):
+    raise EnvironmentError(
+        "BaseSpace credential not found %s." % credential_file
     )
 with open(credential_file, "r") as credentials_json:
     BASESPACE = json.load(credentials_json)
