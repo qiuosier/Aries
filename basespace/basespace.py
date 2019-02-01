@@ -8,7 +8,8 @@ The following collection names are available for each BaseSpace account:
 For more details, see https://developer.basespace.illumina.com/docs/content/documentation/rest-api/data-model-overview
 """
 import logging
-from basespace.utils import api_collection, api_response
+import requests
+from .utils import api_collection, api_response, build_api_url
 logger = logging.getLogger(__name__)
 
 
@@ -148,3 +149,12 @@ def pack_sample_sheet(sample_sheet_lines):
         user_sample_id = sample_data.get("Sample_ID")
         sample_sheet[user_sample_id] = sample_data
     return sample_sheet
+
+
+def download_file(basespace_file_href, output_filename):
+    url = build_api_url(basespace_file_href + "/content")
+    response = requests.get(url, stream=True)
+    with open(output_filename, 'wb') as f:
+        for chunk in response.iter_content(chunk_size=1024):
+            if chunk:
+                f.write(chunk)
