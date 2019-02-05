@@ -7,8 +7,8 @@ import random
 import os
 import csv
 import tempfile
-from basespace.utils import api_collection, api_response, download_file
-from basespace import basespace, bs_sample
+from .utils import api_collection, api_response
+from . import basespace, bs_sample
 logger = logging.getLogger(__name__)
 
 
@@ -83,7 +83,7 @@ def get_sample_sheet_dict(run_id):
 
     filename = "SampleSheet_%s.csv" % ''.join(random.choice(string.ascii_uppercase) for _ in range(6))
     temp_file = os.path.join(tempfile.gettempdir(), filename)
-    download_file(basespace_href, temp_file)
+    basespace.download_file(basespace_href, temp_file)
     sample_sheet = None
     # Get data from sample sheet
     if os.path.exists(temp_file):

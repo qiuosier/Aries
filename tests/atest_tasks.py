@@ -192,7 +192,6 @@ class TestFunctionTask(unittest.TestCase):
         self.assertEqual(len(expected_msgs_t1), len(t1.log_list))
         self.assertEqual(len(expected_msgs_t2), len(t2.log_list))
 
-    @unittest.skip("")
     def test_run_tasks_with_exception(self):
         """Tests running two functions with exceptions and capture their outputs independently.
         """

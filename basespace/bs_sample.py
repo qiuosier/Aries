@@ -2,7 +2,8 @@
 """
 
 import logging
-from basespace.utils import api_collection, API_SERVER
+from .utils import api_collection, API_SERVER
+from . import bs_project
 logger = logging.getLogger(__name__)
 
 
@@ -46,3 +47,39 @@ def get_fastq_pair(bs_sample_id):
             href = file.get("Href")
             fastq_r2 = API_SERVER + href
     return fastq_r1, fastq_r2
+
+
+def get_sample(project_name, sample_name):
+    """Gets the information of a sample.
+
+    Args:
+        project_name (str): The name of the project.
+        sample_name (str): The name of the sample (Sample ID).
+
+    Returns: A dictionary containing the sample information.
+
+    """
+    samples = bs_project.get_samples(project_name)
+    for sample in samples:
+        if sample.get("Name") == sample_name:
+            return sample
+
+    return None
+
+
+def get_files_by_name(project_name, sample_name):
+    """Gets a list of files for a sample
+
+    Args:
+        project_name (str): The name of the project.
+        sample_name (str): The name of the sample (Sample ID).
+
+    Returns: A list of file information (dictionaries).
+
+    """
+    sample = get_sample(project_name, sample_name)
+    if sample:
+        href = sample.get("Href")
+        api_url = href + "/files"
+        return api_collection(api_url)
+    return None

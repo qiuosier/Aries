@@ -104,7 +104,7 @@ class TestFileName(unittest.TestCase):
         self.assertEqual(str(filename.name_without_extension), "abc")
 
         extension = filename.extension
-        self.assertEqual(str(extension), "def")
+        self.assertEqual(str(extension), ".def")
 
     def test_filename_properties_wo_extension(self):
         """Tests properties of the FileName class by initializing a FileName without extension.

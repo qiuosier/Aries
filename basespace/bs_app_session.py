@@ -1,5 +1,5 @@
 import logging
-from basespace import basespace
+from . import basespace
 logger = logging.getLogger(__name__)
 
 
