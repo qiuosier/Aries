@@ -75,11 +75,13 @@ def get_property(collection_name, basespace_id, property_name):
         basespace_id (int): The BaseSpace ID of the object.
         property_name (str): The name of the property
 
-    Returns: A dictionary including the details of the property.
+    Returns: A dictionary including the details of the property. None if there is an error.
 
     """
     api_href = "v1pre3/%s/%s/properties/%s" % (collection_name, basespace_id, property_name)
     response = api_response(api_href)
+    if not response:
+        return None
     content = response.get("Content")
     if content:
         return content
