@@ -9,6 +9,8 @@ class AString(str):
     AString inherits all methods of the python str.
     Instance of AString can be use in place of python str.
 
+    AString converts NoneType to empty string.
+
     For methods in python str returning a str, list, or tuple,
         additional post-processing are added to convert the returning str values to instances AString.
         e.g., AString("hello").title() will return AString("Hello").
@@ -17,7 +19,10 @@ class AString(str):
 
     """
     def __new__(cls, string_literal):
-        return super(AString, cls).__new__(cls, string_literal)
+        if string_literal is None:
+            return super(AString, cls).__new__(cls, "")
+        else:
+            return super(AString, cls).__new__(cls, string_literal)
 
     def __getattribute__(self, item):
         """Wraps the existing methods of python str to return AString objects instead of build-in strings.
