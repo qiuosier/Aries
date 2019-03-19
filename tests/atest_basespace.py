@@ -1,4 +1,4 @@
-"""Contains tests for the strings module.
+"""Contains tests for the basespace module.
 """
 import logging
 import unittest
