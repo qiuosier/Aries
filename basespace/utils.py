@@ -2,13 +2,27 @@
 import requests
 import logging
 import os
-from django.conf import settings
+import json
+import tempfile
 from ..gcp.storage import upload_file_to_bucket, get_file_in_bucket
-from ..private.credentials import BASESPACE
 
 logger = logging.getLogger(__name__)
 
 API_SERVER = "https://api.basespace.illumina.com/"
+# Load BaseSpace Credentials
+credential_file = os.environ.get("BASESPACE_CREDENTIALS")
+if not credential_file:
+    raise EnvironmentError(
+        "BaseSpace credential json file path (BASESPACE_CREDENTIALS) not found in system environment variables."
+    )
+if not os.path.exists(credential_file):
+    raise EnvironmentError(
+        "BaseSpace credential not found %s." % credential_file
+    )
+with open(credential_file, "r") as credentials_json:
+    BASESPACE = json.load(credentials_json)
+
+# TODO: Check if the json file contain credentials
 ACCESS_TOKEN = BASESPACE.get("access_token")
 CLIENT_ID = BASESPACE.get("client_id")
 CLIENT_SECRET = BASESPACE.get("client_secret")
@@ -131,92 +145,6 @@ def api_collection(href):
     return items
 
 
-def list_projects():
-    """Gets a list of projects.
-
-    Returns: A list of project items (dictionaries, as in the BaseSpace API response).
-
-    """
-    href = "v1pre3/users/current/projects"
-    return api_collection(href)
-
-
-def list_samples(project_name):
-    """Gets a list of samples for a project.
-
-    Args:
-        project_name (str): The name of the project.
-
-    Returns: A list of sample items (dictionaries, as in the BaseSpace API response).
-
-    """
-    projects = list_projects()
-    href_list = []
-    href_samples = None
-    samples = []
-
-    for project in projects:
-        if project.get("Name") == project_name:
-            href = project.get("Href")
-            if href:
-                href_list.append(href)
-
-    for href in href_list:
-        response = api_response(href)
-        if response:
-            href_samples = response.get("HrefSamples")
-
-        if href_samples:
-            samples.extend(api_collection(href_samples))
-
-    return samples
-
-
-def get_sample(project_name, sample_name):
-    """Gets the information of a sample.
-
-    Args:
-        project_name (str): The name of the project.
-        sample_name (str): The name of the sample (Sample ID).
-
-    Returns: A dictionary containing the sample information.
-
-    """
-    samples = list_samples(project_name)
-    for sample in samples:
-        if sample.get("Name") == sample_name:
-            return sample
-
-    return None
-
-
-def list_files(project_name, sample_name):
-    """Gets a list of files for a sample
-
-    Args:
-        project_name (str): The name of the project.
-        sample_name (str): The name of the sample (Sample ID).
-
-    Returns: A list of file information (dictionaries).
-
-    """
-    sample = get_sample(project_name, sample_name)
-    if sample:
-        href = sample.get("Href")
-        api_url = href + "/files"
-        return api_collection(api_url)
-    return None
-
-
-def download_file(basespace_file_href, output_filename):
-    url = build_api_url(basespace_file_href + "/content")
-    response = requests.get(url, stream=True)
-    with open(output_filename, 'wb') as f:
-        for chunk in response.iter_content(chunk_size=1024):
-            if chunk:
-                f.write(chunk)
-
-
 def transfer_file_to_gcloud(gcs_bucket_name, gcs_prefix, file_id=None, file_info_href=None):
     if file_id is not None:
         file_info_href = "v1pre3/files/%s" % file_id
@@ -242,14 +170,14 @@ def transfer_file_to_gcloud(gcs_bucket_name, gcs_prefix, file_id=None, file_info
     file = get_file_in_bucket(gcs_bucket_name, gcs_filename)
     if file.size != file_info.get("Size"):
         logger.debug("Downloading %s from BaseSpace..." % filename)
-        local_filename = os.path.join(settings.TEMP_FILE_FOLDER, filename)
+        local_filename = os.path.join(tempfile.gettempdir(), filename)
         response = requests.get(build_api_url(file_content_href), stream=True)
         with open(local_filename, 'wb') as f:
             for chunk in response.iter_content(chunk_size=1024):
                 if chunk:
                     f.write(chunk)
         logger.debug("Uploading %s to %s..." % (filename, gs_path))
-        upload_file_to_bucket(local_filename, gcs_filename, gcs_bucket_name, False)
+        upload_file_to_bucket(local_filename, gcs_filename, gcs_bucket_name)
         if os.path.exists(local_filename):
             os.remove(local_filename)
     else:

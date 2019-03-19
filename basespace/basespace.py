@@ -8,7 +8,8 @@ The following collection names are available for each BaseSpace account:
 For more details, see https://developer.basespace.illumina.com/docs/content/documentation/rest-api/data-model-overview
 """
 import logging
-from basespace.utils import api_collection, api_response
+import requests
+from .utils import api_collection, api_response, build_api_url
 logger = logging.getLogger(__name__)
 
 
@@ -74,11 +75,13 @@ def get_property(collection_name, basespace_id, property_name):
         basespace_id (int): The BaseSpace ID of the object.
         property_name (str): The name of the property
 
-    Returns: A dictionary including the details of the property.
+    Returns: A dictionary including the details of the property. None if there is an error.
 
     """
     api_href = "v1pre3/%s/%s/properties/%s" % (collection_name, basespace_id, property_name)
     response = api_response(api_href)
+    if not response:
+        return None
     content = response.get("Content")
     if content:
         return content
@@ -148,3 +151,17 @@ def pack_sample_sheet(sample_sheet_lines):
         user_sample_id = sample_data.get("Sample_ID")
         sample_sheet[user_sample_id] = sample_data
     return sample_sheet
+
+
+def print_collection(collection):
+    for item in collection:
+        print("ID: %-15s | Name: %s" % (item.get("Id"), item.get("Name")))
+
+
+def download_file(basespace_file_href, output_filename):
+    url = build_api_url(basespace_file_href + "/content")
+    response = requests.get(url, stream=True)
+    with open(output_filename, 'wb') as f:
+        for chunk in response.iter_content(chunk_size=1024):
+            if chunk:
+                f.write(chunk)

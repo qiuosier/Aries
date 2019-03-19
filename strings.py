@@ -9,6 +9,8 @@ class AString(str):
     AString inherits all methods of the python str.
     Instance of AString can be use in place of python str.
 
+    AString converts NoneType to empty string.
+
     For methods in python str returning a str, list, or tuple,
         additional post-processing are added to convert the returning str values to instances AString.
         e.g., AString("hello").title() will return AString("Hello").
@@ -17,7 +19,10 @@ class AString(str):
 
     """
     def __new__(cls, string_literal):
-        return super(AString, cls).__new__(cls, string_literal)
+        if string_literal is None:
+            return super(AString, cls).__new__(cls, "")
+        else:
+            return super(AString, cls).__new__(cls, string_literal)
 
     def __getattribute__(self, item):
         """Wraps the existing methods of python str to return AString objects instead of build-in strings.
@@ -30,8 +35,11 @@ class AString(str):
             https://stackoverflow.com/questions/7255655/how-to-subclass-str-in-python
 
         """
+        # If the method is a method of str
         if item in dir(str):  # only handle str methods here
             def method(s, *args, **kwargs):
+                # super() returns a a proxy object that delegates method calls to a parent or sibling class
+                # See https://docs.python.org/3/library/functions.html#super
                 value = getattr(super(AString, self), item)(*args, **kwargs)
                 # Return value is str, list, tuple:
                 if isinstance(value, str):
@@ -183,6 +191,10 @@ class FileName(AString):
     This class is a sub-class of AString
     Most methods in this class support "Method Chaining", i.e. they return the FileName instance itself.
 
+    Attributes:
+        basename: The filename without extension
+        extension: The file extension starting with "."
+
     Warnings:
         All methods will be operate on the "basename".
         Especially, len() will only return the length of the basename.
@@ -195,7 +207,7 @@ class FileName(AString):
         if len(name_splits) == 1:
             a_string.extension = ""
         else:
-            a_string.extension = name_splits[1]
+            a_string.extension = "." + name_splits[1]
         return a_string
 
     def __getattribute__(self, item):
@@ -220,7 +232,7 @@ class FileName(AString):
         """Convert the FileName object to a string including basename and extension.
         """
         if self.extension:
-            return "%s.%s" % (self.basename, self.extension)
+            return "%s%s" % (self.basename, self.extension)
         else:
             return self.basename
 
@@ -235,4 +247,11 @@ class FileName(AString):
         """
         return str(self)
 
+
+class URLString(AString):
+    def query_string(self):
+        if '?' in self[:-1]:
+            return self.split('?', 1)[-1]
+        else:
+            return ''
 

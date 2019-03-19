@@ -7,15 +7,15 @@ import threading
 import time
 import traceback
 from cProfile import Profile
-try:
-    from .outputs import CaptureOutput
-except SystemError:
-    import sys
-    from os.path import dirname
-    aries_parent = dirname(dirname(__file__))
-    if aries_parent not in sys.path:
-        sys.path.append(aries_parent)
-    from Aries.outputs import CaptureOutput
+# try:
+from .outputs import CaptureOutput
+# except SystemError:
+#     import sys
+#     from os.path import dirname
+#     aries_parent = dirname(dirname(__file__))
+#     if aries_parent not in sys.path:
+#         sys.path.append(aries_parent)
+#     from Aries.outputs import CaptureOutput
 
 logger = logging.getLogger(__name__)
 
