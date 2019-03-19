@@ -2,6 +2,15 @@ import os
 import logging
 from gcloud import storage
 logger = logging.getLogger(__name__)
+try:
+    from ..storage import StorageObject
+except (SystemError, ValueError):
+    import sys
+    from os.path import dirname
+    aries_parent = dirname(dirname(dirname(__file__)))
+    if aries_parent not in sys.path:
+        sys.path.append(aries_parent)
+    from Aries.storage import StorageObject
 
 
 def parse_gcs_uri(gs_path):
@@ -13,22 +22,47 @@ def parse_gcs_uri(gs_path):
     return None, None
 
 
-class StorageObject:
+class GSObject(StorageObject):
     def __init__(self, gs_path):
-        self.client = storage.Client()
-        self.gs_path = gs_path
-        self.bucket_name, self.prefix = parse_gcs_uri(gs_path)
-        self.bucket = self.client.get_bucket(self.bucket_name)
+        super(GSObject, self).__init__(gs_path)
+        self._client = None
+        self._bucket = None
+        # The "prefix" for gcs does not include the beginning "/"
+        if self.path.startswith("/"):
+            self.prefix = self.path[1:]
+        else:
+            self.prefix = self.path
+            
+    def _get_bucket(self):
+        self._client = storage.Client()
+        self._bucket = self._client.get_bucket(self.bucket_name)
+
+    @property
+    def bucket(self):
+        if not self._bucket:
+            self._get_bucket()
+        return self._bucket
+
+    @property
+    def gs_path(self):
+        return self.uri
+
+    @property
+    def bucket_name(self):
+        return self.hostname
 
 
-class StorageFolder(StorageObject):
+class GSFolder(GSObject):
+
+    def __init__(self, gs_path):
+        super(GSFolder, self).__init__(gs_path)
+        # Make sure prefix ends with "/", otherwise it is not a "folder"
+        if self.prefix and not self.prefix.endswith("/"):
+            self.prefix += "/"
 
     @property
     def folders(self):
-        prefix = self.prefix
-        if prefix and prefix[-1] != '/':
-            prefix += '/'
-        iterator = self.bucket.list_blobs(delimiter='/', prefix=prefix)
+        iterator = self.bucket.list_blobs(prefix=self.prefix, delimiter='/')
         list(iterator)
         return list(iterator.prefixes)
 

@@ -1,5 +1,5 @@
 coverage==4.5
 openpyxl==2.4.8
-plotly~=3.5
-requests==2.21.0
 gcloud==0.18.3
+plotly~=3.5
+requests
