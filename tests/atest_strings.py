@@ -87,6 +87,14 @@ class TestAString(unittest.TestCase):
         test_string = "!te!st!"
         self.assertEqual(AString(test_string).remove_escape_sequence().remove_non_alphanumeric(), "test")
 
+    def test_equality(self):
+        """Tests equality operator.
+        """
+        a = AString("equal")
+        b = AString("equal")
+        self.assertEqual(a, b)
+        self.assertEqual(AString(""), AString(None))
+
 
 class TestFileName(unittest.TestCase):
     def test_filename_properties_w_extension(self):
