@@ -15,8 +15,26 @@ def parse_gcs_uri(gs_path):
 
 class StorageObject:
     def __init__(self, gs_path):
-        self.gs_path = None
-        self.bucket, self.prefix = parse_gcs_uri(gs_path)
+        self.client = storage.Client()
+        self.gs_path = gs_path
+        self.bucket_name, self.prefix = parse_gcs_uri(gs_path)
+        self.bucket = self.client.get_bucket(self.bucket_name)
+
+
+class StorageFolder(StorageObject):
+
+    @property
+    def folders(self):
+        prefix = self.prefix
+        if prefix and prefix[-1] != '/':
+            prefix += '/'
+        iterator = self.bucket.list_blobs(delimiter='/', prefix=prefix)
+        list(iterator)
+        return list(iterator.prefixes)
+
+    @property
+    def files(self):
+        return list(self.bucket.list_blobs(prefix=self.prefix, delimiter=None))
 
 
 def upload_file_to_bucket(local_file_path, cloud_file_path, bucket_name):

@@ -35,8 +35,11 @@ class AString(str):
             https://stackoverflow.com/questions/7255655/how-to-subclass-str-in-python
 
         """
+        # If the method is a method of str
         if item in dir(str):  # only handle str methods here
             def method(s, *args, **kwargs):
+                # super() returns a a proxy object that delegates method calls to a parent or sibling class
+                # See https://docs.python.org/3/library/functions.html#super
                 value = getattr(super(AString, self), item)(*args, **kwargs)
                 # Return value is str, list, tuple:
                 if isinstance(value, str):
@@ -244,4 +247,11 @@ class FileName(AString):
         """
         return str(self)
 
+
+class URLString(AString):
+    def query_string(self):
+        if '?' in self[:-1]:
+            return self.split('?', 1)[-1]
+        else:
+            return ''
 
