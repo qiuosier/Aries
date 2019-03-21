@@ -17,20 +17,23 @@ class TestGCStorage(unittest.TestCase):
         """Tests GSFolder class."""
         # Access the bucket root
         parent = GSFolder("gs://aries_test")
-        folders = parent.folders
+        folders = parent.get_folders()
         self.assertEqual(len(folders), 1)
-        self.assertEqual(folders[0], "test_folder/")
+        self.assertEqual(folders[0], "gs://aries_test/test_folder/")
+        files = parent.get_files()
+        print(files)
+
         parent = GSFolder("gs://aries_test/")
-        folders = parent.folders
+        folders = parent.get_folders()
         self.assertEqual(len(folders), 1)
-        self.assertEqual(folders[0], "test_folder/")
+        self.assertEqual(folders[0], "gs://aries_test/test_folder/")
 
         # Access a folder in a bucket
         parent = GSFolder("gs://aries_test/test_folder")
-        folders = parent.folders
+        folders = parent.get_folders()
         self.assertEqual(len(folders), 1)
-        self.assertEqual(folders[0], "test_folder/test_subfolder/")
+        self.assertEqual(folders[0], "gs://aries_test/test_folder/test_subfolder/")
         parent = GSFolder("gs://aries_test/test_folder/")
-        folders = parent.folders
+        folders = parent.get_folders()
         self.assertEqual(len(folders), 1)
-        self.assertEqual(folders[0], "test_folder/test_subfolder/")
+        self.assertEqual(folders[0], "gs://aries_test/test_folder/test_subfolder/")

@@ -76,11 +76,18 @@ class GSFolder(GSObject, StorageFolder):
     def folders(self):
         iterator = self.bucket.list_blobs(prefix=self.prefix, delimiter='/')
         list(iterator)
-        return list(iterator.prefixes)
+        return [
+            GSFolder("gs://%s/%s" % (self.bucket_name, p))
+            for p in iterator.prefixes
+        ]
 
     @property
     def files(self):
-        return list(self.bucket.list_blobs(prefix=self.prefix, delimiter=None))
+        return [
+            b.name
+            for b in self.bucket.list_blobs(prefix=self.prefix, delimiter='/')
+            if not b.name.endswith("/")
+        ]
 
 
 def upload_file_to_bucket(local_file_path, cloud_file_path, bucket_name):
