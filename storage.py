@@ -3,7 +3,19 @@ from urllib.parse import urlparse
 
 
 class StorageObject:
+    """Represents a storage object.
+    This is the base class for storage folder and storage file.
+
+    """
     def __init__(self, uri):
+        """Initializes a storage object.
+
+        Args:
+            uri (str): Uniform Resource Identifier for the object.
+
+        See https://en.wikipedia.org/wiki/Uniform_Resource_Identifier
+        """
+        super(StorageObject, self).__init__()
         self.uri = str(uri)
         parse_result = urlparse(self.uri)
         self.scheme = parse_result.scheme
@@ -15,19 +27,31 @@ class StorageObject:
 
 
 class StorageFolder(StorageObject):
+    """Represents a storage folder.
 
+    """
     def __init__(self, uri):
-        super(StorageObject, self).__init__(uri)
+        super(StorageFolder, self).__init__(uri)
         # Make sure path ends with "/"
-        # if self.path and self.path[-1] != '/':
-        #     self.path += '/'
+        if self.path and self.path[-1] != '/':
+            self.path += '/'
 
     @property
     def files(self):
+        """
+
+        Returns: A list of StorageFile objects, each represents a file in this folder.
+
+        """
         raise NotImplementedError
 
     @property
     def folders(self):
+        """
+
+        Returns: A list of StorageFolder objects, each represents a folder in this folder
+
+        """
         raise NotImplementedError
 
 

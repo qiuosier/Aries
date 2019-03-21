@@ -5,12 +5,15 @@ import unittest
 
 import os
 import sys
+
+logger = logging.getLogger(__name__)
+
 aries_parent = os.path.join(os.path.dirname(__file__), "..", "..")
-os.environ["BASESPACE_CREDENTIALS"] = os.path.join(aries_parent, "Aries/private/basespace.json")
 if aries_parent not in sys.path:
     sys.path.append(aries_parent)
 from Aries.basespace import basespace, bs_project
-logger = logging.getLogger(__name__)
+
+os.environ["BASESPACE_CREDENTIALS"] = os.path.join(aries_parent, "Aries/private/basespace.json")
 
 
 class TestBaseSpace(unittest.TestCase):
