@@ -236,6 +236,9 @@ class FileName(AString):
         else:
             return self.basename
 
+    def __fspath__(self):
+        return str(self)
+
     @property
     def name_without_extension(self):
         """The filename without extension.
