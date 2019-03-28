@@ -68,7 +68,8 @@ class TemporaryFile:
         """
         if self.template:
             filename = os.path.basename(self.template)
-            filename = FileName(filename).append_random_letters(8)
+            filename = FileName(filename).append_random_letters(8).to_string()
+
             temp_folder = tempfile.gettempdir()
             self.temp_file = os.path.join(temp_folder, filename)
             copyfile(self.template, self.temp_file)
@@ -76,7 +77,6 @@ class TemporaryFile:
             f = tempfile.NamedTemporaryFile(delete=False)
             f.close()
             self.temp_file = f.name
-
         return self.temp_file
 
     def __exit__(self, exc_type, exc_val, exc_tb):

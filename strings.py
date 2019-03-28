@@ -202,18 +202,18 @@ class FileName(AString):
     """
     def __new__(cls, string_literal):
         name_splits = string_literal.rsplit('.', 1)
-        a_string = super(FileName, cls).__new__(cls, name_splits[0])
-        a_string.basename = name_splits[0]
+        filename = super(FileName, cls).__new__(cls, name_splits[0])
+        filename.basename = name_splits[0]
         if len(name_splits) == 1:
-            a_string.extension = ""
+            filename.extension = ""
         else:
-            a_string.extension = "." + name_splits[1]
-        return a_string
+            filename.extension = "." + name_splits[1]
+        return filename
 
     def __getattribute__(self, item):
         """Wraps the existing methods of python AString to return FileName objects.
         """
-        if item in dir(AString):
+        if item not in FileName.__dict__ and item in dir(AString):
             def method(s, *args, **kwargs):
                 value = getattr(super(FileName, self), item)(*args, **kwargs)
                 if isinstance(value, AString) or isinstance(value, str):
