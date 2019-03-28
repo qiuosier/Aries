@@ -21,7 +21,6 @@ class TestGCStorage(unittest.TestCase):
         self.assertEqual(len(folders), 1)
         self.assertEqual(folders[0], "gs://aries_test/test_folder/")
         files = parent.get_files()
-        print(files)
 
         parent = GSFolder("gs://aries_test/")
         folders = parent.get_folders()

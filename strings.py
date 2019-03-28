@@ -182,27 +182,32 @@ class FileName(AString):
 
     A "filename" is a string consist of a "basename" and an "extension".
     For example, in filename "hello_world.txt", "hello_world" is the basename and ".txt" is the extension.
-    The extension can also be empty string. The filename will not contain a "." if the extension is empty.
+    The extension can also be empty string. The filename should not contain a "." if the extension is empty.
     For example, "hello_world" is a filename with no extension.
 
     This class provides methods for modifying the "basename" of the filename.
     No modification will be applied to the "extension".
 
-    This class is a sub-class of AString
-    Most methods in this class support "Method Chaining", i.e. they return the FileName instance itself.
-
     Attributes:
         basename: The filename without extension
         extension: The file extension starting with "."
 
-    Warnings:
-        All methods will be operate on the "basename".
-        Especially, len() will only return the length of the basename.
+    Remarks:
+        All methods will be operate on the "basename" only.
+        This class is a sub-class of AString
+        Most methods in this class support "Method Chaining", i.e. they return the FileName instance itself.
+        If the method is inherited from AString or str, and the return value is also an AString or str
+            the extension will be appended to the return value.
+        If the return value of the method is not an AString or str,
+            the extension will NOT be included in the return value.
+        When using with operators (including +, *, slice, in),
+            an FileName instance will be treated the same as str.
+        len() will return the length of the whole filename, including "." and extension.
 
     """
     def __new__(cls, string_literal):
         name_splits = string_literal.rsplit('.', 1)
-        filename = super(FileName, cls).__new__(cls, name_splits[0])
+        filename = super(FileName, cls).__new__(cls, string_literal)
         filename.basename = name_splits[0]
         if len(name_splits) == 1:
             filename.extension = ""
@@ -215,10 +220,9 @@ class FileName(AString):
         """
         if item not in FileName.__dict__ and item in dir(AString):
             def method(s, *args, **kwargs):
-                value = getattr(super(FileName, self), item)(*args, **kwargs)
+                value = getattr(AString(self.basename), item)(*args, **kwargs)
                 if isinstance(value, AString) or isinstance(value, str):
-                    filename = type(s)("%s" % value)
-                    filename.extension = self.extension
+                    filename = type(s)(str(value) + self.extension)
                     return filename
                 else:
                     return value
@@ -227,17 +231,6 @@ class FileName(AString):
         else:
             # Delegate to parent
             return super(FileName, self).__getattribute__(item)
-
-    def __str__(self):
-        """Convert the FileName object to a string including basename and extension.
-        """
-        if self.extension:
-            return "%s%s" % (self.basename, self.extension)
-        else:
-            return self.basename
-
-    def __fspath__(self):
-        return str(self)
 
     @property
     def name_without_extension(self):
@@ -257,4 +250,3 @@ class URLString(AString):
             return self.split('?', 1)[-1]
         else:
             return ''
-

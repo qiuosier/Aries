@@ -97,53 +97,108 @@ class TestAString(unittest.TestCase):
 
 
 class TestFileName(unittest.TestCase):
-    def test_filename_properties_w_extension(self):
+
+    @staticmethod
+    def run_test(assert_method):
+        test_base = "abc_def"
+        test_extension = ".txt"
+        assert_method(test_base, "")
+        assert_method(test_base, test_extension)
+
+    def test_properties(self):
         """Tests properties of the FileName class by initializing a FileName with extension.
         """
-        # Filename with extension
-        input_string = "abc.def"
-        filename = FileName(input_string)
+        self.run_test(self.assert_properties)
+
+    def assert_properties(self, basename, extension):
+        # Construct the test filename
+        test_name = basename + extension
+        # Make sure the test_name is a python string
+        self.assertTrue(isinstance(test_name, str))
+        filename = FileName(test_name)
+
+        # Test converting FileName to string
         self.assertEqual(type(filename), FileName)
-        self.assertEqual(str(filename), input_string)
-        self.assertEqual(filename.to_string(), input_string)
+        self.assertEqual(str(filename), test_name)
+        self.assertEqual(filename.to_string(), test_name)
+        # Test basename
+        self.assertEqual(str(filename.basename), basename)
+        self.assertEqual(str(filename.name_without_extension), basename)
+        # Test extension
+        self.assertEqual(str(filename.extension), extension)
 
-        basename = filename.basename
-        self.assertEqual(str(basename), "abc")
-        self.assertEqual(str(filename.name_without_extension), "abc")
-
-        extension = filename.extension
-        self.assertEqual(str(extension), ".def")
-
-    def test_filename_properties_wo_extension(self):
-        """Tests properties of the FileName class by initializing a FileName without extension.
+    def test_methods(self):
+        """Tests the methods returning a FileName instance.
         """
-        # Filename with extension
-        input_string = "abc"
-        filename = FileName(input_string)
-        self.assertEqual(type(filename), FileName)
-        self.assertEqual(str(filename), input_string)
+        self.run_test(self.assert_methods)
 
-        basename = filename.basename
-        self.assertEqual(str(basename), "abc")
-        self.assertEqual(str(filename.name_without_extension), "abc")
+    def assert_methods(self, basename, extension):
+        # Construct the test filename
+        test_name = basename + extension
+        # Make sure the test_name is a python string
+        self.assertTrue(isinstance(test_name, str))
+        filename = FileName(test_name)
 
-        extension = filename.extension
-        self.assertEqual(str(extension), "")
-
-    def test_filename_methods(self):
-        """Tests the methods of the FileName class.
-        """
-        input_string = "abc.def"
-        filename = FileName(input_string)
+        # Test str method: title()
         title = filename.title()
         self.assertEqual(type(title), FileName)
-        self.assertEqual(str(title), "Abc.def")
-        self.assertEqual(str(filename.upper()), "ABC.def")
+        self.assertEqual(str(title), basename.title() + extension)
+        # Test str method: upper()
+        self.assertEqual(str(filename.upper()), basename.upper() + extension)
 
-        # Test appending random string
+        # Test AString method: append_random_letters()
         n = 5
         filename_with_random = filename.title().append_random_letters(n)
-        # len will only count the length of basename
-        self.assertEqual(len(filename_with_random), len(input_string) + n - 3)
+        # Append adds an underscore between the random letters and the original filename.
+        self.assertEqual(len(filename_with_random), len(test_name) + n + 1, "Filename: %s" % filename_with_random)
         self.assertIn(title.basename, str(filename_with_random))
         self.assertIn(title.extension, str(filename_with_random))
+
+    def test_split(self):
+        """Tests the split method, which returns a list.
+        """
+        self.run_test(self.assert_split)
+
+    def assert_split(self, basename, extension):
+        # Construct the test filename
+        test_name = basename + extension
+        # Make sure the test_name is a python string
+        self.assertTrue(isinstance(test_name, str))
+        filename = FileName(test_name)
+
+        # Test str method: split()
+        filename_splits = filename.split("_")
+        self.assertEqual(len(filename_splits), 2)
+        str_splits = basename.split("_")
+        self.assertEqual(filename_splits[0], str_splits[0])
+        self.assertEqual(filename_splits[1], str_splits[1])
+
+    def test_operators(self):
+        """Tests operators
+        """
+        self.run_test(self.assert_operators)
+
+    def assert_operators(self, basename, extension):
+        # Construct the test filename
+        test_name = basename + extension
+        # Make sure the test_name is a python string
+        self.assertTrue(isinstance(test_name, str))
+        filename = FileName(test_name)
+
+        # Test "+" operator
+        addition = "12345"
+        new_filename = filename + addition
+        self.assertEqual(str(new_filename), basename + extension + addition)
+
+        # Test "*" operator
+        multiplier = 2
+        new_filename = filename * multiplier
+        self.assertEqual(str(new_filename), (basename + extension) * 2)
+
+        # Test slice
+        new_filename = filename[2:4]
+        self.assertEqual(str(new_filename), basename[2:4])
+
+        # Test membership
+        member = filename[2:4]
+        self.assertTrue(member in filename)
