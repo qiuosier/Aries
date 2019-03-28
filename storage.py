@@ -29,6 +29,10 @@ class StorageObject:
     def basename(self):
         return os.path.basename(self.path)
 
+    @property
+    def name(self):
+        return self.basename
+
 
 class StorageFile(StorageObject):
     """Represents a storage file.
@@ -40,6 +44,7 @@ class StorageFile(StorageObject):
 
 class StorageFolder(StorageObject):
     """Represents a storage folder.
+    The path of a StorageFolder will always end with "/"
 
     """
     def __init__(self, uri):

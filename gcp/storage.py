@@ -3,16 +3,17 @@ import logging
 from gcloud import storage
 logger = logging.getLogger(__name__)
 try:
-    from ..storage import StorageObject, StorageFolder
+    from ..storage import StorageObject, StorageFolder, StorageFile
 except (SystemError, ValueError):
     import sys
     from os.path import dirname
     aries_parent = dirname(dirname(dirname(__file__)))
     if aries_parent not in sys.path:
         sys.path.append(aries_parent)
-    from Aries.storage import StorageObject, StorageFolder
+    from Aries.storage import StorageObject, StorageFolder, StorageFile
 
 
+# This function will be deleted in the future
 def parse_gcs_uri(gs_path):
     if isinstance(gs_path, str) and gs_path.startswith("gs://"):
         gs_path = gs_path.strip("/")
@@ -23,6 +24,7 @@ def parse_gcs_uri(gs_path):
 
 
 class GSObject(StorageObject):
+    """The base class for Google Storage Object."""
     def __init__(self, gs_path):
         super(GSObject, self).__init__(gs_path)
         self._client = None
@@ -84,10 +86,22 @@ class GSFolder(GSObject, StorageFolder):
     @property
     def files(self):
         return [
-            b.name
+            GSFile("gs://%s/%s" % (self.bucket_name, b.name))
             for b in self.bucket.list_blobs(prefix=self.prefix, delimiter='/')
             if not b.name.endswith("/")
         ]
+
+
+class GSFile(GSObject, StorageFile):
+    def __init__(self, gs_path):
+        """
+
+        Args:
+            gs_path:
+
+        """
+        # super() will call the __init__() of StorageObject, StorageFolder and GSObject
+        super(GSFile, self).__init__(gs_path)
 
 
 def upload_file_to_bucket(local_file_path, cloud_file_path, bucket_name):
