@@ -3,14 +3,14 @@ import logging
 from gcloud import storage
 logger = logging.getLogger(__name__)
 try:
-    from ..storage import StorageObject
+    from ..storage import StorageObject, StorageFolder
 except (SystemError, ValueError):
     import sys
     from os.path import dirname
     aries_parent = dirname(dirname(dirname(__file__)))
     if aries_parent not in sys.path:
         sys.path.append(aries_parent)
-    from Aries.storage import StorageObject
+    from Aries.storage import StorageObject, StorageFolder
 
 
 def parse_gcs_uri(gs_path):
@@ -52,10 +52,22 @@ class GSObject(StorageObject):
         return self.hostname
 
 
-class GSFolder(GSObject):
+class GSFolder(GSObject, StorageFolder):
+    """Represents a Google Cloud Storage Folder
+
+    Method Resolution Order: GSFolder, GSObject, StorageFolder, StorageObject
+    """
 
     def __init__(self, gs_path):
+        """
+
+        Args:
+            gs_path:
+
+        """
+        # super() will call the __init__() of StorageObject, StorageFolder and GSObject
         super(GSFolder, self).__init__(gs_path)
+
         # Make sure prefix ends with "/", otherwise it is not a "folder"
         if self.prefix and not self.prefix.endswith("/"):
             self.prefix += "/"
@@ -64,11 +76,18 @@ class GSFolder(GSObject):
     def folders(self):
         iterator = self.bucket.list_blobs(prefix=self.prefix, delimiter='/')
         list(iterator)
-        return list(iterator.prefixes)
+        return [
+            GSFolder("gs://%s/%s" % (self.bucket_name, p))
+            for p in iterator.prefixes
+        ]
 
     @property
     def files(self):
-        return list(self.bucket.list_blobs(prefix=self.prefix, delimiter=None))
+        return [
+            b.name
+            for b in self.bucket.list_blobs(prefix=self.prefix, delimiter='/')
+            if not b.name.endswith("/")
+        ]
 
 
 def upload_file_to_bucket(local_file_path, cloud_file_path, bucket_name):
