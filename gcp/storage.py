@@ -35,6 +35,11 @@ class GSObject(StorageObject):
             self.prefix = self.path[1:]
         else:
             self.prefix = self.path
+
+    @property
+    def bucket_name(self):
+        """The name of the Google Cloud Storage bucket as a string."""
+        return self.hostname
             
     def _get_bucket(self):
         self._client = storage.Client()
@@ -50,10 +55,26 @@ class GSObject(StorageObject):
     def gs_path(self):
         return self.uri
 
-    @property
-    def bucket_name(self):
-        """The name of the Google Cloud Storage bucket as a string."""
-        return self.hostname
+    def blobs(self, delimiter=None):
+        """Gets the blobs in the bucket having the prefix.
+
+        The returning list will contain object in the folder and all sub-folders
+
+        Args:
+            delimiter: Use this to emulate hierarchy.
+            If delimiter is None, the returning list will contain objects in the folder and in all sub-directories.
+            Set delimiter to "/" to eliminate files in sub-directories.
+
+        Returns: A list of GCS blobs.
+
+        See Also: https://googleapis.github.io/google-cloud-python/latest/storage/blobs.html
+
+        """
+        return list(self.bucket.list_blobs(prefix=self.prefix, delimiter=delimiter))
+
+    def delete(self):
+        for blob in self.blobs():
+            blob.delete()
 
 
 class GSFolder(GSObject, StorageFolder):
@@ -93,22 +114,27 @@ class GSFolder(GSObject, StorageFolder):
             if not b.name.endswith("/")
         ]
 
-    def blobs(self, delimiter=None):
-        """Gets the blobs in the folder.
-
-        The returning list will contain object in the folder and all sub-folders
+    def copy(self, to):
+        """Copies all files in a Google Cloud storage directory to another one.
+        All files in the folder and files in the sub-folders will be copied.
+        Files are copied from the source_bucket to destination_bucket, which can be the same bucket.
+        The source_prefix in each file will be replaced by the destination_prefix.
+        To keep the same directory name, the source_prefix and destination_prefix should end with the same directory name.
 
         Args:
-            delimiter: Use this to emulate hierarchy.
-            If delimiter is None, the returning list will contain objects in the folder and in all sub-directories.
-            Set delimiter to "/" to eliminate files in sub-directories.
 
-        Returns: A list of GCS blobs.
+        Returns: None
 
-        See Also: https://googleapis.github.io/google-cloud-python/latest/storage/blobs.html
+        Example:
+            copy_dir(bucket_a, a/b/c, bucket_b, x/y/z) will copy the following files
+                gs://bucket_a/a/b/c/d/example.txt
+                gs://bucket_a/a/b/c/example.txt
+            to
+                gs://bucket_b/x/y/z/d/example.txt
+                gs://bucket_b/x/y/z/example.txt
 
         """
-        return list(self.bucket.list_blobs(prefix=self.prefix, delimiter=delimiter))
+        raise NotImplementedError
 
 
 class GSFile(GSObject, StorageFile):
