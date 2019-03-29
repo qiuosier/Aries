@@ -103,6 +103,13 @@ class GSFile(GSObject, StorageFile):
         # super() will call the __init__() of StorageObject, StorageFolder and GSObject
         super(GSFile, self).__init__(gs_path)
 
+    @property
+    def blob(self):
+        file_blob = self.bucket.get_blob(self.prefix)
+        if file_blob is None:
+            file_blob = self.bucket.blob(self.prefix)
+        return file_blob
+
 
 def upload_file_to_bucket(local_file_path, cloud_file_path, bucket_name):
     """Uploads a file to Google cloud bucket.
@@ -145,6 +152,7 @@ def upload_file_to_bucket_and_delete(local_file_path, cloud_file_path, bucket_na
     return upload_success
 
 
+# This function will be removed soon
 def get_file_in_bucket(bucket, file_path):
     client = storage.Client()
     bucket = client.get_bucket(bucket)
