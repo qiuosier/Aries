@@ -78,9 +78,14 @@ class TestGCStorage(unittest.TestCase):
         self.assertEqual(files[0].uri, "gs://aries_test/test_folder/file_in_folder.txt")
 
     def test_gs_file(self):
-        gs_file = GSFile("gs://aries_test/file_in_root.txt")
-        blob = gs_file.blob
-        self.assertTrue(blob.exists())
-        gs_file = GSFile("gs://aries_test/abc.txt")
-        blob = gs_file.blob
-        self.assertFalse(blob.exists())
+        # Test the blob property
+        # File exists
+        gs_file_exists = GSFile("gs://aries_test/file_in_root.txt")
+        self.assertTrue(gs_file_exists.blob.exists())
+        # File does not exists
+        gs_file_null = GSFile("gs://aries_test/abc.txt")
+        self.assertFalse(gs_file_null.blob.exists())
+
+        # Test the read() method
+        self.assertEqual(gs_file_exists.read(), b'This is a file in the bucket root.')
+        self.assertIsNone(gs_file_null.read())

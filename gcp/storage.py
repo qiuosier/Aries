@@ -1,4 +1,5 @@
 import os
+import io
 import logging
 from gcloud import storage
 logger = logging.getLogger(__name__)
@@ -123,10 +124,30 @@ class GSFile(GSObject, StorageFile):
 
     @property
     def blob(self):
+        """Gets the Google Cloud Storage Blob.
+
+        Returns: A Google Cloud Storage Blob object.
+            Use blob.exists() to determine whether or not the blob exists.
+
+        """
         file_blob = self.bucket.get_blob(self.prefix)
         if file_blob is None:
             file_blob = self.bucket.blob(self.prefix)
         return file_blob
+
+    def read(self):
+        """Reads the file from the Google Cloud bucket to memory
+
+        Returns: Bytes containing the entire contents of the file.
+        """
+        my_buffer = io.BytesIO()
+        if self.blob.exists():
+            self.blob.download_to_file(my_buffer)
+            data = my_buffer.getvalue()
+            my_buffer.close()
+            return data
+        else:
+            return None
 
 
 def upload_file_to_bucket(local_file_path, cloud_file_path, bucket_name):
@@ -168,16 +189,6 @@ def upload_file_to_bucket_and_delete(local_file_path, cloud_file_path, bucket_na
         os.remove(local_file_path)
         logger.debug("Removed %s" % local_file_path)
     return upload_success
-
-
-# This function will be removed soon
-def get_file_in_bucket(bucket, file_path):
-    client = storage.Client()
-    bucket = client.get_bucket(bucket)
-    blob = bucket.get_blob(file_path)
-    if blob is None:
-        blob = bucket.blob(file_path)
-    return blob
 
 
 def download_to_file(file_obj, cloud_file_path, bucket):

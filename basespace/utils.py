@@ -4,7 +4,7 @@ import logging
 import os
 import json
 import tempfile
-from ..gcp.storage import upload_file_to_bucket, get_file_in_bucket
+from ..gcp.storage import upload_file_to_bucket, GSFile
 
 logger = logging.getLogger(__name__)
 
@@ -167,8 +167,8 @@ def transfer_file_to_gcloud(gcs_bucket_name, gcs_prefix, file_id=None, file_info
     gs_path = "gs://%s/%s" % (gcs_bucket_name, gcs_filename)
 
     # Skip if a file exists and have the same size.
-    file = get_file_in_bucket(gcs_bucket_name, gcs_filename)
-    if file.size != file_info.get("Size"):
+    gs_blob = GSFile(gs_path).blob
+    if gs_blob.size != file_info.get("Size"):
         logger.debug("Downloading %s from BaseSpace..." % filename)
         local_filename = os.path.join(tempfile.gettempdir(), filename)
         response = requests.get(build_api_url(file_content_href), stream=True)
