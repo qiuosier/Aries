@@ -50,9 +50,13 @@ class TestGCStorage(unittest.TestCase):
         self.assertEqual(folders[0].uri, "gs://aries_test/test_folder/")
         # Test listing the files
         files = parent.files
-        self.assertEqual(len(files), 1)
-        self.assertTrue(isinstance(files[0], GSFile), "Type: %s" % type(files[0]))
-        self.assertEqual(files[0].uri, "gs://aries_test/file_in_root.txt")
+        self.assertEqual(len(files), 2)
+        for file in files:
+            self.assertTrue(isinstance(file, GSFile), "Type: %s" % type(file))
+            self.assertIn(file.uri, [
+                "gs://aries_test/file_in_root.txt",
+                "gs://aries_test/test_folder"
+            ])
 
     def test_gs_folder(self):
         """Tests accessing google cloud storage folder.
@@ -72,3 +76,11 @@ class TestGCStorage(unittest.TestCase):
         self.assertEqual(len(files), 1)
         self.assertTrue(isinstance(files[0], GSFile), "Type: %s" % type(files[0]))
         self.assertEqual(files[0].uri, "gs://aries_test/test_folder/file_in_folder.txt")
+
+    def test_gs_file(self):
+        gs_file = GSFile("gs://aries_test/file_in_root.txt")
+        blob = gs_file.blob
+        self.assertTrue(blob.exists())
+        gs_file = GSFile("gs://aries_test/abc.txt")
+        blob = gs_file.blob
+        self.assertFalse(blob.exists())
