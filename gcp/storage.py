@@ -20,6 +20,12 @@ class GSObject(StorageObject):
         prefix: The Google Cloud Storage prefix, which is the path without the beginning "/"
     """
     def __init__(self, gs_path):
+        """Initializes a Google Cloud Storage Object.
+
+        Args:
+            gs_path: The path of the object, e.g. "gs://bucket_name/path/to/file.txt".
+
+        """
         super(GSObject, self).__init__(gs_path)
         self._client = None
         self._bucket = None
@@ -56,10 +62,10 @@ class GSFolder(GSObject, StorageFolder):
     """
 
     def __init__(self, gs_path):
-        """
+        """Initializes a Google Cloud Storage Directory.
 
         Args:
-            gs_path:
+            gs_path: The path of the object, e.g. "gs://bucket_name/path/to/dir/".
 
         """
         # super() will call the __init__() of StorageObject, StorageFolder and GSObject
@@ -85,6 +91,23 @@ class GSFolder(GSObject, StorageFolder):
             for b in self.bucket.list_blobs(prefix=self.prefix, delimiter='/')
             if not b.name.endswith("/")
         ]
+
+    def blobs(self, delimiter=None):
+        """Gets the blobs in the folder.
+
+        The returning list will contain object in the folder and all sub-folders
+
+        Args:
+            delimiter: Use this to emulate hierarchy.
+            If delimiter is None, the returning list will contain objects in the folder and in all sub-directories.
+            Set delimiter to "/" to eliminate files in sub-directories.
+
+        Returns: A list of GCS blobs.
+
+        See Also: https://googleapis.github.io/google-cloud-python/latest/storage/blobs.html
+
+        """
+        return list(self.bucket.list_blobs(prefix=self.prefix, delimiter=delimiter))
 
 
 class GSFile(GSObject, StorageFile):
