@@ -13,18 +13,12 @@ except (SystemError, ValueError):
     from Aries.storage import StorageObject, StorageFolder, StorageFile
 
 
-# This function will be deleted in the future
-def parse_gcs_uri(gs_path):
-    if isinstance(gs_path, str) and gs_path.startswith("gs://"):
-        gs_path = gs_path.strip("/")
-        bucket = gs_path.replace("gs://", "").split("/", 1)[0]
-        prefix = gs_path.replace("gs://" + bucket, "").strip("/")
-        return bucket, prefix
-    return None, None
-
-
 class GSObject(StorageObject):
-    """The base class for Google Storage Object."""
+    """The base class for Google Storage Object.
+
+    Attributes:
+        prefix: The Google Cloud Storage prefix, which is the path without the beginning "/"
+    """
     def __init__(self, gs_path):
         super(GSObject, self).__init__(gs_path)
         self._client = None
@@ -51,6 +45,7 @@ class GSObject(StorageObject):
 
     @property
     def bucket_name(self):
+        """The name of the Google Cloud Storage bucket as a string."""
         return self.hostname
 
 
