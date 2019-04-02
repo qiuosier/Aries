@@ -123,10 +123,6 @@ class FunctionTask(Task):
     Remarks:
         std_out and std_err will contain the outputs from all threads running in the same process.
 
-    # TODO: Function will be running in a separated process, so that the stdout/stderr will be captured independently.
-    # TODO:     The captured outputs are sent back using the "Pipe" of python multiprocess package.
-    # TODO:     Data sending through "Pipe" must be serializable.
-
     """
     # Stores a list of attribute names to be captured from the process running the function
     __output_attributes = [
@@ -188,7 +184,11 @@ class FunctionTask(Task):
                 "exc_out": traceback.format_exc()
             }
 
-    def __exit_run(self):
+    def exit_run(self):
+        """Additional processing before exiting the task.
+
+        This method is intended to be implemented by a subclass.
+        """
         pass
 
     def run(self):
@@ -206,7 +206,7 @@ class FunctionTask(Task):
         self.__unpack_outputs(self.__run())
         if self.exc_out:
             print(self.exc_out)
-        self.__exit_run()
+        self.exit_run()
 
     def run_profiler(self):
         """Runs the function with profiler.
