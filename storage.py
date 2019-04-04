@@ -27,7 +27,7 @@ class StorageObject:
 
     @property
     def basename(self):
-        return os.path.basename(self.path)
+        return os.path.basename(self.path.strip("/"))
 
     @property
     def name(self):
@@ -114,6 +114,22 @@ class StorageFolder(StorageObject):
 
         """
         return self._get_attribute(self.folders, attribute)
+
+    @property
+    def file_paths(self):
+        return self.get_files()
+
+    @property
+    def folder_paths(self):
+        return self.get_folders()
+
+    @property
+    def file_names(self):
+        return self.get_files("name")
+
+    @property
+    def folder_names(self):
+        return self.get_folders("name")
 
 
 class LocalFile(StorageFile):

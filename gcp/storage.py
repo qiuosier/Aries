@@ -14,6 +14,9 @@ except (SystemError, ValueError):
     from Aries.storage import StorageObject, StorageFolder, StorageFile
 
 
+gcs_client = storage.Client()
+
+
 class GSObject(StorageObject):
     """The base class for Google Storage Object.
 
@@ -28,7 +31,7 @@ class GSObject(StorageObject):
 
         """
         super(GSObject, self).__init__(gs_path)
-        self._client = None
+        self._client = gcs_client
         self._bucket = None
         # The "prefix" for gcs does not include the beginning "/"
         if self.path.startswith("/"):
@@ -40,10 +43,18 @@ class GSObject(StorageObject):
     def bucket_name(self):
         """The name of the Google Cloud Storage bucket as a string."""
         return self.hostname
+
+    def _get_client(self):
+        self._client = storage.Client()
+
+    @property
+    def client(self):
+        if not self._client:
+            self._get_client()
+        return self._client
             
     def _get_bucket(self):
-        self._client = storage.Client()
-        self._bucket = self._client.get_bucket(self.bucket_name)
+        self._bucket = self.client.get_bucket(self.bucket_name)
 
     @property
     def bucket(self):
@@ -75,6 +86,40 @@ class GSObject(StorageObject):
     def delete(self):
         for blob in self.blobs():
             blob.delete()
+
+    def copy(self, to):
+        """Copies folder/file in a Google Cloud storage directory to another one.
+
+        Args:
+            to (str): Destination Google Cloud Storage path.
+            If the path ends with "/", e.g. "gs://bucket_name/folder_name/",
+                the folder/file will be copied under the destination folder with the original name.
+            If the path does not end with "/", e.g. "gs://bucket_name/new_name",
+                the folder/file will be copied and renamed to the "new_name".
+
+        Returns: None
+
+        Example:
+            GSFolder("gs://bucket_a/a/b/c/").copy("gs://bucket_b/x/y/z") will copy the following files
+                gs://bucket_a/a/b/c/d/example.txt
+                gs://bucket_a/a/b/c/example.txt
+            to
+                gs://bucket_b/x/y/z/d/example.txt
+                gs://bucket_b/x/y/z/example.txt
+
+        """
+        if to.endswith("/"):
+            to = to + self.name
+
+        destination_folder = GSFolder(to)
+
+        source_files = self.blobs()
+        with self.client.batch():
+            for blob in source_files:
+                new_name = str(blob.name).replace(self.prefix, destination_folder.prefix, 1)
+                self.bucket.copy_blob(blob, destination_folder.bucket, new_name)
+
+        logger.debug("%d blobs copied" % len(source_files))
 
 
 class GSFolder(GSObject, StorageFolder):
@@ -113,28 +158,6 @@ class GSFolder(GSObject, StorageFolder):
             for b in self.bucket.list_blobs(prefix=self.prefix, delimiter='/')
             if not b.name.endswith("/")
         ]
-
-    def copy(self, to):
-        """Copies all files in a Google Cloud storage directory to another one.
-        All files in the folder and files in the sub-folders will be copied.
-        Files are copied from the source_bucket to destination_bucket, which can be the same bucket.
-        The source_prefix in each file will be replaced by the destination_prefix.
-        To keep the same directory name, the source_prefix and destination_prefix should end with the same directory name.
-
-        Args:
-
-        Returns: None
-
-        Example:
-            copy_dir(bucket_a, a/b/c, bucket_b, x/y/z) will copy the following files
-                gs://bucket_a/a/b/c/d/example.txt
-                gs://bucket_a/a/b/c/example.txt
-            to
-                gs://bucket_b/x/y/z/d/example.txt
-                gs://bucket_b/x/y/z/example.txt
-
-        """
-        raise NotImplementedError
 
 
 class GSFile(GSObject, StorageFile):
