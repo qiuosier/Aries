@@ -127,3 +127,16 @@ class TestGCStorage(unittest.TestCase):
         self.assertEqual(copied.folder_names[0], "test_subfolder")
         # Delete the copied files
         GSFolder("gs://aries_test/copy_test/").delete()
+
+        # Destination is the bucket root, whether it ends with "/" does not matter.
+        source_path = "gs://aries_test/test_folder/test_subfolder"
+        dest_path = "gs://aries_test"
+        folder = GSFolder(source_path)
+        folder.copy(dest_path)
+        copied = GSFolder("gs://aries_test/test_subfolder/")
+        self.assertEqual(len(copied.files), 1)
+        self.assertEqual(len(copied.folders), 0)
+        self.assertEqual(len(copied.blobs()), 2, [b.name for b in copied.blobs()])
+        self.assertEqual(copied.file_names[0], "file_in_subfolder.txt")
+        # Delete the copied files
+        GSFolder("gs://aries_test/test_subfolder/").delete()

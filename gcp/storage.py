@@ -2,9 +2,11 @@ import os
 import io
 import logging
 from gcloud import storage
+from gcloud.exceptions import InternalServerError
 logger = logging.getLogger(__name__)
 try:
     from ..storage import StorageObject, StorageFolder, StorageFile
+    from ..tasks import FunctionTask
 except (SystemError, ValueError):
     import sys
     from os.path import dirname
@@ -12,6 +14,7 @@ except (SystemError, ValueError):
     if aries_parent not in sys.path:
         sys.path.append(aries_parent)
     from Aries.storage import StorageObject, StorageFolder, StorageFile
+    from Aries.tasks import FunctionTask
 
 
 gcs_client = storage.Client()
@@ -38,6 +41,10 @@ class GSObject(StorageObject):
             self.prefix = self.path[1:]
         else:
             self.prefix = self.path
+
+    def __getattribute__(self, item):
+        
+        return super(GSObject, self).__getattribute__(item)
 
     @property
     def bucket_name(self):
@@ -84,8 +91,9 @@ class GSObject(StorageObject):
         return list(self.bucket.list_blobs(prefix=self.prefix, delimiter=delimiter))
 
     def delete(self):
-        for blob in self.blobs():
-            blob.delete()
+        with self.client.batch():
+            for blob in self.blobs():
+                blob.delete()
 
     def copy(self, to):
         """Copies folder/file in a Google Cloud storage directory to another one.
@@ -112,12 +120,16 @@ class GSObject(StorageObject):
             to = to + self.name
 
         destination_folder = GSFolder(to)
+        # Add the name of the current object if the destination is bucket root.
+        if not destination_folder.prefix:
+            destination_folder = GSFolder(to + "/" + self.name)
 
         source_files = self.blobs()
         with self.client.batch():
             for blob in source_files:
                 new_name = str(blob.name).replace(self.prefix, destination_folder.prefix, 1)
-                self.bucket.copy_blob(blob, destination_folder.bucket, new_name)
+                if new_name != str(blob.name):
+                    self.bucket.copy_blob(blob, destination_folder.bucket, new_name)
 
         logger.debug("%d blobs copied" % len(source_files))
 
