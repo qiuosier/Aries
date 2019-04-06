@@ -91,9 +91,13 @@ class GSObject(StorageObject):
         return list(self.bucket.list_blobs(prefix=self.prefix, delimiter=delimiter))
 
     def delete(self):
-        with self.client.batch():
-            for blob in self.blobs():
-                blob.delete()
+        """Deletes all objects with the same prefix."""
+        # This needs to be done before the batch.
+        blobs = self.blobs()
+        if blobs:
+            with self.client.batch():
+                for blob in blobs:
+                    blob.delete()
 
     def copy(self, to):
         """Copies folder/file in a Google Cloud storage directory to another one.
@@ -116,20 +120,41 @@ class GSObject(StorageObject):
                 gs://bucket_b/x/y/z/example.txt
 
         """
-        if to.endswith("/"):
-            to = to + self.name
+        # Check if the destination is a bucket root.
+        # Prefix will be empty if destination is bucket root.
+        # Always append "/" to bucket root.
+        if not GSObject(to).prefix and not to.endswith("/"):
+            to += "/"
 
-        destination_folder = GSFolder(to)
-        # Add the name of the current object if the destination is bucket root.
-        if not destination_folder.prefix:
-            destination_folder = GSFolder(to + "/" + self.name)
+        if self.prefix.endswith("/"):
+            # The source is a folder if its prefix ends with "/"
+            if to.endswith("/"):
+                # If the destination ends with "/",
+                # copy the folder under the destination
+                to += self.name + "/"
+            else:
+                # If the destination does not end with "/",
+                # rename the folder.
+                to += "/"
+        else:
+            # Otherwise, it can be a file or an object or a set of filtered objects.
+            if to.endswith("/"):
+                # If the destination ends with "/",
+                # copy all objects under the destination
+                to += self.name
+            else:
+                # If the destination does not end with "/",
+                # simply replace the prefix.
+                pass
+
+        destination = GSObject(to)
 
         source_files = self.blobs()
         with self.client.batch():
             for blob in source_files:
-                new_name = str(blob.name).replace(self.prefix, destination_folder.prefix, 1)
+                new_name = str(blob.name).replace(self.prefix, destination.prefix, 1)
                 if new_name != str(blob.name):
-                    self.bucket.copy_blob(blob, destination_folder.bucket, new_name)
+                    self.bucket.copy_blob(blob, destination.bucket, new_name)
 
         logger.debug("%d blobs copied" % len(source_files))
 

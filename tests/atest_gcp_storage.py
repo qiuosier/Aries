@@ -128,9 +128,35 @@ class TestGCStorage(unittest.TestCase):
         # Delete the copied files
         GSFolder("gs://aries_test/copy_test/").delete()
 
+        # Copy a set of objects using the prefix
+        source_path = "gs://aries_test/test_folder"
+        dest_path = "gs://aries_test/copy_test/"
+        objects = GSObject(source_path)
+        objects.copy(dest_path)
+        copied = GSFolder(dest_path)
+        self.assertEqual(len(copied.files), 1)
+        self.assertEqual(len(copied.folders), 1)
+        self.assertEqual(len(copied.blobs()), 5, [b.name for b in copied.blobs()])
+        self.assertEqual(copied.folder_names[0], "test_folder")
+        # Delete the copied files
+        GSFolder("gs://aries_test/copy_test/").delete()
+
         # Destination is the bucket root, whether it ends with "/" does not matter.
+        # Without "/"
         source_path = "gs://aries_test/test_folder/test_subfolder"
         dest_path = "gs://aries_test"
+        folder = GSFolder(source_path)
+        folder.copy(dest_path)
+        copied = GSFolder("gs://aries_test/test_subfolder/")
+        self.assertEqual(len(copied.files), 1)
+        self.assertEqual(len(copied.folders), 0)
+        self.assertEqual(len(copied.blobs()), 2, [b.name for b in copied.blobs()])
+        self.assertEqual(copied.file_names[0], "file_in_subfolder.txt")
+        # Delete the copied files
+        GSFolder("gs://aries_test/test_subfolder/").delete()
+        # With "/"
+        source_path = "gs://aries_test/test_folder/test_subfolder"
+        dest_path = "gs://aries_test/"
         folder = GSFolder(source_path)
         folder.copy(dest_path)
         copied = GSFolder("gs://aries_test/test_subfolder/")
