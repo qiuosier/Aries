@@ -112,43 +112,49 @@ def pack_sample_sheet(sample_sheet_lines):
     Args:
         sample_sheet_lines (list): A list of strings, each is a line in the sample sheet.
 
-    Returns: A dictionary containing the sample data.
+    Returns: A dictionary containing the sample data, where,
+        key = SampleId,
+        value = A dictionary with "data_columns" as keys (UPPER CASE).
 
     """
     logger.debug("Packing sample sheet...%d lines", len(sample_sheet_lines))
     sample_sheet = dict()
     data_columns = [
-        "Sample_ID",
-        "Sample_Name",
-        "Description",
-        "Index",
+        "SAMPLE_ID",
+        "SAMPLE_NAME",
+        "DESCRIPTION",
+        "INDEX",
     ]
     column_idx = dict()
     data_row = False
     for sample_sheet_line in sample_sheet_lines:
+        # line will be an array with the original data
         line = sample_sheet_line.strip("\r").split(",")
-        if not data_row and "[Data]" in line[0]:
+        # cells will be an array with all upper case data
+        cells = [str(c).upper() for c in line]
+        if not data_row and "[DATA]" in cells[0]:
             data_row = True
             continue
+        # Skip rows before data row
         if not data_row:
             continue
         # Column names
-        if 'Sample_ID' in line and 'Sample_Name' in line:
-            for i, col in enumerate(line):
+        if 'SAMPLE_ID' in cells and 'SAMPLE_NAME' in cells:
+            for i, col in enumerate(cells):
                 if col in data_columns:
                     column_idx[col] = i
             continue
         # Skip the row without sample ID
-        if line[0] == '':
+        if cells[0] == '':
             continue
         # End of the data
-        if data_row and "[" in line[0] and "]" in line[0]:
+        if data_row and "[" in cells[0] and "]" in cells[0]:
             break
         # Process sample data row
         sample_data = dict()
         for col in column_idx.keys():
             sample_data[col] = line[column_idx[col]]
-        user_sample_id = sample_data.get("Sample_ID")
+        user_sample_id = sample_data.get("SAMPLE_ID")
         sample_sheet[user_sample_id] = sample_data
     return sample_sheet
 
