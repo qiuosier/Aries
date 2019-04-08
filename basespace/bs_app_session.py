@@ -23,8 +23,12 @@ def get_input_run(session_id):
         return None
 
 
+def get_sample_sheet(session_id):
+    return basespace.get_property("appsessions", session_id, "Input.sample-sheet")
+
+
 def get_sample_sheet_dict(session_id):
-    sample_sheet_content = basespace.get_property("appsessions", session_id, "Input.sample-sheet")
+    sample_sheet_content = get_sample_sheet(session_id)
     if sample_sheet_content:
         lines = sample_sheet_content.split("\n")
         return basespace.pack_sample_sheet(lines)
