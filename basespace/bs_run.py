@@ -12,15 +12,8 @@ from . import basespace, bs_sample
 logger = logging.getLogger(__name__)
 
 
-def get_list(run_name):
-    runs = api_collection("v1pre3/users/current/runs")
-    run_list = []
-    for run in runs:
-        if run_name == run.get("ExperimentName"):
-            run_id = run.get("Id")
-            logger.debug("Run: %s, ID: %s" % (run_name, run_id))
-            run_list.append(run)
-    return run_list
+def get_list(experiment_name=None):
+    return basespace.get_list("runs", "ExperimentName", experiment_name)
 
 
 def get_details(run_id):
