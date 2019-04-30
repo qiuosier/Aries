@@ -34,7 +34,7 @@ class GSObject(StorageObject):
 
         """
         super(GSObject, self).__init__(gs_path)
-        self._client = gcs_client
+        self._client = storage.Client()
         self._bucket = None
         # The "prefix" for gcs does not include the beginning "/"
         if self.path.startswith("/"):
@@ -234,6 +234,10 @@ class GSFile(GSObject, StorageFile):
             return data
         else:
             return None
+
+    def create(self):
+        blob = storage.Blob(self.prefix, self.bucket)
+        return blob
 
 
 def upload_file_to_bucket(local_file_path, cloud_file_path, bucket_name):
