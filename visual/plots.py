@@ -55,6 +55,11 @@ class PlotlyFigure:
         data_type = str(type(x))
         return "pandas" in data_type and "DataFrame" in data_type
 
+    @staticmethod
+    def __is_pandas_data_series(x):
+        data_type = str(type(x))
+        return "pandas" in data_type and "Series" in data_type
+
     @property
     def figure(self):
         """Prepares the plotly figure.
@@ -143,6 +148,11 @@ class PlotlyFigure:
             for c in df.columns.values:
                 y_list.append(df[c])
                 y_name.append(c)
+        elif self.__is_pandas_data_series(x):
+            series = x
+            x = series.index
+            y_list.append(series)
+            y_name.append(series.name)
         else:
             for arg in args:
                 if isinstance(arg, str):
