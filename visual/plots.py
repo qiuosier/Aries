@@ -104,7 +104,7 @@ class PlotlyFigure:
             self.title_y = "Value"
 
         trace = go.Candlestick(
-            x=df.timestamp,
+            x=df.index,
             open=df.open,
             high=df.high,
             low=df.low,
