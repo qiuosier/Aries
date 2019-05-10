@@ -33,5 +33,5 @@ def get_sample_sheet_dict(session_id):
         lines = sample_sheet_content.split("\n")
         return basespace.pack_sample_sheet(lines)
     else:
-        logger.error("Sample sheet not found. Session ID: %s" % session_id)
+        logger.debug("Sample sheet not found. Session ID: %s" % session_id)
         return None
