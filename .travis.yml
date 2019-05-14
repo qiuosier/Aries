@@ -1,0 +1,7 @@
+language: python
+install:
+  - pip install -r requirements.txt
+  - pip install python-coveralls
+script: python -m unittest discover -s tests -p "test_*.py"
+after_success:
+  - coveralls
