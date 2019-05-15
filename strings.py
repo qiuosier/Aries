@@ -266,11 +266,3 @@ class Base64String(str):
 
     def decode_to_string(self, encoding='utf-8', errors="strict"):
         return base64.b64decode(self.encode(encoding, errors)).decode(encoding, errors)
-
-
-class URLString(AString):
-    def query_string(self):
-        if '?' in self[:-1]:
-            return self.split('?', 1)[-1]
-        else:
-            return ''
