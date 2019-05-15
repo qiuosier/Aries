@@ -4,28 +4,34 @@ import logging
 import os
 import json
 import tempfile
+import ast
 from ..gcp.storage import upload_file_to_bucket, GSFile
+from ..strings import Base64String
 
 logger = logging.getLogger(__name__)
 
 API_SERVER = "https://api.basespace.illumina.com/"
-# Load BaseSpace Credentials
-credential_file = os.environ.get("BASESPACE_CREDENTIALS")
-if not credential_file:
-    raise EnvironmentError(
-        "BaseSpace credential json file path (BASESPACE_CREDENTIALS) not found in system environment variables."
-    )
-if not os.path.exists(credential_file):
-    raise EnvironmentError(
-        "BaseSpace credential not found %s." % credential_file
-    )
-with open(credential_file, "r") as credentials_json:
-    BASESPACE = json.load(credentials_json)
+ACCESS_TOKEN = None
 
-# TODO: Check if the json file contain credentials
-ACCESS_TOKEN = BASESPACE.get("access_token")
-CLIENT_ID = BASESPACE.get("client_id")
-CLIENT_SECRET = BASESPACE.get("client_secret")
+
+def get_access_token():
+    credentials = os.environ.get("BASESPACE_CREDENTIALS")
+    if not credentials:
+        raise EnvironmentError(
+            "BASESPACE_CREDENTIALS must be set in system environment variables."
+        )
+    # Credential is base64 encoded in environ if it starts with "ew"
+    if credentials.startswith("ew"):
+        credential_dict = ast.literal_eval(Base64String(credentials).decode_to_string())
+    else:
+        if os.path.exists(credentials):
+            with open(credentials, "r") as credentials_json:
+                credential_dict = json.load(credentials_json)
+        else:
+            raise EnvironmentError(
+                "BaseSpace credential not found at %s." % credentials
+            )
+    return credential_dict.get("access_token")
 
 
 def build_api_url(api, **kwargs):
@@ -39,6 +45,10 @@ def build_api_url(api, **kwargs):
     Returns: The full URL for making API request.
 
     """
+    global ACCESS_TOKEN
+    if not ACCESS_TOKEN:
+        ACCESS_TOKEN = get_access_token()
+    
     url = "%s%s?access_token=%s" % (
         API_SERVER, api, ACCESS_TOKEN
     )

@@ -2,18 +2,25 @@
 """
 import logging
 import unittest
-
 import os
 import sys
-
-logger = logging.getLogger(__name__)
+import base64
+import json
 
 aries_parent = os.path.join(os.path.dirname(__file__), "..", "..")
 if aries_parent not in sys.path:
     sys.path.append(aries_parent)
-os.environ["BASESPACE_CREDENTIALS"] = os.path.join(aries_parent, "Aries/private/basespace.json")
-
 from Aries.basespace import basespace, bs_project
+logger = logging.getLogger(__name__)
+
+
+def setUpModule():
+    credentials = os.environ.get("BASESPACE_CREDENTIALS")
+    if not credentials:
+        os.environ["BASESPACE_CREDENTIALS"] = os.path.join(
+            aries_parent, 
+            "Aries/private/basespace.json"
+        )
 
 
 class TestBaseSpace(unittest.TestCase):
@@ -26,7 +33,11 @@ class TestBaseSpace(unittest.TestCase):
         for project in projects:
             project_id = project.get("Id")
             details = bs_project.get_details(project_id)
-            self.assertGreater(len(str(details)), 0, "Project ID %s has no detail information." % project_id)
+            self.assertGreater(
+                len(str(details)), 
+                0, 
+                "Project ID %s has no detail information." % project_id
+            )
         # Get the samples in each project
         for project in projects:
             project_name = project.get("Name")
