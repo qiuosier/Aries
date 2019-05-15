@@ -17,9 +17,6 @@ except (SystemError, ValueError):
     from Aries.tasks import FunctionTask
 
 
-gcs_client = storage.Client()
-
-
 class GSObject(StorageObject):
     """The base class for Google Storage Object.
 

@@ -9,7 +9,18 @@ aries_parent = os.path.join(os.path.dirname(__file__), "..", "..")
 if aries_parent not in sys.path:
     sys.path.append(aries_parent)
 from Aries.gcp.storage import GSObject, GSFolder, GSFile
+from Aries.strings import Base64String
 logger = logging.getLogger(__name__)
+
+
+def setUpModule():
+    credentials = os.environ.get("GOOGLE_CREDENTIALS")
+    if credentials.startswith("ew"):
+        test_dir = os.path.dirname(__file__)
+        json_file = os.path.join(test_dir, "..", "private", "gcp.json")
+        if not os.path.exists(json_file):
+            Base64String(credentials).decode_to_file(json_file)
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = json_file
 
 
 class TestGCStorage(unittest.TestCase):

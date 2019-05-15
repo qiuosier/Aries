@@ -156,3 +156,5 @@ database\.pyproj\.user
 database\.sln
 
 private/
+
+\.vscode/
