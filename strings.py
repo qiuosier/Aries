@@ -2,6 +2,8 @@ import string
 import re
 import random
 import datetime
+import base64
+import os
 
 
 class AString(str):
@@ -242,6 +244,28 @@ class FileName(AString):
         """Convert the FileName object to a string including basename and extension.
         """
         return str(self)
+
+
+class Base64String(str):
+    @staticmethod
+    def encode_from_file(file_path, encoding='utf-8', errors="strict"):
+        with open(file_path, "rb") as f:
+            content = f.read()
+            return Base64String(base64.b64encode(content).decode(encoding, errors))
+
+    @staticmethod
+    def encode_from_string(s, encoding='utf-8', errors="strict"):
+        return Base64String(base64.b64encode(s.encode(encoding, errors)).decode(encoding, errors))
+
+    def decode_to_file(self, file_path, encoding='utf-8', errors="strict"):
+        folder = os.path.dirname(file_path)
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        with open(file_path, "wb") as f:
+            f.write(base64.b64decode(self.encode(encoding, errors)))
+
+    def decode_to_string(self, encoding='utf-8', errors="strict"):
+        return base64.b64decode(self.encode(encoding, errors)).decode(encoding, errors)
 
 
 class URLString(AString):
