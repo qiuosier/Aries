@@ -207,6 +207,7 @@ class FunctionTask(Task):
         if self.exc_out:
             print(self.exc_out)
         self.exit_run()
+        return self.returns
 
     def run_profiler(self):
         """Runs the function with profiler.
@@ -220,7 +221,7 @@ class FunctionTask(Task):
 
     def run_and_retry(self, max_retry=10, exceptions=Exception):
         """Runs the function and retry a few times if certain exceptions occurs.
-        The time interval between the ith and (i+1)th retry is e**i, i.e. interval increases exponentially.
+        The time interval between the ith and (i+1)th retry is 2**i, i.e. interval increases exponentially.
 
         Args:
             max_retry (int): The number of times to re-try.

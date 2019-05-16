@@ -13,19 +13,44 @@ from Aries import tasks
 
 logger = logging.getLogger(__name__)
 
-#
-# class TestShellCommand(unittest.TestCase):
-#     def test_run_shell_command(self):
-#         with tasks.ShellCommand("ls -a") as cmd:
-#             cmd.run()
-#             self.assertIn("..\n", cmd.std_out)
-#
-#     def test_run_shell_command_async(self):
-#         with tasks.ShellCommand("ls -a") as cmd:
-#             t = cmd.run_async()
-#             t.join()
-#             self.assertIn("..\n", cmd.std_out)
 
+class TestShellCommand(unittest.TestCase):
+    def test_run_shell_command(self):
+        cmd = tasks.ShellCommand("ls -a %s" % os.path.dirname(__file__))
+        cmd.run()
+        self.assertIn("..\n", cmd.std_out)
+        self.assertIn(os.path.basename(__file__), cmd.std_out)
+
+
+class TestRunRetry(unittest.TestCase):
+    tries = 0
+
+    @staticmethod
+    def func_to_retry():
+        print(TestRunRetry.tries)
+        if TestRunRetry.tries < 2:
+            TestRunRetry.tries += 1
+            raise ValueError("Try again later")
+        return TestRunRetry.tries
+
+    def setUp(self):
+        TestRunRetry.tries = 0
+
+    def test_run_and_retry_success(self):
+        """Tests the run and retry of FunctionTask
+        """
+        # Running the function for the first time will raise a ValueError
+        with self.assertRaises(ValueError):
+            self.func_to_retry()
+        # Retry the runing the function until there is no error.
+        task = tasks.FunctionTask(self.func_to_retry)
+        count = task.run_and_retry()
+        self.assertEqual(count, 2)
+
+    def test_run_and_retry_fail(self):
+        with self.assertRaises(ValueError):
+            task = tasks.FunctionTask(self.func_to_retry)
+            task.run_and_retry(2)
 
 class TestFunctionTask(unittest.TestCase):
 
