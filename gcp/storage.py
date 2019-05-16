@@ -1,3 +1,18 @@
+"""Contains classes for manipulating Google Cloud Storage Objects.
+
+If you are not running in Google Compute Engine or App Engine,
+authentication to Google Cloud Platform is required in order to use this module.
+
+Authentication can be done by setting the "GOOGLE_APPLICATION_CREDENTIALS" environment variable 
+to JSON key-file. 
+In command line:
+    $ export GOOGLE_APPLICATION_CREDENTIALS="/path/to/keyfile.json"
+In python:
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/path/to/keyfile.json"
+
+See Also: https://googleapis.github.io/google-cloud-python/latest/core/auth.html
+
+"""
 import os
 import io
 import logging
@@ -48,13 +63,8 @@ class GSObject(StorageObject):
         """The name of the Google Cloud Storage bucket as a string."""
         return self.hostname
 
-    def _get_client(self):
-        self._client = storage.Client()
-
     @property
     def client(self):
-        if not self._client:
-            self._get_client()
         return self._client
             
     def _get_bucket(self):
@@ -215,6 +225,10 @@ class GSFile(GSObject, StorageFile):
         """
         file_blob = self.bucket.get_blob(self.prefix)
         if file_blob is None:
+            # This will not make an HTTP request.
+            # It simply instantiates a blob object owned by this bucket.
+            # See https://googleapis.github.io/google-cloud-python/latest/storage/buckets.html
+            # #google.cloud.storage.bucket.Bucket.blob
             file_blob = self.bucket.blob(self.prefix)
         return file_blob
 
@@ -233,7 +247,14 @@ class GSFile(GSObject, StorageFile):
             return None
 
     def create(self):
+        """Creates an empty file, if the file does not exist.
+        
+        Returns:
+            Blob: The Google Cloud Storage blob.
+        """
         blob = storage.Blob(self.prefix, self.bucket)
+        if not blob.exists():
+            blob.upload_from_string("")
         return blob
 
     def upload_from_file(self, file_path):

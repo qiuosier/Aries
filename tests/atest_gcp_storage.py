@@ -1,4 +1,4 @@
-"""Contains tests for the gcp storage module.
+"""Contains tests for the Google Cloud (gcp) storage module.
 """
 import logging
 import unittest
@@ -14,17 +14,24 @@ logger = logging.getLogger(__name__)
 
 
 def setUpModule():
+    """Configures the Google Application Credentials
+
+    The test environment may store the content of the JSON key-file in "GOOGLE_CREDENTIALS".
+    This function decodes and saves the JSON key-file into the local file system.
+
+    """
+    test_dir = os.path.dirname(__file__)
+    json_file = os.path.join(test_dir, "..", "private", "gcp.json")
     credentials = os.environ.get("GOOGLE_CREDENTIALS")
-    if credentials.startswith("ew"):
-        test_dir = os.path.dirname(__file__)
-        json_file = os.path.join(test_dir, "..", "private", "gcp.json")
+    if credentials and credentials.startswith("ew"):
         if not os.path.exists(json_file):
             Base64String(credentials).decode_to_file(json_file)
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = json_file
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = json_file
 
 
 class TestGCStorage(unittest.TestCase):
-
+    """Contains test cases for Google Cloud Platform Storage.
+    """
     @classmethod
     def setUpClass(cls):
         GSFolder("gs://aries_test/copy_test/").delete()
@@ -40,12 +47,17 @@ class TestGCStorage(unittest.TestCase):
         gs_obj = GSObject("gs://aries_test/")
         self.assertEqual(gs_obj.bucket_name, "aries_test")
         self.assertEqual(gs_obj.prefix, "")
-        # Folder without "/"
+        # Object without "/"
         gs_obj = GSObject("gs://aries_test/test_folder")
         self.assertEqual(gs_obj.bucket_name, "aries_test")
         self.assertEqual(gs_obj.prefix, "test_folder")
-        # Folder with "/"
+        # Object with "/"
         gs_obj = GSObject("gs://aries_test/test_folder/")
+        self.assertEqual(gs_obj.bucket_name, "aries_test")
+        self.assertEqual(gs_obj.prefix, "test_folder/")
+        # Folder without "/"
+        gs_obj = GSFolder("gs://aries_test/test_folder")
+        self.assertEqual(gs_obj.uri, "gs://aries_test/test_folder")
         self.assertEqual(gs_obj.bucket_name, "aries_test")
         self.assertEqual(gs_obj.prefix, "test_folder/")
 
@@ -57,6 +69,11 @@ class TestGCStorage(unittest.TestCase):
         self.assert_bucket_root("gs://aries_test/")
 
     def assert_bucket_root(self, gs_path):
+        """Checks if the bucket root contains the expected folder and files.
+        
+        Args:
+            gs_path (str): Google cloud storage path to the bucket root, e.g. "gs://bucket_name".
+        """
         parent = GSFolder(gs_path)
         # Test listing the folders
         folders = parent.folders
@@ -74,13 +91,18 @@ class TestGCStorage(unittest.TestCase):
             ])
 
     def test_gs_folder(self):
-        """Tests accessing google cloud storage folder.
+        """Tests accessing a Google Cloud Storage folder.
         """
         # Access a folder in a bucket
         self.assert_gs_folder("gs://aries_test/test_folder")
         self.assert_gs_folder("gs://aries_test/test_folder/")
 
     def assert_gs_folder(self, gs_path):
+        """Checks if a Google Cloud Storage folder contains the expected folders and files.
+        
+        Args:
+            gs_path ([type]): [description]
+        """
         # Test listing the folders
         parent = GSFolder(gs_path)
         folders = parent.get_folders()
@@ -99,6 +121,8 @@ class TestGCStorage(unittest.TestCase):
         self.assertEqual(names[0], "file_in_folder.txt")
 
     def test_gs_file(self):
+        """Tests accessing a Google Cloud Storage file.
+        """
         # Test the blob property
         # File exists
         gs_file_exists = GSFile("gs://aries_test/file_in_root.txt")
@@ -111,7 +135,7 @@ class TestGCStorage(unittest.TestCase):
         self.assertEqual(gs_file_exists.read(), b'This is a file in the bucket root.')
         self.assertIsNone(gs_file_null.read())
 
-    def test_copy_and_delete(self):
+    def test_copy_and_delete_folder(self):
         source_path = "gs://aries_test/test_folder/"
         # Destination path ends with "/", the original folder name will be preserved.
         dest_path = "gs://aries_test/copy_test/"
@@ -139,6 +163,7 @@ class TestGCStorage(unittest.TestCase):
         # Delete the copied files
         GSFolder("gs://aries_test/copy_test/").delete()
 
+    def test_copy_and_delete_prefix(self):
         # Copy a set of objects using the prefix
         source_path = "gs://aries_test/test_folder"
         dest_path = "gs://aries_test/copy_test/"
@@ -152,7 +177,10 @@ class TestGCStorage(unittest.TestCase):
         # Delete the copied files
         GSFolder("gs://aries_test/copy_test/").delete()
 
+    
+    def test_copy_to_root_and_delete(self):
         # Destination is the bucket root, whether it ends with "/" does not matter.
+        source_path = "gs://aries_test/test_folder"
         # Without "/"
         source_path = "gs://aries_test/test_folder/test_subfolder"
         dest_path = "gs://aries_test"
@@ -177,3 +205,22 @@ class TestGCStorage(unittest.TestCase):
         self.assertEqual(copied.file_names[0], "file_in_subfolder.txt")
         # Delete the copied files
         GSFolder("gs://aries_test/test_subfolder/").delete()
+
+    def test_upload_from_file(self):
+        gs_file = GSFile("gs://aries_test/local_upload.txt")
+        # Try to upload a file that does not exist.
+        local_file_non_exist = os.path.join(os.path.dirname(__file__), "abc.txt")
+        with self.assertRaises(FileNotFoundError):
+            gs_file.upload_from_file(local_file_non_exist)
+        # Upload a file and check the content.
+        local_file = os.path.join(os.path.dirname(__file__), "fixtures", "test_file.txt")
+        gs_file.upload_from_file(local_file)
+        self.assertEqual(gs_file.read(), b'This is a local test file.\n')
+        gs_file.delete()
+
+    def test_create_blob(self):
+        gs_file = GSFile("gs://aries_test/new_file.txt")
+        self.assertFalse(gs_file.blob.exists())
+        gs_file.create()
+        self.assertTrue(gs_file.blob.exists())
+        gs_file.delete()
