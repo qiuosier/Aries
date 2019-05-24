@@ -2,6 +2,7 @@
 
 """
 from openpyxl import load_workbook, Workbook
+from openpyxl.writer.excel import save_virtual_workbook
 import logging
 
 
@@ -12,15 +13,32 @@ class ExcelFile(object):
     """Represents an MS Excel file.
 
     """
-    def __init__(self, filename):
+    content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+    def __init__(self, file_path):
         """Initializes the object with a filename.
 
         Args:
-            filename: The filename with full file path.
+            file_path: The path of the file.
         """
-        self.filename = filename
+        self.filename = file_path
         self.active_worksheet = None
         self.column = dict()
+        self.headers = None
+        self.workbook = None
+
+    def save(self, file_path):
+        self.workbook.save(file_path)
+
+    def column_index(self, header, case_sensitive=False):
+        for i, h in enumerate(self.headers):
+            if case_sensitive:
+                if str(h) == str(header):
+                    return i + 1
+            else:
+                if str(h).upper() == str(header).upper():
+                    return i + 1
+        return -1
 
     def read_active_worksheet(self, headers=None, read_only=False):
         """Gets the active worksheet in the file.
@@ -34,17 +52,19 @@ class ExcelFile(object):
         Returns: An openpyxl Worksheet object.
 
         """
-        self.active_worksheet = load_workbook(
+        self.workbook = load_workbook(
             filename=self.filename,
             guess_types=True,
             data_only=True,
             read_only=read_only
-        ).active
+        )
+        self.active_worksheet = self.workbook.active
+        self.headers = self.get_first_row_values()
+
         if headers is not None and headers:
-            row_values = self.get_first_row_values()
             for header in headers:
                 try:
-                    idx = row_values.index(header.upper())
+                    idx = self.headers.index(header.upper())
                     self.column[header] = idx
                 except ValueError:
                     logger.debug("Column not found: %s" % header)
