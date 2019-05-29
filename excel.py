@@ -1,42 +1,68 @@
-"""Handles the operation of MS Excel file.
+"""Contains ExcelFile class for handling MS Excel file.
 
 """
+import re
+import logging
 from openpyxl import load_workbook, Workbook
 from openpyxl.writer.excel import save_virtual_workbook
-import logging
 
 
-logger = logging.getLogger('commons')
+logger = logging.getLogger(__name__)
 
 
-class ExcelFile(object):
+class ExcelFile:
     """Represents an MS Excel file.
-
     """
     content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
-    def __init__(self, file_path):
-        """Initializes the object with a filename.
+    def __init__(self, file_path=None, read_only=False):
+        """Initializes an Excel file.
 
         Args:
             file_path: The path of the file.
+            read_only: Indicates if the file should be opened in read-only mode.
         """
         self.filename = file_path
-        self.active_worksheet = None
+        if self.filename:
+            self.workbook = load_workbook(
+                filename=self.filename,
+                guess_types=True,
+                data_only=True,
+                read_only=read_only
+            )
+        else:
+            # Initialize new workbook if filename is not specified.
+            self.workbook = Workbook()
+        self.active_worksheet = self.workbook.active
+        self.headers = self.get_row_values(0)
+
         self.column = dict()
-        self.headers = None
-        self.workbook = None
+
+    def set_worksheet(self):
+        pass
+
+    def set_headers(self, row_number):
+        pass
 
     def save(self, file_path):
         self.workbook.save(file_path)
 
     def column_index(self, header, case_sensitive=False):
-        for i, h in enumerate(self.headers):
+        """Gets the 1-based index of a column in the file.
+
+        Args:
+            header: The header (name) of the column.
+            case_sensitive: Indicates whether the matching should be case sensitive.
+
+        Returns: 1-based index of the column. Or -1 if the header is not found.
+
+        """
+        for i, value in enumerate(self.headers):
             if case_sensitive:
-                if str(h) == str(header):
+                if re.fullmatch(header, value):
                     return i + 1
             else:
-                if str(h).upper() == str(header).upper():
+                if re.fullmatch(header, value, re.IGNORECASE):
                     return i + 1
         return -1
 
@@ -97,38 +123,72 @@ class ExcelFile(object):
         All characters are converted the uppercase.
 
         """
-        if not self.active_worksheet:
-            self.read_active_worksheet()
-
         row = None
         for r in self.active_worksheet.rows:
             row = r
             break
         if row:
-            row_values = [str(item.value).strip(" ").upper() if item.value is not None else "" for item in row]
+            row_values = [str(item.value).strip().upper() if item.value is not None else "" for item in row]
         else:
             logger.info("Failed to get the first row from the file.")
             row_values = None
         return row_values
 
-    def has_headers(self, headers):
-        """Checks if the first row of the file has all the required column names.
+    def get_row_values(self, row_number):
+        """Gets the values of a row as a list of strings.
+        Empty cell (None value) will be converted to empty string.
+        The leading and trailing whitespaces of the cell value will be removed.
 
         Args:
-            headers: A list of strings, each is the name of a required column.
+            row_number: 0-based row number.
 
-        Returns: True if all strings in headers are found. Otherwise False.
+        Returns: A list of strings.
+            The returned list will be empty if the row does not exist in the file.
 
         """
-        row_values = self.get_first_row_values()
-        if row_values is None:
+        row = None
+        for i, r in enumerate(self.active_worksheet.rows):
+            if row_number == i:
+                row = r
+                break
+        if row:
+            values = [str(item.value).strip() if item.value is not None else "" for item in row]
+        else:
+            logger.debug("The excel file does not have row %d" % row_number)
+            values = []
+        return values
+
+    def has_headers(self, headers, flags=0):
+        """Checks if the first row of the active worksheet has certain headers (a list of words).
+        A header is considered found if it matches the value of a cell in the first row.
+        The matching will be done using re.fullmatch(header, value, flags)
+        The leading and trailing whitespaces of the cell value will be removed before matching.
+
+        Args:
+            headers: A list of strings, each is a header.
+            flags: Flags for python regular expression matching.
+
+        Returns: True if all strings in headers are found in the first row. Otherwise False.
+
+        See Also:
+            https://docs.python.org/3/library/re.html#re.fullmatch
+            https://docs.python.org/3/library/re.html#re.compile
+
+        """
+        values = self.get_row_values(0)
+        if values is None:
             logger.error("Failed to find the header row in the Excel file.")
             return False
 
         for header in headers:
-            if header.upper() not in row_values:
-                logger.error("Column %s not found in the Excel file." % header)
-                logger.debug(row_values)
+            match = None
+            for value in values:
+                match = re.fullmatch(header, value, flags)
+                if match is not None:
+                    break
+            if match is None:
+                logger.error("Column \"%s\" not found in the Excel file." % header)
+                logger.debug("Columns in the file: %s" % ",".join(values))
                 return False
         return True
 
