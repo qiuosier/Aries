@@ -17,6 +17,8 @@ class ExcelFile:
 
     def __init__(self, file_path=None, read_only=False):
         """Initializes an Excel file.
+        The workbook will be loaded if the file_path is not None.
+        Otherwise a new workbook will be created in the memory.
 
         Args:
             file_path: The path of the file.
@@ -34,7 +36,7 @@ class ExcelFile:
             # Initialize new workbook if filename is not specified.
             self.workbook = Workbook()
         self.active_worksheet = self.workbook.active
-        self.headers = self.get_row_values(0)
+        self.headers = self.get_row_values(1)
 
         self.column = dict()
 
@@ -42,7 +44,18 @@ class ExcelFile:
         pass
 
     def set_headers(self, row_number):
-        pass
+        """Uses a particular row in the file as header row.
+        This method modifies the self.headers attribute.
+
+        Args:
+            row_number: 1-based row number.
+
+        Returns: Headers as a list of strings.
+            An empty list will be returned if the row does not exist.
+
+        """
+        self.headers = self.get_row_values(row_number)
+        return self.headers
 
     def save(self, file_path):
         self.workbook.save(file_path)
@@ -140,17 +153,18 @@ class ExcelFile:
         The leading and trailing whitespaces of the cell value will be removed.
 
         Args:
-            row_number: 0-based row number.
+            row_number: 1-based row number.
 
         Returns: A list of strings.
             The returned list will be empty if the row does not exist in the file.
 
         """
         row = None
-        for i, r in enumerate(self.active_worksheet.rows):
-            if row_number == i:
-                row = r
-                break
+        if row_number > 0:
+            for i, r in enumerate(self.active_worksheet.rows):
+                if row_number == i + 1:
+                    row = r
+                    break
         if row:
             values = [str(item.value).strip() if item.value is not None else "" for item in row]
         else:
@@ -175,20 +189,15 @@ class ExcelFile:
             https://docs.python.org/3/library/re.html#re.compile
 
         """
-        values = self.get_row_values(0)
-        if values is None:
-            logger.error("Failed to find the header row in the Excel file.")
-            return False
-
         for header in headers:
             match = None
-            for value in values:
+            for value in self.headers:
                 match = re.fullmatch(header, value, flags)
                 if match is not None:
                     break
             if match is None:
                 logger.error("Column \"%s\" not found in the Excel file." % header)
-                logger.debug("Columns in the file: %s" % ",".join(values))
+                logger.debug("Columns in the file: %s" % ",".join(self.headers))
                 return False
         return True
 
