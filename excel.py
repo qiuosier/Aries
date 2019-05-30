@@ -4,7 +4,6 @@
 import re
 import logging
 from openpyxl import load_workbook, Workbook
-from openpyxl.writer.excel import save_virtual_workbook
 
 
 logger = logging.getLogger(__name__)
@@ -37,8 +36,6 @@ class ExcelFile:
             self.workbook = Workbook()
         self.active_worksheet = self.workbook.active
         self.headers = self.get_row_values(1)
-
-        self.column = dict()
 
     def set_worksheet(self):
         pass
@@ -79,36 +76,6 @@ class ExcelFile:
                     return i + 1
         return -1
 
-    def read_active_worksheet(self, headers=None, read_only=False):
-        """Gets the active worksheet in the file.
-
-        Args:
-            headers: A list of expected (not required) column names in the first row of the active sheet.
-            read_only: Indicates if the file should be opened in read-only mode for large file.
-            This function will save the column index to self.column[header],
-                if the column has a matching header in headers.
-
-        Returns: An openpyxl Worksheet object.
-
-        """
-        self.workbook = load_workbook(
-            filename=self.filename,
-            guess_types=True,
-            data_only=True,
-            read_only=read_only
-        )
-        self.active_worksheet = self.workbook.active
-        self.headers = self.get_first_row_values()
-
-        if headers is not None and headers:
-            for header in headers:
-                try:
-                    idx = self.headers.index(header.upper())
-                    self.column[header] = idx
-                except ValueError:
-                    logger.debug("Column not found: %s" % header)
-        return self.active_worksheet
-
     def export_rows(self, row_list):
         """Exports specific rows from the file to a new workbook.
 
@@ -120,7 +87,7 @@ class ExcelFile:
         Remarks: Only the plain text are exported. Styles and formatting are not copied/exported.
 
         """
-        in_ws = self.active_worksheet if self.active_worksheet else self.read_active_worksheet()
+        in_ws = self.active_worksheet
         out_wb = Workbook()
         out_ws = out_wb.active
         out_ws.append([cell.value for cell in in_ws[1]])
@@ -130,22 +97,6 @@ class ExcelFile:
             cells = [cell.value if cell.value is not None else '' for cell in in_ws[int(row)]]
             out_ws.append(cells)
         return out_wb
-
-    def get_first_row_values(self):
-        """Gets the values of the first row in the active sheet as a list.
-        All characters are converted the uppercase.
-
-        """
-        row = None
-        for r in self.active_worksheet.rows:
-            row = r
-            break
-        if row:
-            row_values = [str(item.value).strip().upper() if item.value is not None else "" for item in row]
-        else:
-            logger.info("Failed to get the first row from the file.")
-            row_values = None
-        return row_values
 
     def get_row_values(self, row_number):
         """Gets the values of a row as a list of strings.
@@ -209,9 +160,6 @@ class ExcelFile:
             skip_first_row: Indicates whether the first row should be skipped.
 
         """
-        if not self.active_worksheet:
-            self.read_active_worksheet()
-
         table = []
 
         for index, row in enumerate(self.active_worksheet.rows):
