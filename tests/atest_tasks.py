@@ -27,7 +27,6 @@ class TestRunRetry(unittest.TestCase):
 
     @staticmethod
     def func_to_retry():
-        print(TestRunRetry.tries)
         if TestRunRetry.tries < 2:
             TestRunRetry.tries += 1
             raise ValueError("Try again later")

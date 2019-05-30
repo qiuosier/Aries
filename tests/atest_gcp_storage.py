@@ -22,11 +22,14 @@ def setUpModule():
     """
     test_dir = os.path.dirname(__file__)
     json_file = os.path.join(test_dir, "..", "private", "gcp.json")
+    # Use the b64 encoded content as credentials if "GOOGLE_CREDENTIALS" is set.
     credentials = os.environ.get("GOOGLE_CREDENTIALS")
     if credentials and credentials.startswith("ew"):
         if not os.path.exists(json_file):
             Base64String(credentials).decode_to_file(json_file)
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = json_file
+    # Set "GOOGLE_APPLICATION_CREDENTIALS" if json file exists.
+    if os.path.exists(json_file):
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = json_file
 
 
 class TestGCStorage(unittest.TestCase):
@@ -35,6 +38,11 @@ class TestGCStorage(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         GSFolder("gs://aries_test/copy_test/").delete()
+
+    def setUp(self):
+        # Skip test if "GOOGLE_APPLICATION_CREDENTIALS" is not found.
+        if not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+            self.skipTest("GCP Credentials not found.")
 
     def test_parse_uri(self):
         """Tests parsing GCS URI
@@ -177,7 +185,6 @@ class TestGCStorage(unittest.TestCase):
         # Delete the copied files
         GSFolder("gs://aries_test/copy_test/").delete()
 
-    
     def test_copy_to_root_and_delete(self):
         # Destination is the bucket root, whether it ends with "/" does not matter.
         source_path = "gs://aries_test/test_folder"

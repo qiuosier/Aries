@@ -16,14 +16,17 @@ logger = logging.getLogger(__name__)
 
 def setUpModule():
     credentials = os.environ.get("BASESPACE_CREDENTIALS")
-    if not credentials:
-        os.environ["BASESPACE_CREDENTIALS"] = os.path.join(
-            aries_parent, 
-            "Aries/private/basespace.json"
-        )
+    json_file = os.path.join(aries_parent, "Aries/private/basespace.json")
+    if not credentials and os.path.exists(json_file):
+        os.environ["BASESPACE_CREDENTIALS"] = json_file
 
 
 class TestBaseSpace(unittest.TestCase):
+    def setUp(self):
+        # Skip test if "BASESPACE_CREDENTIALS" is not found.
+        if not os.environ.get("BASESPACE_CREDENTIALS"):
+            self.skipTest("BaseSpace Credentials not found.")
+
     def test_bs_project(self):
         """Tests project API."""
         # Gets a list of projects. For this test, there should be at least one project in BaseSpace
