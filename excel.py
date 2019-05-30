@@ -16,9 +16,9 @@ class ExcelFile:
 
     Attributes:
         file_path: Path of the excel file.
-        workbook: The openpyxl Workbook object of the excel file.
+        workbook: openpyxl Workbook object of the excel file.
             See https://openpyxl.readthedocs.io/en/stable/_modules/openpyxl/workbook/workbook.html
-        active_worksheet: The openpyxl Worksheet object of the active spreadsheet.
+        worksheet: openpyxl Worksheet object of the active spreadsheet.
             See https://openpyxl.readthedocs.io/en/stable/api/openpyxl.worksheet.worksheet.html
 
     """
@@ -44,11 +44,16 @@ class ExcelFile:
         else:
             # Initialize new workbook if file path is not specified.
             self.workbook = Workbook()
-        self.active_worksheet = self.workbook.active
-        self.headers = self.get_row_values(1)
+        self.worksheet = None
+        self.headers = None
+        self.set_worksheet()
 
-    def set_worksheet(self):
-        pass
+    def set_worksheet(self, name=None):
+        if name:
+            self.worksheet = self.workbook[name]
+        else:
+            self.worksheet = self.workbook.active
+        self.headers = self.get_row_values(1)
 
     def set_headers(self, row_number):
         """Uses a particular row in the file as header row.
@@ -64,25 +69,37 @@ class ExcelFile:
         self.headers = self.get_row_values(row_number)
         return self.headers
 
-    def save(self, file_path=None):
+    def save(self, save_as_file_path=None):
         """Saves the workbook.
 
         Args:
-            file_path (str, Optional): Path of the file.
-
-        Returns:
-            If the file path is specified: None.
-            If the file path is not specified, the content of the file (returned from file.read()).
+            save_as_file_path (str, Optional): Path of the output file.
+            If save_as_file_path is None, changes will be saved into the original file (self.file_path will be used).
+            If save_as_file_path is specified:
+                1. the contents including the changes, will be saved as another file.
+                2. the self.file_path will be changed to save_as_file_path
+            If save_as_file_path is None and self.file_path is None, there will be an error.
 
         """
-        if file_path:
-            self.workbook.save(file_path)
-            return None
+        if save_as_file_path:
+            self.workbook.save(save_as_file_path)
+            self.file_path = save_as_file_path
         else:
-            with TemporaryFile() as temp_file:
-                self.workbook.save(temp_file)
-                temp_file.seek(0)
-                return temp_file.read()
+            if self.file_path:
+                self.workbook.save(self.file_path)
+            else:
+                raise ValueError("File path must be specified.")
+
+    def content(self):
+        """The contents of the file, as returned from file.read().
+
+        Returns:
+
+        """
+        with TemporaryFile() as temp_file:
+            self.workbook.save(temp_file)
+            temp_file.seek(0)
+            return temp_file.read()
 
     def column_index(self, header, case_sensitive=False):
         """Gets the 1-based index of a column in the file.
@@ -114,7 +131,7 @@ class ExcelFile:
         Remarks: Only the plain text are exported. Styles and formatting are not copied/exported.
 
         """
-        in_ws = self.active_worksheet
+        in_ws = self.worksheet
         out_wb = Workbook()
         out_ws = out_wb.active
         out_ws.append([cell.value for cell in in_ws[1]])
@@ -139,7 +156,7 @@ class ExcelFile:
         """
         row = None
         if row_number > 0:
-            for i, r in enumerate(self.active_worksheet.rows):
+            for i, r in enumerate(self.worksheet.rows):
                 if row_number == i + 1:
                     row = r
                     break
@@ -189,7 +206,7 @@ class ExcelFile:
         """
         table = []
 
-        for index, row in enumerate(self.active_worksheet.rows):
+        for index, row in enumerate(self.worksheet.rows):
             if index == 0 and skip_first_row:
                 continue
             values = [item.value for item in row]
