@@ -3,6 +3,7 @@
 """
 import re
 import logging
+from tempfile import TemporaryFile
 from openpyxl import load_workbook, Workbook
 
 
@@ -11,6 +12,15 @@ logger = logging.getLogger(__name__)
 
 class ExcelFile:
     """Represents an MS Excel file.
+    This class is built based on openpyxl.
+
+    Attributes:
+        file_path: Path of the excel file.
+        workbook: The openpyxl Workbook object of the excel file.
+            See https://openpyxl.readthedocs.io/en/stable/_modules/openpyxl/workbook/workbook.html
+        active_worksheet: The openpyxl Worksheet object of the active spreadsheet.
+            See https://openpyxl.readthedocs.io/en/stable/api/openpyxl.worksheet.worksheet.html
+
     """
     content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
@@ -23,16 +33,16 @@ class ExcelFile:
             file_path: The path of the file.
             read_only: Indicates if the file should be opened in read-only mode.
         """
-        self.filename = file_path
-        if self.filename:
+        self.file_path = file_path
+        if self.file_path:
             self.workbook = load_workbook(
-                filename=self.filename,
+                filename=self.file_path,
                 guess_types=True,
                 data_only=True,
                 read_only=read_only
             )
         else:
-            # Initialize new workbook if filename is not specified.
+            # Initialize new workbook if file path is not specified.
             self.workbook = Workbook()
         self.active_worksheet = self.workbook.active
         self.headers = self.get_row_values(1)
@@ -54,8 +64,25 @@ class ExcelFile:
         self.headers = self.get_row_values(row_number)
         return self.headers
 
-    def save(self, file_path):
-        self.workbook.save(file_path)
+    def save(self, file_path=None):
+        """Saves the workbook.
+
+        Args:
+            file_path (str, Optional): Path of the file.
+
+        Returns:
+            If the file path is specified: None.
+            If the file path is not specified, the content of the file (returned from file.read()).
+
+        """
+        if file_path:
+            self.workbook.save(file_path)
+            return None
+        else:
+            with TemporaryFile() as temp_file:
+                self.workbook.save(temp_file)
+                temp_file.seek(0)
+                return temp_file.read()
 
     def column_index(self, header, case_sensitive=False):
         """Gets the 1-based index of a column in the file.
