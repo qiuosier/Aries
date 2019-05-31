@@ -247,6 +247,40 @@ class FunctionTask(Task):
 
 class ShellCommand(Task):
     """Represents a task of running a function.
+
+    Attributes:
+        thread: The thread running the task, if the the task is running asynchronous.
+            The thread value is set by run_async().
+        The following attributes are designed to capture the output of running the task.
+        std_out (str): Captured standard outputs.
+        std_err (str): Captured standard errors.
+        log_out (str): Captured log messages.
+        exc_out (str): Captured exception outputs.
+        returns: Return value of the task.
+        pid (int): The PID of the process running the task.
+    
+    This class can be used to run a shell command and capture the outputs.
+    For example, the command "ls -a ~" displays all files in the user's home directory.
+    The following code runs this command:
+
+        cmd = "ls -a ~"
+        task = ShellCommand(cmd)
+        task.run()
+        print(task.std_out)
+    
+    The outputs are stored in "task.std_out" as a string.
+
+    Run the command asynchronously, if the command takes a long time to complete:
+
+        cmd = "YOUR_AWESOME_COMMAND"
+        task = ShellCommand(cmd)
+        task.run_async()
+        # Feel free to do something else here
+        # ...
+        # Get the outputs
+        task.join()
+        print(task.std_out)
+    
     """
     def __init__(self, cmd):
         super(ShellCommand, self).__init__()
