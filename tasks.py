@@ -246,7 +246,7 @@ class FunctionTask(Task):
 
 
 class ShellCommand(Task):
-    """Represents a task of running a function.
+    """Represents a task of running a shell command.
 
     Attributes:
         thread: The thread running the task, if the the task is running asynchronous.

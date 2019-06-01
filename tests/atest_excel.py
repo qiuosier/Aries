@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class TestExcelFile(unittest.TestCase):
     __test_file = os.path.join(os.path.dirname(__file__), "fixtures", "excel_test_file.xlsx")
-    test_file =  __test_file.replace("excel_test_file.xlsx", "excel_test.xlsx")
+    test_file = __test_file.replace("excel_test_file.xlsx", "excel_test.xlsx")
 
     def setUp(self):
         super().setUp()
