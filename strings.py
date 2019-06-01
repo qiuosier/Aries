@@ -170,13 +170,20 @@ class AString(str):
         ])
         return AString(new_str)
 
+    def remove_non_ascii(self):
+        """Removes non ASCII characters in the string.
+        
+        Returns: An AString with only ASCII characters.
+        """
+        return AString("".join([c for c in self if ord(c) <= 127]))
+
     def remove_escape_sequence(self):
         """Removes ANSI escape sequences, including color codes.
 
         Returns: An AString with escape sequence removed.
 
         """
-        return AString(re.sub(r"\x1b\[.*m", "", self))
+        return AString(re.sub(r"\x1B\[[0-?]*[ -/]*[@-~]", "", self))
 
 
 class FileName(AString):
