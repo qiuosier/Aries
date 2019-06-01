@@ -1,0 +1,7 @@
+{
+    "key": "value",
+    "list": ["A", "B", "C"],
+    "dict": {
+        "sub_key": "sub_value"
+    }
+}
