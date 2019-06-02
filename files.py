@@ -1,16 +1,61 @@
 import gzip
 import os
+import json
 import tempfile
+import logging
 from shutil import copyfile
-try:
-    from .strings import FileName
-except SystemError:
-    import sys
-    from os.path import dirname
-    aries_parent = dirname(dirname(__file__))
-    if aries_parent not in sys.path:
-        sys.path.append(aries_parent)
-    from Aries.strings import FileName
+from .strings import FileName
+
+logger = logging.getLogger(__name__)
+
+class File:
+    """Provides shortcuts for handling files.
+    """
+    @staticmethod
+    def load_json(file_path, default=None):
+        """Loads data from a JSON file to a Python dictionary
+
+        Args:
+            file_path: file path of a json file.
+            default: default value to be returned if the file does not exist.
+                If default is None and file is not found , an empty dictionary will be returned.
+
+        Returns: A python dictionary containing data from the json file.
+        """
+        if os.path.exists(file_path):
+            with open(file_path) as f:
+                data = json.load(f)
+        else:
+            logger.info("File %s Not Found." % file_path)
+            if default:
+                data = default
+            else:
+                data = {}
+        return data
+
+
+class Markdown:
+    """Represents a Markdown file.
+    """
+    def __init__(self, file_path):
+        """Initialize a Markdown object
+        
+        Args:
+            file_path (str): File path of a Markdown(.md) file.
+        """
+        self.file_path = file_path
+        with open(self.file_path) as f:
+            self.text = f.read()
+
+    @property
+    def title(self):
+        """Gets the first title of the Markdown file.
+        """
+        lines = self.text.split("\n")
+        for line in lines:
+            if line.startswith("#"):
+                return line.strip("#").strip("\n").strip()
+        return ""
 
 
 def unzip_gz_file(file_path):

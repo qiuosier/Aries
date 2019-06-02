@@ -81,11 +81,32 @@ class TestAString(unittest.TestCase):
         # Prepend a single string
         self.assertEqual(a_string.prepend("abc"), "abc_test")
 
-    def test_remove_chars(self):
+    def test_remove_non_alphanumeric(self):
         """Tests removing characters.
         """
-        test_string = "!te!st!"
-        self.assertEqual(AString(test_string).remove_escape_sequence().remove_non_alphanumeric(), "test")
+        test_string = "!te\nst.123"
+        self.assertEqual(
+            AString(test_string).remove_non_alphanumeric(), 
+            "test123"
+        )
+
+    def test_remove_escape_sequence(self):
+        """Tests removing ANSI escape sequence.
+        """
+        test_string = "test\r\n\x1b[00m\x1b[01;31mHello.World\x1b[00m\r\n\x1b[01;31m"
+        self.assertEqual(
+            AString(test_string).remove_escape_sequence(), 
+            "test\r\nHello.World\r\n"
+        )
+
+    def test_remove_non_ascii(self):
+        """Tests removing non ASCII characters.
+        """
+        test_string = "!!te‘’st\n"
+        self.assertEqual(
+            AString(test_string).remove_non_ascii(), 
+            "!!test\n"
+        )
 
     def test_equality(self):
         """Tests equality operator.
