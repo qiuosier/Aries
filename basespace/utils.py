@@ -144,8 +144,9 @@ def api_collection(href):
     while total_count is not None and displayed_count is not None and offset < total_count:
         url = build_api_url(href, Limit=batch_limit, Offset=offset)
         response = get_response(url)
-        if not response:
-            return items
+        if response is None:
+            # There is likely an error when response is None.
+            return None
         batch = response.get("Items", [])
         if batch:
             items.extend(batch)
