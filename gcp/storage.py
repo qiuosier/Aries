@@ -19,17 +19,17 @@ import logging
 from gcloud import storage
 from gcloud.exceptions import InternalServerError
 logger = logging.getLogger(__name__)
-try:
-    from ..storage import StorageObject, StorageFolder, StorageFile
-    from ..tasks import FunctionTask
-except (SystemError, ValueError):
-    import sys
-    from os.path import dirname
-    aries_parent = dirname(dirname(dirname(__file__)))
-    if aries_parent not in sys.path:
-        sys.path.append(aries_parent)
-    from Aries.storage import StorageObject, StorageFolder, StorageFile
-    from Aries.tasks import FunctionTask
+# try:
+from ..storage import StorageObject, StorageFolder, StorageFile
+from ..tasks import FunctionTask
+# except (SystemError, ValueError):
+#     import sys
+#     from os.path import dirname
+#     aries_parent = dirname(dirname(dirname(__file__)))
+#     if aries_parent not in sys.path:
+#         sys.path.append(aries_parent)
+#     from Aries.storage import StorageObject, StorageFolder, StorageFile
+#     from Aries.tasks import FunctionTask
 
 
 class GSObject(StorageObject):

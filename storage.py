@@ -1,4 +1,7 @@
+"""Provides unified shortcuts/interfaces for access folders and files.
+"""
 import os
+import shutil
 from urllib.parse import urlparse
 
 
@@ -27,10 +30,20 @@ class StorageObject:
 
     @property
     def basename(self):
+        """The basename of the file/folder, without path or "/".
+        
+        Returns:
+            str: The basename of the file/folder
+        """
         return os.path.basename(self.path.strip("/"))
 
     @property
     def name(self):
+        """The basename of the file/folder, without path or "/".
+        
+        Returns:
+            str: The basename of the file/folder
+        """
         return self.basename
 
 
@@ -90,7 +103,7 @@ class StorageFolder(StorageObject):
         raise NotImplementedError
 
     def get_files(self, attribute=None):
-        """Gets a list of files in the folder.
+        """Gets a list of files (represented by uri or other attribute) in the folder.
 
         Args:
             attribute: The attribute of the StorageFile to be returned in the list representing the files.
@@ -103,7 +116,7 @@ class StorageFolder(StorageObject):
         return self._get_attribute(self.files, attribute)
 
     def get_folders(self, attribute=None):
-        """Gets a list of folders in the folder
+        """Gets a list of folders (represented by uri or other attribute) in the folder
 
         Args:
             attribute: The attribute of the StorageFolder to be returned in the list representing the folders.
@@ -133,10 +146,25 @@ class StorageFolder(StorageObject):
 
 
 class LocalFile(StorageFile):
-    pass
+    def delete(self):
+        if os.path.exists(self.path):
+            os.remove(self.path)
+
+    def copy(self, to):
+        if os.path.exists(self.path):
+            shutil.copyfile(self.path, to)
 
 
 class LocalFolder(StorageFolder):
+
+    @property
+    def files(self):
+        return [LocalFile(f) for f in self.file_paths]
+
+    @property
+    def folders(self):
+        return [LocalFolder(f) for f in self.folder_paths]
+
     @property
     def file_paths(self):
         return [
@@ -161,10 +189,60 @@ class LocalFolder(StorageFolder):
     def folder_names(self):
         return [f for f in os.listdir(self.path) if os.path.isdir(os.path.join(self.path, f))]
 
-    @property
-    def files(self):
-        return [LocalFile(f) for f in self.file_paths]
+    def get_folder(self, folder_name):
+        """Gets a sub folder by name
+        
+        Args:
+            folder_name (str): [description]
+        
+        Returns:
+            LocalFolder: A LocalFolder instance of the sub folder.
+                None if the sub folder does not exist.
+        """
+        for folder in self.folders:
+            if folder.basename == folder_name:
+                return folder
+        return None
 
-    @property
-    def folders(self):
-        return [LocalFolder(f) for f in self.folder_paths]
+    def get_file(self, filename):
+        for f in self.files:
+            if f.basename == filename:
+                return f
+        return None
+
+    def create(self):
+        if not os.path.exists(self.path):
+            os.makedirs(self.path)
+        return self
+
+    def copy(self, to):
+        """Copies a folder and the files/folders in it.
+        
+        Args:
+            to (str): The destination path.
+            If the path ends with "/", e.g. "/var/folder_name/",
+                the folder will be copied UNDER the destination folder with the original name.
+                e.g. "/var/folder_name/ORIGINAL_NAME"
+            If the path does not end with "/", e.g. "/var/folder_name",
+                the folder will be copied and renamed to "folder_name".
+        """
+        if os.path.isdir(self.path):
+            if to.endswith("/"):
+                to += self.basename
+            shutil.copytree(self.path, to)
+
+    def delete(self):
+        if os.path.exists(self.path):
+            shutil.rmtree(self.path)
+    
+    def empty(self):
+        for f in self.files:
+            f.delete()
+        for f in self.folders:
+            f.delete()
+
+    def is_empty(self):
+        if self.files or self.folders:
+            return False
+        else:
+            return True
