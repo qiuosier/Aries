@@ -245,7 +245,7 @@ class FileName(AString):
     def name_without_extension(self):
         """The filename without extension.
         """
-        return self.basename
+        return os.path.basename(self.basename)
 
     def to_string(self):
         """Convert the FileName object to a string including basename and extension.

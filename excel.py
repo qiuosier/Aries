@@ -93,7 +93,7 @@ class ExcelFile:
     def content(self):
         """The contents of the file, as returned from file.read().
 
-        Returns:
+        Returns (bytes): The content of the file. This can be used for HTTP response.
 
         """
         with TemporaryFile() as temp_file:
@@ -212,3 +212,11 @@ class ExcelFile:
             values = [item.value for item in row]
             table.append(values)
         return table
+
+    def write_row(self, value_list, row_number):
+        for col, val in enumerate(value_list, start=1):
+            self.worksheet.cell(row=row_number, column=col, value=val)
+
+    def append_row(self, value_list):
+        row_number = self.worksheet.max_row + 1
+        self.write_row(value_list, row_number)
