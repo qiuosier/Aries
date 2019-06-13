@@ -214,9 +214,12 @@ class ExcelFile:
         return table
 
     def write_row(self, value_list, row_number):
+        cells = []
         for col, val in enumerate(value_list, start=1):
-            self.worksheet.cell(row=row_number, column=col, value=val)
+            cell = self.worksheet.cell(row=row_number, column=col, value=val)
+            cells.append(cell)
+        return cells
 
     def append_row(self, value_list):
         row_number = self.worksheet.max_row + 1
-        self.write_row(value_list, row_number)
+        return self.write_row(value_list, row_number)
