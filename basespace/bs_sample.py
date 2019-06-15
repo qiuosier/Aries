@@ -20,9 +20,10 @@ def get_files(bs_sample_id, extension='fastq.gz'):
     if not bs_sample_id:
         return []
     files = api_collection("v1pre3/samples/%s/files" % bs_sample_id)
-    if extension:
-        files = [file for file in files if str(file.get("Name", "")).endswith(extension)]
-    files = sorted(files, key=lambda f: f.get("Name"))
+    if files:
+        if extension:
+            files = [file for file in files if str(file.get("Name", "")).endswith(extension)]
+        files = sorted(files, key=lambda f: f.get("Name"))
     return files
 
 
@@ -38,14 +39,15 @@ def get_fastq_pair(bs_sample_id):
     fastq_r1 = None
     fastq_r2 = None
     files = get_files(bs_sample_id)
-    for file in files:
-        filename = file.get("Name")
-        if "_R1_" in filename:
-            href = file.get("Href")
-            fastq_r1 = API_SERVER + href
-        elif "_R2_" in filename:
-            href = file.get("Href")
-            fastq_r2 = API_SERVER + href
+    if files:
+        for file in files:
+            filename = file.get("Name")
+            if "_R1_" in filename:
+                href = file.get("Href")
+                fastq_r1 = API_SERVER + href
+            elif "_R2_" in filename:
+                href = file.get("Href")
+                fastq_r2 = API_SERVER + href
     return fastq_r1, fastq_r2
 
 

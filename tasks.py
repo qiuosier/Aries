@@ -42,6 +42,7 @@ class Task:
         self.pid = None
         self.thread = None
         self.returns = None
+        self.exception = None
         self.std_out = ""
         self.std_err = ""
         self.log_out = ""
@@ -171,13 +172,22 @@ class FunctionTask(Task):
         }
 
     def __run(self):
-        with CaptureOutput(suppress_exception=True) as out:
-            # TODO: Returns may not be serializable.
-            out.returns = str(self.func(*self.args, **self.kwargs))
+        try:
+            with CaptureOutput() as out:
+                # Returns may not be serializable.
+                out.returns = self.func(*self.args, **self.kwargs)
+        except Exception as ex:
+            # Catch and save the exception
+            # run() determines whether to raise the exception
+            #   base on "surpress_exception" argument.
+            self.exception = ex
+        else:
+            # Reset self.exception if the run is successful.
+            # This is for run_and_retry()
+            self.exception = None
         try:
             logger.debug("Sending captured outputs...")
             return self.__pack_outputs(out)
-            # pipe.send(self.__pack_outputs(out))
         except Exception as ex:
             print(ex)
             return {
@@ -191,7 +201,7 @@ class FunctionTask(Task):
         """
         pass
 
-    def run(self):
+    def run(self, suppress_exception=True):
         """Runs the function and captures the outputs.
         """
         # receiver, pipe = Pipe()
@@ -207,6 +217,8 @@ class FunctionTask(Task):
         if self.exc_out:
             print(self.exc_out)
         self.exit_run()
+        if not suppress_exception and self.exception is not None:
+            raise self.exception
         return self.returns
 
     def run_profiler(self):
@@ -219,13 +231,15 @@ class FunctionTask(Task):
         # Display profiling results
         stats.sort_stats('cumulative', 'time').print_stats(0.1)
 
-    def run_and_retry(self, max_retry=10, exceptions=Exception):
+    def run_and_retry(self, max_retry=10, exceptions=Exception, base_interval=2):
         """Runs the function and retry a few times if certain exceptions occurs.
-        The time interval between the ith and (i+1)th retry is 2**i, i.e. interval increases exponentially.
+        The time interval between the ith and (i+1)th retry is base_interval**i, 
+            i.e. interval increases exponentially.
 
         Args:
             max_retry (int): The number of times to re-try.
             exceptions (Exception or tuple): An exception class or A tuple of exception classes.
+            base_interval (int): The interval before the first retry in seconds.
 
         Returns: The return value of the function.
 
@@ -233,10 +247,11 @@ class FunctionTask(Task):
         error = None
         for i in range(max_retry):
             try:
-                results = self.func(*self.args, **self.kwargs)
+                results = self.run(suppress_exception=False)
             except exceptions as ex:
                 error = ex
-                time.sleep(2**i)
+                traceback.print_exc()
+                time.sleep(base_interval ** (i + 1))
             else:
                 return results
         # The following will be executed only if for loop finishes without break/return
@@ -288,6 +303,8 @@ class ShellCommand(Task):
         self.process = None
 
     def run(self):
+        """Runs the command with Popen()
+        """
         self.process = subprocess.Popen(
             self.cmd,
             stdout=subprocess.PIPE,
