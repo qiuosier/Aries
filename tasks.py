@@ -42,6 +42,7 @@ class Task:
         self.pid = None
         self.thread = None
         self.returns = None
+        self.exception = None
         self.std_out = ""
         self.std_err = ""
         self.log_out = ""
@@ -171,9 +172,19 @@ class FunctionTask(Task):
         }
 
     def __run(self):
-        with CaptureOutput(suppress_exception=True) as out:
-            # Returns may not be serializable.
-            out.returns = self.func(*self.args, **self.kwargs)
+        try:
+            with CaptureOutput() as out:
+                # Returns may not be serializable.
+                out.returns = self.func(*self.args, **self.kwargs)
+        except Exception as ex:
+            # Catch and save the exception
+            # run() determines whether to raise the exception
+            #   base on "surpress_exception" argument.
+            self.exception = ex
+        else:
+            # Reset self.exception if the run is successful.
+            # This is for run_and_retry()
+            self.exception = None
         try:
             logger.debug("Sending captured outputs...")
             return self.__pack_outputs(out)
@@ -190,7 +201,7 @@ class FunctionTask(Task):
         """
         pass
 
-    def run(self):
+    def run(self, suppress_exception=True):
         """Runs the function and captures the outputs.
         """
         # receiver, pipe = Pipe()
@@ -206,6 +217,8 @@ class FunctionTask(Task):
         if self.exc_out:
             print(self.exc_out)
         self.exit_run()
+        if not suppress_exception and self.exception is not None:
+            raise self.exception
         return self.returns
 
     def run_profiler(self):
@@ -234,12 +247,10 @@ class FunctionTask(Task):
         error = None
         for i in range(max_retry):
             try:
-                results = self.run()
+                results = self.run(suppress_exception=False)
             except exceptions as ex:
                 error = ex
-                import traceback
                 traceback.print_exc()
-                print(ex)
                 time.sleep(base_interval ** (i + 1))
             else:
                 return results
@@ -292,6 +303,8 @@ class ShellCommand(Task):
         self.process = None
 
     def run(self):
+        """Runs the command with Popen()
+        """
         self.process = subprocess.Popen(
             self.cmd,
             stdout=subprocess.PIPE,

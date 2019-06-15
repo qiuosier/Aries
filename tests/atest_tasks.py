@@ -29,6 +29,7 @@ class TestRunRetry(unittest.TestCase):
     def func_to_retry():
         if TestRunRetry.tries < 2:
             TestRunRetry.tries += 1
+            print("Test Run Retry: %s" % TestRunRetry.tries)
             raise ValueError("Try again later")
         return TestRunRetry.tries
 
@@ -43,7 +44,7 @@ class TestRunRetry(unittest.TestCase):
             self.func_to_retry()
         # Retry the runing the function until there is no error.
         task = tasks.FunctionTask(self.func_to_retry)
-        count = task.run_and_retry()
+        count = task.run_and_retry(3)
         self.assertEqual(count, 2)
 
     def test_run_and_retry_fail(self):
