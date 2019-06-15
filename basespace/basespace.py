@@ -102,7 +102,10 @@ def get_property_items(collection_name, basespace_id, property_name):
     """
     api_href = "v1pre3/%s/%s/properties/%s/items" % (collection_name, basespace_id, property_name)
     items = api_collection(api_href)
-    items = [item.get("Content") for item in items if item.get("Content")]
+    if items:
+        items = [item.get("Content") for item in items if item.get("Content")]
+    else:
+        items = []
     return items
 
 
