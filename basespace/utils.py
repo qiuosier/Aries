@@ -7,11 +7,12 @@ import tempfile
 import ast
 from ..gcp.storage import GSFile
 from ..strings import Base64String
+from ..web import WebAPI
 
 logger = logging.getLogger(__name__)
 
 API_SERVER = "https://api.basespace.illumina.com/"
-ACCESS_TOKEN = None
+bs_api = None
 
 
 def get_access_token():
@@ -34,26 +35,23 @@ def get_access_token():
     return credential_dict.get("access_token")
 
 
-def build_api_url(api, **kwargs):
+def build_api_url(relative_url, **kwargs):
     """Builds the URL for BaseSpace API.
 
     Args:
-        api (str): The BaseSpace API, e.g. "v1pre3/files/1863963".
+        endpoint (str): The relative url of BaseSpace API endpoint, e.g. "v1pre3/files/1863963".
             In the BaseSpace API response, the API for additional data is usually in the "Href" field.
         **kwargs: Additional parameters for the API. They will be encoded in the GET request URL.
 
     Returns: The full URL for making API request.
 
     """
-    global ACCESS_TOKEN
-    if not ACCESS_TOKEN:
-        ACCESS_TOKEN = get_access_token()
+    global bs_api
+    if not bs_api:
+        access_token = get_access_token()
+        bs_api = WebAPI(API_SERVER, access_token=access_token)
     
-    url = "%s%s?access_token=%s" % (
-        API_SERVER, api, ACCESS_TOKEN
-    )
-    for key, val in kwargs.items():
-        url += "&%s=%s" % (key, val)
+    url = bs_api.build_url(relative_url, **kwargs)
     return url
 
 
