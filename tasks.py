@@ -172,12 +172,11 @@ class FunctionTask(Task):
 
     def __run(self):
         with CaptureOutput(suppress_exception=True) as out:
-            # TODO: Returns may not be serializable.
-            out.returns = str(self.func(*self.args, **self.kwargs))
+            # Returns may not be serializable.
+            out.returns = self.func(*self.args, **self.kwargs)
         try:
             logger.debug("Sending captured outputs...")
             return self.__pack_outputs(out)
-            # pipe.send(self.__pack_outputs(out))
         except Exception as ex:
             print(ex)
             return {
@@ -219,13 +218,15 @@ class FunctionTask(Task):
         # Display profiling results
         stats.sort_stats('cumulative', 'time').print_stats(0.1)
 
-    def run_and_retry(self, max_retry=10, exceptions=Exception):
+    def run_and_retry(self, max_retry=10, exceptions=Exception, base_interval=2):
         """Runs the function and retry a few times if certain exceptions occurs.
-        The time interval between the ith and (i+1)th retry is 2**i, i.e. interval increases exponentially.
+        The time interval between the ith and (i+1)th retry is base_interval**i, 
+            i.e. interval increases exponentially.
 
         Args:
             max_retry (int): The number of times to re-try.
             exceptions (Exception or tuple): An exception class or A tuple of exception classes.
+            base_interval (int): The interval before the first retry in seconds.
 
         Returns: The return value of the function.
 
@@ -233,10 +234,13 @@ class FunctionTask(Task):
         error = None
         for i in range(max_retry):
             try:
-                results = self.func(*self.args, **self.kwargs)
+                results = self.run()
             except exceptions as ex:
                 error = ex
-                time.sleep(2**i)
+                import traceback
+                traceback.print_exc()
+                print(ex)
+                time.sleep(base_interval ** (i + 1))
             else:
                 return results
         # The following will be executed only if for loop finishes without break/return
