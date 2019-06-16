@@ -2,19 +2,18 @@
 """
 import datetime
 import logging
-import unittest
-
 import os
 import sys
 aries_parent = os.path.join(os.path.dirname(__file__), "..", "..")
 if aries_parent not in sys.path:
     sys.path.append(aries_parent)
+from Aries.test import AriesTest
 from Aries.files import File, Markdown
 
 logger = logging.getLogger(__name__)
 
 
-class TestFile(unittest.TestCase):
+class TestFile(AriesTest):
     def test_load_json_file(self):
         """Tests loading a json file
         """
@@ -35,7 +34,7 @@ class TestFile(unittest.TestCase):
         self.assertEqual(json_dict["default_key"], "default_value")
 
 
-class TestMarkdown(unittest.TestCase):
+class TestMarkdown(AriesTest):
 
     test_file = os.path.join(os.path.dirname(__file__), "fixtures", "test.md")
 

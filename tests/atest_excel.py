@@ -2,7 +2,6 @@
 """
 import re
 import logging
-import unittest
 import string
 import random
 from shutil import copyfile
@@ -12,12 +11,13 @@ import sys
 aries_parent = os.path.join(os.path.dirname(__file__), "..", "..")
 if aries_parent not in sys.path:
     sys.path.append(aries_parent)
+from Aries.test import AriesTest
 from Aries.excel import ExcelFile
 
 logger = logging.getLogger(__name__)
 
 
-class TestExcelFile(unittest.TestCase):
+class TestExcelFile(AriesTest):
     __test_file = os.path.join(os.path.dirname(__file__), "fixtures", "excel_test_file.xlsx")
     test_file = __test_file.replace("excel_test_file.xlsx", "excel_test.xlsx")
 

@@ -2,19 +2,19 @@
 """
 import datetime
 import logging
-import unittest
 
 import os
 import sys
 aries_parent = os.path.join(os.path.dirname(__file__), "..", "..")
 if aries_parent not in sys.path:
     sys.path.append(aries_parent)
+from Aries.test import AriesTest
 from Aries.storage import LocalFolder, LocalFile
 
 logger = logging.getLogger(__name__)
 
 
-class TestLocalStorage(unittest.TestCase):
+class TestLocalStorage(AriesTest):
 
     test_folder_path = os.path.join(os.path.dirname(__file__), "fixtures", "test_folder")
 

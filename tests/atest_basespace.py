@@ -1,7 +1,6 @@
 """Contains tests for the basespace module.
 """
 import logging
-import unittest
 import os
 import sys
 import base64
@@ -11,6 +10,7 @@ import random
 aries_parent = os.path.join(os.path.dirname(__file__), "..", "..")
 if aries_parent not in sys.path:
     sys.path.append(aries_parent)
+from Aries.test import AriesTest
 from Aries.basespace import basespace, bs_project, bs_app_session, bs_run, bs_sample
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ def setUpModule():
     random.seed()
 
 
-class TestBaseSpace(unittest.TestCase):
+class TestBaseSpace(AriesTest):
     def setUp(self):
         # Skip test if "BASESPACE_CREDENTIALS" is not found.
         if not os.environ.get("BASESPACE_CREDENTIALS"):

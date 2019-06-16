@@ -2,19 +2,19 @@
 """
 import datetime
 import logging
-import unittest
 
 import os
 import sys
 aries_parent = os.path.join(os.path.dirname(__file__), "..", "..")
 if aries_parent not in sys.path:
     sys.path.append(aries_parent)
+from Aries.test import AriesTest
 from Aries.strings import AString, FileName
 
 logger = logging.getLogger(__name__)
 
 
-class TestAString(unittest.TestCase):
+class TestAString(AriesTest):
     def test_str_methods(self):
         """Tests calling methods of python str with AString
         """
@@ -67,7 +67,6 @@ class TestAString(unittest.TestCase):
             str(today.month).zfill(2),
             str(today.day).zfill(2)
         ))
-        # Append random
 
     def test_prepend_strings(self):
         """Tests prepending strings
@@ -117,7 +116,7 @@ class TestAString(unittest.TestCase):
         self.assertEqual(AString(""), AString(None))
 
 
-class TestFileName(unittest.TestCase):
+class TestFileName(AriesTest):
 
     @staticmethod
     def run_test(assert_method):

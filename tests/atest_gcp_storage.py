@@ -37,6 +37,7 @@ class TestGCStorage(unittest.TestCase):
     """
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         GSFolder("gs://aries_test/copy_test/").delete()
 
     def setUp(self):

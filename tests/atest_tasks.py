@@ -1,6 +1,5 @@
 """Contains tests for the tasks module.
 """
-import unittest
 import time
 import logging
 
@@ -9,12 +8,13 @@ import sys
 aries_parent = os.path.join(os.path.dirname(__file__), "..", "..")
 if aries_parent not in sys.path:
     sys.path.append(aries_parent)
+from Aries.test import AriesTest
 from Aries import tasks
 
 logger = logging.getLogger(__name__)
 
 
-class TestShellCommand(unittest.TestCase):
+class TestShellCommand(AriesTest):
     def test_run_shell_command(self):
         cmd = tasks.ShellCommand("ls -a %s" % os.path.dirname(__file__))
         cmd.run()
@@ -22,7 +22,7 @@ class TestShellCommand(unittest.TestCase):
         self.assertIn(os.path.basename(__file__), cmd.std_out)
 
 
-class TestRunRetry(unittest.TestCase):
+class TestRunRetry(AriesTest):
     tries = 0
 
     @staticmethod
@@ -52,7 +52,7 @@ class TestRunRetry(unittest.TestCase):
             task = tasks.FunctionTask(self.func_to_retry)
             task.run_and_retry(2)
 
-class TestFunctionTask(unittest.TestCase):
+class TestFunctionTask(AriesTest):
 
     @staticmethod
     def func_with_delay(name, delay):
