@@ -31,6 +31,17 @@ class AriesTest(TestCase):
     times = OrderedDict()
 
     @staticmethod
+    def enable_logging():
+        stream_handler = logging.StreamHandler(sys.stdout)
+        stream_handler.setFormatter(
+            logging.Formatter(ARIES_LOGGING_FORMAT, ARIES_LOGGING_DATE_FORMAT)
+        )
+        logger = logging.getLogger()
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(stream_handler)
+        logger.debug("Debug logging is enabled.")
+
+    @staticmethod
     def __decorate_test_case(func):
         """A decorator for test case.
         1. Adds additional logging handler to test case so that logging will be streamed to stdout.
