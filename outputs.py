@@ -8,6 +8,37 @@ import traceback
 import uuid
 
 
+class StreamHandler(logging.StreamHandler):
+    """
+
+    """
+    log_format = '%(asctime)s | %(levelname)-8s | %(lineno)4d@%(module)-15s | %(message)s'
+    time_format = '%Y-%m-%d %H:%M:%S'
+
+    def __init__(self, stream=sys.stdout):
+        super().__init__(stream)
+        self.setFormatter(
+            logging.Formatter(self.log_format, self.time_format)
+        )
+
+    @staticmethod
+    def enable_logging(logger_name, level=logging.DEBUG):
+        """Sets logging level to debug and add a stream_handler to format the logging outputs.
+
+        Args:
+            logger_name (str): logger name.
+            level:
+
+        Returns: the logger.
+        """
+        handler = StreamHandler()
+        logger = logging.getLogger(logger_name)
+        logger.setLevel(level)
+        logger.addHandler(handler)
+        logger.debug("Debug Logging Enabled.")
+        return logger
+
+
 class ThreadLogHandler(logging.NullHandler):
     """Captures the logs of a particular thread.
 

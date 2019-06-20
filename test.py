@@ -1,14 +1,10 @@
 """Contains AriesTest class, a customized class to be used in place of unittest.TestCase.
 """
 import logging
-import sys
 import time
 from collections import OrderedDict
 from unittest import TestCase
-
-
-ARIES_LOGGING_FORMAT = '%(asctime)s | %(levelname)-8s | %(lineno)4d@%(module)-15s | %(message)s'
-ARIES_LOGGING_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
+from .outputs import StreamHandler
 
 
 class AriesTest(TestCase):
@@ -37,34 +33,6 @@ class AriesTest(TestCase):
     # Override logger_names in subclasses to avoid enabling debug logging for root logger.
     logger_names = [""]
 
-    @staticmethod
-    def new_stream_handler():
-        """Initialize a new stream handler.
-        
-        Returns: A StreamHandler.
-        """
-        stream_handler = logging.StreamHandler(sys.stdout)
-        stream_handler.setFormatter(
-            logging.Formatter(ARIES_LOGGING_FORMAT, ARIES_LOGGING_DATE_FORMAT)
-        )
-        return stream_handler
-
-    @staticmethod
-    def enable_debug_logging(name):
-        """Sets logging level to debug and add a stream_handler to format the logging outputs.
-        
-        Args:
-            name (str): logger name.
-        
-        Returns: the logger.
-        """
-        stream_handler = AriesTest.new_stream_handler()
-        logger = logging.getLogger(name)
-        logger.setLevel(logging.DEBUG)
-        logger.addHandler(stream_handler)
-        logger.debug("Debug Logging Enabled.")
-        return logger
-
     @classmethod
     def __decorate_test_case(cls, func):
         """A decorator for test case.
@@ -78,7 +46,7 @@ class AriesTest(TestCase):
 
         """
         def test_case_with_logging(*args, **kwargs):
-            stream_handler = AriesTest.new_stream_handler()
+            stream_handler = StreamHandler()
             loggers = dict()
             for name in cls.logger_names:
                 logger = logging.getLogger(name)
