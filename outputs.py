@@ -9,27 +9,37 @@ import uuid
 
 
 class StreamHandler(logging.StreamHandler):
-    """
+    """Stream Handler with customized formats to output module name and line number.
 
     """
     log_format = '%(asctime)s | %(levelname)-8s | %(lineno)4d@%(module)-15s | %(message)s'
     time_format = '%Y-%m-%d %H:%M:%S'
 
     def __init__(self, stream=sys.stdout):
+        """Initialize the handler to send logging to standard output.
+
+        Args:
+            stream: The stream to which the outputs are sent.
+
+        """
         super().__init__(stream)
         self.setFormatter(
             logging.Formatter(self.log_format, self.time_format)
         )
 
     @staticmethod
-    def enable_logging(logger_name, level=logging.DEBUG):
+    def enable_logging(logger_name="", level=logging.DEBUG):
         """Sets logging level to debug and add a stream_handler to format the logging outputs.
 
+        This method is intended to be used in a script or a test.
+        For example, StreamHandler.enable_logging() will add stream handler to root logger.
+
         Args:
-            logger_name (str): logger name.
-            level:
+            logger_name (str): logger name. Default to root logger.
+            level: logging level.
 
         Returns: the logger.
+
         """
         handler = StreamHandler()
         logger = logging.getLogger(logger_name)
