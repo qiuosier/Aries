@@ -102,7 +102,7 @@ class PlotlyFigure:
 
     # The following methods support "Method Chaining"
 
-    def candle_stick(self, df, name=None):
+    def candle_stick(self, df, name=None, **kwargs):
         if not self.title_x:
             self.title_x = "Time"
         if not self.title_y:
@@ -114,7 +114,8 @@ class PlotlyFigure:
             high=df.high,
             low=df.low,
             close=df.close,
-            name=name
+            name=name,
+            **kwargs
         )
         self.data.append(trace)
 
@@ -169,3 +170,12 @@ class PlotlyFigure:
             self.data.append(trace)
         return self
 
+    def bar(self, x, y, name=None, **kwargs):
+        trace = go.Bar(x=x, y=y, name=name, **kwargs)
+        self.data.append(trace)
+        return self
+
+    def add_trace(self, trace_type, **kwargs):
+        trace = getattr(go, trace_type)(**kwargs)
+        self.data.append(trace)
+        return self
