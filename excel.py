@@ -205,11 +205,27 @@ class ExcelFile:
 
         """
         table = []
+        empty_count = 0
 
         for index, row in enumerate(self.worksheet.rows):
             if index == 0 and skip_first_row:
                 continue
-            values = [item.value for item in row]
+            values = []
+            empty_row = True
+            for item in row:
+                values.append(item.value)
+                if item.value:
+                    empty_row = False
+            if not empty_row:
+                empty_count = 0
+            else:
+                empty_count += 1
+                if empty_count > 200:
+                    logger.error(
+                        "More than consecutive 200 empty line found in the excel file. "
+                        "Data might be truncated."
+                    )
+                    break
             table.append(values)
         return table
 
