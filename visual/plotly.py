@@ -30,12 +30,13 @@ class PlotlyFigure:
 
     __notebook_mode = False
 
-    def __init__(self, plotly_traces=None, plotly_layout=None):
+    def __init__(self, plotly_traces=None, plotly_layout=None, **kwargs):
         if plotly_traces:
             self.data = plotly_traces
         else:
             self.data = []
         self.layout = plotly_layout
+        self.layout_args = kwargs
 
         self.title = ""
         self.title_x = ""
@@ -71,11 +72,14 @@ class PlotlyFigure:
                     rangeslider=dict(
                         visible=False
                     ),
-                    title=self.title_x
+                    title=self.title_x,
+                    automargin=True
                 ),
                 yaxis=dict(
-                    title=self.title_y
-                )
+                    title=self.title_y,
+                    automargin=True
+                ),
+                **self.layout_args
             )
         return go.Figure(data=self.data, layout=self.layout)
 

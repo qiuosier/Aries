@@ -8,6 +8,7 @@ from .strings import FileName
 
 logger = logging.getLogger(__name__)
 
+
 class File:
     """Provides shortcuts for handling files.
     """
