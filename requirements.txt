@@ -1,4 +1,4 @@
 openpyxl==2.4.8
-gcloud==0.18.3
+google-cloud-storage>=1.16
 plotly~=3.5
 requests
