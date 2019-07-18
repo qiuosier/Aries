@@ -14,14 +14,14 @@ See Also: https://googleapis.github.io/google-cloud-python/latest/core/auth.html
 
 """
 import os
-import io
+import binascii
 import logging
-from gcloud import storage
-from gcloud.exceptions import InternalServerError
+import zlib
+from google.cloud import storage
 logger = logging.getLogger(__name__)
 # try:
 from ..storage import StorageObject, StorageFolder, StorageFile
-from ..tasks import FunctionTask
+
 # except (SystemError, ValueError):
 #     import sys
 #     from os.path import dirname
@@ -214,10 +214,26 @@ class GSFile(GSObject, StorageFile):
         """
         # super() will call the __init__() of StorageObject, StorageFolder and GSObject
         super(GSFile, self).__init__(gs_path)
+        self.__blob = None
+        self.__offset = 0
+        self.__gz = None
+        self.__decompress = zlib.decompressobj(32 + zlib.MAX_WBITS)
+        self.__buffer = ""
 
     @property
     def blob(self):
-        """Gets the Google Cloud Storage Blob.
+        """Gets or initialize a Google Cloud Storage Blob.
+
+        Returns: A Google Cloud Storage Blob object.
+            Use blob.exists() to determine whether or not the blob exists.
+
+        """
+        if self.__blob is None:
+            self.__blob = self.__get_or_init_blob()
+        return self.__blob
+
+    def __get_or_init_blob(self):
+        """Gets or initialize a Google Cloud Storage Blob.
 
         Returns: A Google Cloud Storage Blob object.
             Use blob.exists() to determine whether or not the blob exists.
@@ -232,19 +248,34 @@ class GSFile(GSObject, StorageFile):
             file_blob = self.bucket.blob(self.prefix)
         return file_blob
 
-    def read(self):
+    def read(self, size=None):
         """Reads the file from the Google Cloud bucket to memory
 
-        Returns: Bytes containing the entire contents of the file.
+        Returns: Bytes containing the contents of the file.
         """
-        my_buffer = io.BytesIO()
         if self.blob.exists():
-            self.blob.download_to_file(my_buffer)
-            data = my_buffer.getvalue()
-            my_buffer.close()
-            return data
+            blob_size = self.blob.size
+            if not size:
+                return self.blob.download_as_string()
+            else:
+                end = self.__offset + size - 1
+                if end >= blob_size - 1:
+                    end = None
+                print("Reading from %s to %s" % (self.__offset, end))
+                b = self.blob.download_as_string(start=self.__offset, end=end)
+                if end:
+                    self.__offset = end + 1
+                else:
+                    self.__offset = blob_size
+                return b
         else:
             return None
+
+    def seek(self, offset):
+        self.__offset = offset
+
+    def tell(self):
+        return self.__offset
 
     def create(self):
         """Creates an empty file, if the file does not exist.
@@ -264,3 +295,15 @@ class GSFile(GSObject, StorageFile):
         with open(file_path, 'rb') as f:
             self.blob.upload_from_file(f)
         return True
+
+    def is_gz(self):
+        if self.__gz is None:
+            if self.blob.size < 2:
+                return False
+            offset = self.tell()
+            self.seek(0)
+            b = binascii.hexlify(self.read(2))
+            logger.debug("File begins with: %s" % b)
+            self.seek(offset)
+            self.__gz = b == b'1f8b'
+        return self.__gz
