@@ -5,6 +5,7 @@ import re
 import logging
 from tempfile import TemporaryFile
 from openpyxl import load_workbook, Workbook
+from openpyxl.utils import get_column_letter
 
 
 logger = logging.getLogger(__name__)
@@ -239,3 +240,21 @@ class ExcelFile:
     def append_row(self, value_list):
         row_number = self.worksheet.max_row + 1
         return self.write_row(value_list, row_number)
+
+    def auto_column_width(self, min_width=10, max_width=100):
+        column_widths = []
+        for row in self.worksheet.rows:
+            for i, cell in enumerate(row):
+                cell_size = len(str(cell.value))
+                if len(column_widths) > i:
+                    if cell_size > column_widths[i]:
+                        column_widths[i] = cell_size
+                else:
+                    column_widths.append(cell_size)
+
+        for i, column_width in enumerate(column_widths):
+            if column_width > max_width:
+                column_width = max_width
+            if column_width < min_width:
+                column_width = min_width
+            self.worksheet.column_dimensions[get_column_letter(i + 1)].width = column_width
