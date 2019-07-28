@@ -1,21 +1,79 @@
 """Contains classes for handling outputs.
 """
+import ast
 import io
+import json
 import logging
+import os
+import pprint
 import sys
 import threading
 import traceback
 import uuid
+from .storage import LocalFolder
+
+
+class PackageLogFilter(logging.Filter):
+    """Logging filter to keep logs generated from packages within a certain location
+    
+    """
+    def __init__(self, folder_path):
+        """Initialize the filter with a folder path containing the packages.
+        This filter keeps only the logs from the packages within the folder.
+        
+        Args:
+            folder_path (str): Full path of a folder
+
+        """
+        self.project_packages = []
+        project_folder = LocalFolder(folder_path)
+        sub_folders = project_folder.folders
+        for sub_folder in sub_folders:
+            if "__init__.py" in sub_folder.file_names:
+                self.project_packages.append(sub_folder.name)
+        return super().__init__()
+
+    def filter(self, record):
+        logger_name = record.name.split(".", 1)[0]
+        if logger_name in self.project_packages:
+            return True
+        return False
+
+
+class MessageFormatter(logging.Formatter):
+    def __init__(self, fmt=None, datefmt=None, style="%", encoding='utf-8'):
+        self.encoding = encoding
+        if fmt is None:
+            fmt = '%(asctime)s | %(levelname)-8s | %(lineno)4d@%(module)-15s | %(message)s'
+        if datefmt is None:
+            datefmt = '%Y-%m-%d %H:%M:%S'
+        return super().__init__(fmt, datefmt, style)
+
+    def format(self, record):
+        message = record.msg
+        if self.encoding and isinstance(message, bytes):
+            message = message.decode(self.encoding)
+        try:
+            if isinstance(message, str):
+                message = ast.literal_eval(message)
+            if isinstance(message, dict) or isinstance(message, list):
+                message = json.dumps(message, sort_keys=True, indent=4)
+        except Exception:
+            message = pprint.pformat(message)
+        if "\n" in message:
+            record.msg = "\n" + message
+        else:
+            record.msg = message
+        message = super(MessageFormatter, self).format(record)
+        return message
 
 
 class StreamHandler(logging.StreamHandler):
     """Stream Handler with customized formats to output module name and line number.
 
     """
-    log_format = '%(asctime)s | %(levelname)-8s | %(lineno)4d@%(module)-15s | %(message)s'
-    time_format = '%Y-%m-%d %H:%M:%S'
 
-    def __init__(self, stream=sys.stdout):
+    def __init__(self, stream=sys.stdout, formatter=None):
         """Initialize the handler to send logging to standard output.
 
         Args:
@@ -23,9 +81,11 @@ class StreamHandler(logging.StreamHandler):
 
         """
         super().__init__(stream)
-        self.setFormatter(
-            logging.Formatter(self.log_format, self.time_format)
-        )
+        if formatter:
+            self.setFormatter(formatter)
+        else:
+            self.setFormatter(MessageFormatter())
+
 
     @staticmethod
     def enable_logging(logger_name="", level=logging.DEBUG):
@@ -72,14 +132,14 @@ class ThreadLogHandler(logging.NullHandler):
         '%Y-%m-%d %H:%M:%S'
     )
 
-    def __init__(self, thread_id):
+    def __init__(self, thread_id, formatter=None):
         """Initialize the log handler for a particular thread.
 
         Args:
             thread_id: The ID of the thread.
         """
         super(ThreadLogHandler, self).__init__()
-        self.setFormatter(self.log_formatter)
+        self.setFormatter(MessageFormatter())
         self.thread_id = thread_id
         self.logs = []
 
@@ -182,6 +242,7 @@ class CaptureOutput:
         self.std_err = ""
 
         self.log_out = ""
+        self.logs = []
         self.exc_out = ""
         self.returns = None
 
@@ -246,6 +307,7 @@ class CaptureOutput:
         root_logger = logging.getLogger()
         root_logger.removeHandler(self.log_handler)
         self.log_out = "\n".join(self.log_handler.logs)
+        self.logs = self.log_handler.logs
 
         # Update listeners and re-config output writer.
         self.std_out = CaptureOutput.out_listeners.pop(self.uuid).getvalue()
