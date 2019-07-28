@@ -34,7 +34,7 @@ class PackageLogFilter(logging.Filter):
             return True
         return False
 
-    @static_method
+    @staticmethod
     def get_packages(folder_path):
         project_packages = []
         project_folder = LocalFolder(folder_path)
