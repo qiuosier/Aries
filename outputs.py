@@ -25,12 +25,7 @@ class PackageLogFilter(logging.Filter):
             folder_path (str): Full path of a folder
 
         """
-        self.project_packages = []
-        project_folder = LocalFolder(folder_path)
-        sub_folders = project_folder.folders
-        for sub_folder in sub_folders:
-            if "__init__.py" in sub_folder.file_names:
-                self.project_packages.append(sub_folder.name)
+        self.project_packages = self.get_packages(folder_path)
         return super().__init__()
 
     def filter(self, record):
@@ -38,6 +33,16 @@ class PackageLogFilter(logging.Filter):
         if logger_name in self.project_packages:
             return True
         return False
+
+    @static_method
+    def get_packages(folder_path):
+        project_packages = []
+        project_folder = LocalFolder(folder_path)
+        sub_folders = project_folder.folders
+        for sub_folder in sub_folders:
+            if "__init__.py" in sub_folder.file_names:
+                project_packages.append(sub_folder.name)
+        return project_packages
 
 
 class MessageFormatter(logging.Formatter):

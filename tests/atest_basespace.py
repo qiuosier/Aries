@@ -12,6 +12,7 @@ if aries_parent not in sys.path:
     sys.path.append(aries_parent)
 from Aries.test import AriesTest
 from Aries.basespace import basespace, bs_project, bs_app_session, bs_run, bs_sample
+from Aries.outputs import PackageLogFilter
 logger = logging.getLogger(__name__)
 
 
@@ -24,6 +25,10 @@ def setUpModule():
 
 
 class TestBaseSpace(AriesTest):
+    logger_names = PackageLogFilter.get_packages(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    )
+
     def setUp(self):
         # Skip test if "BASESPACE_CREDENTIALS" is not found.
         if not os.environ.get("BASESPACE_CREDENTIALS"):
