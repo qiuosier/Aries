@@ -14,12 +14,16 @@ class WebAPI:
     """
     def __init__(self, base_url="", **kwargs):
         self.kwargs = kwargs
+        self.headers = {}
 
-        base_url = base_url.lower()
+        base_url = base_url
         if base_url.startswith("http://") or base_url.startswith("https://"):
             self.base_url = base_url
         else:
             raise ValueError("Base URL should start with http:// or https://")
+
+    def add_header(self, **kwargs):
+        self.headers.update(kwargs)
 
     def get(self, url, **kwargs):
         """Makes a get request.
@@ -32,7 +36,7 @@ class WebAPI:
         Returns: A Response Object
         """
         url = self.build_url(url, **kwargs)
-        response = requests.get(url)
+        response = requests.get(url, headers=self.headers)
         return response
 
     def build_url(self, url, **kwargs):
@@ -47,7 +51,7 @@ class WebAPI:
         Returns:
             str: The absolute URL/Endpoint of the API with query string.
         """
-        url = url.lower()
+        url = url
         if not (url.startswith("http://") or url.startswith("https://")):
             url = "%s%s" % (self.base_url, url)
         query_dict = self.kwargs.copy()
