@@ -125,16 +125,17 @@ class PlotlyFigure:
 
         return self
 
-    def line(self, x, y, name=None):
+    def line(self, x, y, name=None, **kwargs):
         trace = go.Scatter(
             x=x,
             y=y,
-            name=name
+            name=name,
+            **kwargs
         )
         self.data.append(trace)
         return self
 
-    def lines(self, x, *args):
+    def lines(self, x, *args, **kwargs):
         """
 
         Args:
@@ -169,7 +170,8 @@ class PlotlyFigure:
             trace = go.Scatter(
                 x=x,
                 y=y_list[i],
-                name=y_name[i] if i < len(y_name) else None
+                name=y_name[i] if i < len(y_name) else None,
+                **kwargs
             )
             self.data.append(trace)
         return self
