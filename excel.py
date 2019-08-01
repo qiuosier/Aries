@@ -230,16 +230,18 @@ class ExcelFile:
             table.append(values)
         return table
 
-    def write_row(self, value_list, row_number):
+    def write_row(self, value_list, row_number, **kwargs):
         cells = []
         for col, val in enumerate(value_list, start=1):
             cell = self.worksheet.cell(row=row_number, column=col, value=val)
+            for attr, value in kwargs.items():
+                setattr(cell, attr, value)
             cells.append(cell)
         return cells
 
-    def append_row(self, value_list):
+    def append_row(self, value_list, **kwargs):
         row_number = self.worksheet.max_row + 1
-        return self.write_row(value_list, row_number)
+        return self.write_row(value_list, row_number, **kwargs)
 
     def auto_column_width(self, min_width=10, max_width=100):
         column_widths = []
@@ -257,4 +259,4 @@ class ExcelFile:
                 column_width = max_width
             if column_width < min_width:
                 column_width = min_width
-            self.worksheet.column_dimensions[get_column_letter(i + 1)].width = column_width
+            self.worksheet.column_dimensions[get_column_letter(i + 1)].width = column_width * 1.1
