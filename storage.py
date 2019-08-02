@@ -166,12 +166,12 @@ class LocalFolder(StorageFolder):
         return [LocalFolder(f) for f in self.folder_paths]
 
     @property
+    def object_paths(self):
+        return [os.path.join(self.path, f) for f in os.listdir(self.path)]
+
+    @property
     def file_paths(self):
-        return [
-            os.path.join(self.path, f)
-            for f in os.listdir(self.path)
-            if os.path.isfile(os.path.join(self.path, f))
-        ]
+        return filter(lambda x: os.path.isfile(x), self.object_paths)
 
     @property
     def file_names(self):
@@ -179,11 +179,7 @@ class LocalFolder(StorageFolder):
 
     @property
     def folder_paths(self):
-        return [
-            os.path.join(self.path, f)
-            for f in os.listdir(self.path)
-            if os.path.isdir(os.path.join(self.path, f))
-        ]
+        return filter(lambda x: os.path.isdir(x), self.object_paths)
 
     @property
     def folder_names(self):
