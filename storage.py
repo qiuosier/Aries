@@ -171,7 +171,7 @@ class LocalFolder(StorageFolder):
 
     @property
     def file_paths(self):
-        return filter(lambda x: os.path.isfile(x), self.object_paths)
+        return list(filter(lambda x: os.path.isfile(x), self.object_paths))
 
     @property
     def file_names(self):
@@ -179,7 +179,7 @@ class LocalFolder(StorageFolder):
 
     @property
     def folder_paths(self):
-        return filter(lambda x: os.path.isdir(x), self.object_paths)
+        return list(filter(lambda x: os.path.isdir(x), self.object_paths))
 
     @property
     def folder_names(self):
