@@ -248,9 +248,8 @@ class ExcelFile:
         for row in self.worksheet.rows:
             for i, cell in enumerate(row):
                 cell_size = len(str(cell.value))
-                if len(column_widths) > i:
-                    if cell_size > column_widths[i]:
-                        column_widths[i] = cell_size
+                if len(column_widths) > i and cell_size > column_widths[i]:
+                    column_widths[i] = cell_size
                 else:
                     column_widths.append(cell_size)
 
