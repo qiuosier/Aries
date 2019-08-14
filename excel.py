@@ -244,18 +244,18 @@ class ExcelFile:
         return self.write_row(value_list, row_number, **kwargs)
 
     def auto_column_width(self, min_width=10, max_width=100):
-        column_widths = []
+        column_widths = {}
         for row in self.worksheet.rows:
-            for i, cell in enumerate(row):
+            for i, cell in enumerate(row, start=1):
                 cell_size = len(str(cell.value))
-                if len(column_widths) > i and cell_size > column_widths[i]:
+                if not cell_size:
+                    continue
+                if cell_size > column_widths.get(i, 0):
                     column_widths[i] = cell_size
-                else:
-                    column_widths.append(cell_size)
 
-        for i, column_width in enumerate(column_widths):
+        for col, column_width in column_widths.items():
             if column_width > max_width:
                 column_width = max_width
             if column_width < min_width:
                 column_width = min_width
-            self.worksheet.column_dimensions[get_column_letter(i + 1)].width = column_width * 1.1
+            self.worksheet.column_dimensions[get_column_letter(col)].width = column_width * 1.1
