@@ -165,6 +165,11 @@ class GSObject(StorageObject):
 
         logger.debug("%d blobs copied" % len(source_files))
 
+    def move(self, to):
+        """Moves the objects to another location."""
+        self.copy(to)
+        self.delete()
+
 
 class GSFolder(GSObject, StorageFolder):
     """Represents a Google Cloud Storage Folder
