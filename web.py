@@ -1,5 +1,6 @@
 import requests
 
+
 class WebAPI:
     """Provides method to access web API.
 
@@ -38,6 +39,9 @@ class WebAPI:
         url = self.build_url(url, **kwargs)
         response = requests.get(url, headers=self.headers)
         return response
+
+    def get_json(self, url, **kwargs):
+        return self.get(url, **kwargs).json()
 
     def build_url(self, url, **kwargs):
         """Builds the URL/Endpoint for a request.
