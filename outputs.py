@@ -26,7 +26,7 @@ class PackageLogFilter(logging.Filter):
 
         """
         self.project_packages = self.get_packages(folder_path)
-        return super().__init__()
+        super().__init__()
 
     def filter(self, record):
         logger_name = record.name.split(".", 1)[0]
@@ -52,7 +52,7 @@ class MessageFormatter(logging.Formatter):
             fmt = '%(asctime)s | %(levelname)-8s | %(lineno)4d@%(module)-15s | %(message)s'
         if datefmt is None:
             datefmt = '%Y-%m-%d %H:%M:%S'
-        return super().__init__(fmt, datefmt, style)
+        super().__init__(fmt, datefmt, style)
 
     def format(self, record):
         message = record.msg
@@ -90,7 +90,6 @@ class StreamHandler(logging.StreamHandler):
             self.setFormatter(formatter)
         else:
             self.setFormatter(MessageFormatter())
-
 
     @staticmethod
     def enable_logging(logger_name="", level=logging.DEBUG):
