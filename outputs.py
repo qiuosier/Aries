@@ -46,12 +46,15 @@ class PackageLogFilter(logging.Filter):
 
 
 class MessageFormatter(logging.Formatter):
+    message_format = '%(asctime)s | %(levelname)-8s | %(lineno)4d@%(module)-15s | %(message)s'
+    date_format = '%Y-%m-%d %H:%M:%S'
+    
     def __init__(self, fmt=None, datefmt=None, style="%", encoding='utf-8'):
         self.encoding = encoding
         if fmt is None:
-            fmt = '%(asctime)s | %(levelname)-8s | %(lineno)4d@%(module)-15s | %(message)s'
+            fmt = self.message_format
         if datefmt is None:
-            datefmt = '%Y-%m-%d %H:%M:%S'
+            datefmt = self.date_format
         super().__init__(fmt, datefmt, style)
 
     def format(self, record):
