@@ -1,4 +1,6 @@
 import requests
+import logging
+logger = logging.getLogger(__name__)
 
 
 class WebAPI:
@@ -37,11 +39,29 @@ class WebAPI:
         Returns: A Response Object
         """
         url = self.build_url(url, **kwargs)
+        logger.debug("Requesting data from %s" % url)
         response = requests.get(url, headers=self.headers)
+        logger.debug("Response code: %s" % response.status_code)
         return response
 
     def get_json(self, url, **kwargs):
         return self.get(url, **kwargs).json()
+
+    def post(self, url, data, **kwargs):
+        url = self.build_url(url, **kwargs)
+        logger.debug("Posting data to %s" % url)
+        response = requests.post(url, json=data, headers=self.headers)
+        logger.debug("Response code: %s" % response.status_code)
+        return response
+
+    def post_json(self, url, data, **kwargs):
+        return self.post(url, data, **kwargs).json()
+
+    def delete(self, url, **kwargs):
+        url = self.build_url(url, **kwargs)
+        logger.debug("Deleting data from %s" % url)
+        response = requests.delete(url, headers=self.headers)
+        return response
 
     def build_url(self, url, **kwargs):
         """Builds the URL/Endpoint for a request.
