@@ -4,6 +4,8 @@ import random
 import datetime
 import base64
 import os
+import json
+import copy
 
 
 class AString(str):
@@ -273,3 +275,29 @@ class Base64String(str):
 
     def decode_to_string(self, encoding='utf-8', errors="strict"):
         return base64.b64decode(self.encode(encoding, errors)).decode(encoding, errors)
+
+
+def stringify(obj):
+    """Convert object to string.
+    If the object is a dictionary or list,
+    the objects in the dictionary or list will be converted to strings, recursively.
+
+    Returns: If the input is dictionary or list, the return value will also be a list or dictionary.
+
+    """
+    if isinstance(obj, dict):
+        obj = copy.deepcopy(obj)
+        for key in obj.keys():
+            obj[key] = stringify(obj[key])
+        return obj
+    elif isinstance(obj, list):
+        str_list = []
+        for item in obj:
+            str_list.append(stringify(item))
+        return str_list
+    else:
+        try:
+            json.dumps(obj)
+            return obj
+        except TypeError:
+            return str(obj)
