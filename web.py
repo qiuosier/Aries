@@ -101,3 +101,17 @@ class WebAPI:
                 url += "?"
             url += "&%s=%s" % (key, val)
         return url
+
+
+def download(url, file_path):
+    response = requests.get(url, stream=True)
+    if response.status_code != 200:
+        return response.status_code
+    logger.debug("Response code: %s" % response.status_code)
+    logger.debug("Downloading data from %s" % url)
+    with open(file_path, 'wb') as f:
+        for chunk in response.iter_content(chunk_size=1024):
+            if chunk:
+                f.write(chunk)
+    logger.debug("Data saved to %s" % file_path)
+    return response.status_code
