@@ -1,5 +1,7 @@
 import requests
 import logging
+import contextlib
+from urllib import request
 logger = logging.getLogger(__name__)
 
 
@@ -102,16 +104,38 @@ class WebAPI:
             url += "&%s=%s" % (key, val)
         return url
 
+# # Use requests package to download via HTTP
+# def download(url, file_path):
+#     response = requests.get(url, stream=True)
+#     if response.status_code != 200:
+#         return response.status_code
+#     logger.debug("Response code: %s" % response.status_code)
+#     logger.debug("Downloading data from %s" % url)
+#     with open(file_path, 'wb') as f:
+#         for chunk in response.iter_content(chunk_size=1024):
+#             if chunk:
+#                 f.write(chunk)
+#     logger.debug("Data saved to %s" % file_path)
+#     return response.status_code
+
 
 def download(url, file_path):
-    response = requests.get(url, stream=True)
-    if response.status_code != 200:
-        return response.status_code
-    logger.debug("Response code: %s" % response.status_code)
-    logger.debug("Downloading data from %s" % url)
-    with open(file_path, 'wb') as f:
-        for chunk in response.iter_content(chunk_size=1024):
-            if chunk:
-                f.write(chunk)
-    logger.debug("Data saved to %s" % file_path)
-    return response.status_code
+    """Downloads a file from a URL response.
+
+    Args:
+        url (str): The URL of the file to be downloaded.
+        file_path (str): The path to store the file.
+
+    Returns: None
+
+    """
+    url_response = request.urlopen(url)
+    with open(file_path, 'wb') as out_file:
+        with contextlib.closing(url_response) as fp:
+            logger.debug("Downloading data from %s" % url)
+            block_size = 1 << 16
+            while True:
+                block = fp.read(block_size)
+                if not block:
+                    break
+                out_file.write(block)
