@@ -68,7 +68,7 @@ class MessageFormatter(logging.Formatter):
                 message = json.dumps(message, sort_keys=True, indent=4)
         except Exception:
             message = pprint.pformat(message)
-        if "\n" in message:
+        if isinstance(message, str) and "\n" in message:
             record.msg = "\n" + message
         else:
             record.msg = message
