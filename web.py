@@ -1,5 +1,7 @@
 import requests
 import logging
+from .storage import StorageObject
+from bs4 import BeautifulSoup
 import contextlib
 from urllib import request
 logger = logging.getLogger(__name__)
@@ -103,6 +105,60 @@ class WebAPI:
                 url += "?"
             url += "&%s=%s" % (key, val)
         return url
+
+
+class HTML:
+    def __init__(self, uri):
+        self.uri = uri
+
+    def read(self):
+        obj = StorageObject(self.uri)
+        if obj.scheme in ["http", "https"]:
+            r = requests.get(self.uri)
+            content = r.content
+        else:
+            with open(self.uri, 'r') as f:
+                content = f.read()
+        return content
+
+    @staticmethod
+    def __tags_to_list(parent, tag):
+        elements = parent.find_all(tag)
+        if elements:
+            return [element.renderContents().decode() for element in elements]
+        else:
+            return None
+
+    @staticmethod
+    def __append_data(to_list, parent, tag):
+        data = HTML.__tags_to_list(parent, tag)
+        if data:
+            to_list.append(data)
+
+    def get_tables(self):
+        """Gets the data of of HTML tables in the web page as a list of dictionary.
+        
+        Returns:
+            list: A list of dictionary, each contain data from a table in the web page.
+            Each dictionary has two keys: "headers" and "data".
+            Both "headers" and "data" are 2D lists.
+        """
+        content = self.read()
+        soup = BeautifulSoup(content, 'html.parser')
+        
+        data_tables = []
+        html_tables = soup.html.find_all('table')
+        for html_table in html_tables:
+            table = {
+                "headers": [],
+                "data": []
+            }
+            rows = html_table.find_all("tr")
+            for row in rows:
+                self.__append_data(table["headers"], row, "th")
+                self.__append_data(table["data"], row, "td")
+            data_tables.append(table)
+        return data_tables
 
 # # Use requests package to download via HTTP
 # def download(url, file_path):
