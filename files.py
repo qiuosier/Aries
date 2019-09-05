@@ -61,7 +61,6 @@ class File:
                         max_size = size
                 self.__sign_size[offset] = max_size
         return self.__signatures
-    
 
     def __init__(self, file_path):
         self.file_path = file_path
@@ -81,6 +80,30 @@ class File:
                 if hex_value.startswith(sign):
                     return signatures.get(offset).get(sign)
         return None
+
+    def unzip(self, to_path=None):
+        """Un-zips a .gz file within the same directory.
+
+        Args:
+            to_path (str): the output file path to store the unzipped file.
+
+        Returns:
+            The output filename with full path.
+        """
+        if to_path is None:
+            output_file = self.file_path[:-3]
+        else:
+            output_file = to_path
+        with gzip.open(self.file_path, 'rb') as gzip_file:
+            with open(output_file, "wb") as unzipped_file:
+                logger.debug("Unzipping %s..." % self.file_path)
+                block_size = 1 << 20
+                while True:
+                    block = gzip_file.read(block_size)
+                    if not block:
+                        break
+                    unzipped_file.write(block)
+        return output_file
 
 
 class Markdown:
