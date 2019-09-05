@@ -1,3 +1,4 @@
+import binascii
 import gzip
 import os
 import json
@@ -12,6 +13,10 @@ logger = logging.getLogger(__name__)
 class File:
     """Provides shortcuts for handling files.
     """
+
+    __signatures = None
+    __sign_size = None
+
     @staticmethod
     def load_json(file_path, default=None):
         """Loads data from a JSON file to a Python dictionary
@@ -33,6 +38,49 @@ class File:
             else:
                 data = {}
         return data
+
+    @staticmethod
+    def load_signatures(json_path=None):
+        if json_path is None:
+            json_path = os.path.join(os.path.dirname(__file__), "assets", "file_signatures.json")
+        with open(json_path, "r") as f:
+            signatures = json.load(f)
+        return signatures
+
+    @property
+    def signatures(self):
+        if self.__signatures is None:
+            self.__signatures = self.load_signatures()
+            self.__sign_size = {}
+            for offset, v in self.__signatures.items():
+                signs = v.keys()
+                max_size = 0
+                for sign in signs:
+                    size = len(sign)
+                    if size > max_size:
+                        max_size = size
+                self.__sign_size[offset] = max_size
+        return self.__signatures
+    
+
+    def __init__(self, file_path):
+        self.file_path = file_path
+
+    def hex(self, size, offset=0):
+        with open(self.file_path, 'rb') as f:
+            if offset:
+                f.read(offset)
+            return binascii.hexlify(f.read(size))
+
+    def file_type(self):
+        signatures = self.signatures
+        for offset, max_size in self.__sign_size.items():
+            signs = sorted(signatures.get(offset).keys(), reverse=True)
+            hex_value = self.hex(max_size, offset=int(offset)).decode()
+            for sign in signs:
+                if hex_value.startswith(sign):
+                    return signatures.get(offset).get(sign)
+        return None
 
 
 class Markdown:
