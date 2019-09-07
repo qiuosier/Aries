@@ -174,6 +174,7 @@ class FunctionTask(Task):
     def __run(self):
         try:
             with CaptureOutput() as out:
+                self.out = out
                 # Returns may not be serializable.
                 out.returns = self.func(*self.args, **self.kwargs)
         except Exception as ex:
