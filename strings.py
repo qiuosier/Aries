@@ -6,6 +6,7 @@ import base64
 import os
 import json
 import copy
+import collections
 
 
 class AString(str):
@@ -279,17 +280,18 @@ class Base64String(str):
 
 def stringify(obj):
     """Convert object to string.
-    If the object is a dictionary or list,
+    If the object is a dictionary-like object or list,
     the objects in the dictionary or list will be converted to strings, recursively.
 
     Returns: If the input is dictionary or list, the return value will also be a list or dictionary.
 
     """
-    if isinstance(obj, dict):
+    if isinstance(obj, collections.Mapping):
         obj = copy.deepcopy(obj)
-        for key in obj.keys():
-            obj[key] = stringify(obj[key])
-        return obj
+        obj_dict = {}
+        for key, value in obj.items():
+            obj_dict[key] = stringify(value)
+        return obj_dict
     elif isinstance(obj, list):
         str_list = []
         for item in obj:
