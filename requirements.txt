@@ -3,3 +3,4 @@ google-cloud-storage>=1.16
 beautifulsoup4
 plotly~=3.5
 requests
+beautifulsoup4
