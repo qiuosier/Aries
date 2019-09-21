@@ -41,14 +41,36 @@ class File:
 
     @staticmethod
     def load_signatures(json_path=None):
+        """Loads the file signature dictionary.
+        
+        See Also: helpers.file_signatures.py
+        
+        Args:
+            json_path (str, optional): Path of the JSON file containing the signature dictionary. 
+            If json_path is None, "./assets/file_signatures.json" will be used.
+        
+        Returns:
+            dict: Signature dictionary
+        """
         if json_path is None:
             json_path = os.path.join(os.path.dirname(__file__), "assets", "file_signatures.json")
         with open(json_path, "r") as f:
             signatures = json.load(f)
         return signatures
 
+    def __init__(self, file_path):
+        self.file_path = file_path
+
     @property
     def signatures(self):
+        """Signature dictionary
+
+        Each key is the number of offset bytes.
+        Each value is a dictionary with signatures(hex) as keys and file mine as values.
+        
+        Returns:
+            dict: Signature dictionary
+        """
         if self.__signatures is None:
             self.__signatures = self.load_signatures()
             self.__sign_size = {}
@@ -62,16 +84,29 @@ class File:
                 self.__sign_size[offset] = max_size
         return self.__signatures
 
-    def __init__(self, file_path):
-        self.file_path = file_path
-
     def hex(self, size, offset=0):
+        """Reads bytes from the file as hexadecimal string
+        
+        Args:
+            size (int): The number of bytes to read.
+            offset (int, optional): The offset to start reading. Defaults to 0.
+        
+        Returns:
+            str: Return the hexadecimal representation of the binary data. 
+            Every byte of data is converted into the corresponding 2-digit hex representation. 
+            The resulting string is therefore twice of size.
+        """
         with open(self.file_path, 'rb') as f:
             if offset:
                 f.read(offset)
             return binascii.hexlify(f.read(size))
 
     def file_type(self):
+        """Tries to identify the file type
+        
+        Returns:
+            str: file mime type if identified, otherwise None.
+        """
         signatures = self.signatures
         for offset, max_size in self.__sign_size.items():
             signs = sorted(signatures.get(offset).keys(), reverse=True)
