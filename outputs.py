@@ -62,8 +62,8 @@ class MessageFormatter(logging.Formatter):
         if self.encoding and isinstance(message, bytes):
             message = message.decode(self.encoding)
         try:
-            if isinstance(message, str):
-                message = ast.literal_eval(message)
+            # if isinstance(message, str):
+            #     message = ast.literal_eval(message)
             if isinstance(message, dict) or isinstance(message, list):
                 message = json.dumps(message, sort_keys=True, indent=4)
         except Exception:

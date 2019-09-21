@@ -15,8 +15,8 @@ class TestLogging(AriesTest):
             logger.debug(["A", "B"])
             logger.debug(dict(a=1, b=2))
             logger.debug("ABC")
-        list_log = out.logs[0].split("\n", 1)[1]
-        dict_log = out.logs[1].split("\n", 1)[1]
+        list_log = out.logs[0].split("\n", 1)[1].strip("\n")
+        dict_log = out.logs[1].split("\n", 1)[1].strip("\n")
         self.assertEqual(list_log, '[\n    "A",\n    "B"\n]')
         self.assertEqual(dict_log, '{\n    "a": 1,\n    "b": 2\n}')
         self.assertNotIn("\n", out.logs[2])
