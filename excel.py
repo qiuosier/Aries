@@ -6,8 +6,6 @@ import logging
 from tempfile import TemporaryFile
 from openpyxl import load_workbook, Workbook
 from openpyxl.utils import get_column_letter
-
-
 logger = logging.getLogger(__name__)
 
 
@@ -114,10 +112,10 @@ class ExcelFile:
         """
         index = -1
         for i, value in enumerate(self.headers):
-            if case_sensitive:
-                index = i + 1 if re.fullmatch(header, value) else - 1
-            else:
-                index = i + 1 if re.fullmatch(header, value, re.IGNORECASE) else -1
+            if case_sensitive and re.fullmatch(header, value):
+                index = i + 1
+            elif not case_sensitive and re.fullmatch(header, value, re.IGNORECASE):
+                index = i + 1
         return index
 
     def export_rows(self, row_list):
@@ -231,6 +229,15 @@ class ExcelFile:
         return table
 
     def write_row(self, value_list, row_number, **kwargs):
+        """Writes a list of values to a particular row.
+        
+        Args:
+            value_list (list): A list of values
+            row_number (int): 1-based row number
+        
+        Returns:
+            [type]: [description]
+        """
         cells = []
         for col, val in enumerate(value_list, start=1):
             cell = self.worksheet.cell(row=row_number, column=col, value=val)
@@ -240,6 +247,14 @@ class ExcelFile:
         return cells
 
     def append_row(self, value_list, **kwargs):
+        """Appends a list of values as a row in the file.
+        
+        Args:
+            value_list (list): A list of values to be appended.
+        
+        Returns:
+            list: A list of cells.
+        """
         row_number = self.worksheet.max_row + 1
         return self.write_row(value_list, row_number, **kwargs)
 
@@ -255,6 +270,12 @@ class ExcelFile:
         return column_widths
 
     def auto_column_width(self, min_width=10, max_width=100):
+        """Automatically sets the columns width base on the number of characters.
+        
+        Args:
+            min_width (int, optional): Minimum width. Defaults to 10.
+            max_width (int, optional): Maximum width. Defaults to 100.
+        """
         column_widths = {}
         for row in self.worksheet.rows:
             column_width = self.__update_column_width(row, column_width)
