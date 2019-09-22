@@ -79,8 +79,7 @@ class File:
                 max_size = 0
                 for sign in signs:
                     size = len(sign)
-                    if size > max_size:
-                        max_size = size
+                    max_size = size if size > max_size else max_size
                 self.__sign_size[offset] = max_size
         return self.__signatures
 

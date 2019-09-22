@@ -112,14 +112,13 @@ class ExcelFile:
         Returns: 1-based index of the column. Or -1 if the header is not found.
 
         """
+        index = -1
         for i, value in enumerate(self.headers):
             if case_sensitive:
-                if re.fullmatch(header, value):
-                    return i + 1
+                index = i + 1 if re.fullmatch(header, value) else - 1
             else:
-                if re.fullmatch(header, value, re.IGNORECASE):
-                    return i + 1
-        return -1
+                index = i + 1 if re.fullmatch(header, value, re.IGNORECASE) else -1
+        return index
 
     def export_rows(self, row_list):
         """Exports specific rows from the file to a new workbook.
@@ -156,11 +155,12 @@ class ExcelFile:
 
         """
         row = None
-        if row_number > 0:
-            for i, r in enumerate(self.worksheet.rows):
-                if row_number == i + 1:
-                    row = r
-                    break
+        for i, r in enumerate(self.worksheet.rows):
+            if row_number <= 0:
+                break
+            if row_number == i + 1:
+                row = r
+                break
         if row:
             values = [str(item.value).strip() if item.value is not None else "" for item in row]
         else:
@@ -243,15 +243,21 @@ class ExcelFile:
         row_number = self.worksheet.max_row + 1
         return self.write_row(value_list, row_number, **kwargs)
 
+
+    @staticmethod
+    def __update_column_width(row, column_widths):
+        for i, cell in enumerate(row, start=1):
+            cell_size = len(str(cell.value))
+            if not cell_size:
+                continue
+            if cell_size > column_widths.get(i, 0):
+                column_widths[i] = cell_size
+        return column_widths
+
     def auto_column_width(self, min_width=10, max_width=100):
         column_widths = {}
         for row in self.worksheet.rows:
-            for i, cell in enumerate(row, start=1):
-                cell_size = len(str(cell.value))
-                if not cell_size:
-                    continue
-                if cell_size > column_widths.get(i, 0):
-                    column_widths[i] = cell_size
+            column_width = self.__update_column_width(row, column_width)
 
         for col, column_width in column_widths.items():
             if column_width > max_width:
