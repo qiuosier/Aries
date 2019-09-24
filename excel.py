@@ -258,7 +258,6 @@ class ExcelFile:
         row_number = self.worksheet.max_row + 1
         return self.write_row(value_list, row_number, **kwargs)
 
-
     @staticmethod
     def __update_column_width(row, column_widths):
         for i, cell in enumerate(row, start=1):
@@ -278,7 +277,7 @@ class ExcelFile:
         """
         column_widths = {}
         for row in self.worksheet.rows:
-            column_width = self.__update_column_width(row, column_width)
+            column_widths = self.__update_column_width(row, column_widths)
 
         for col, column_width in column_widths.items():
             if column_width > max_width:
