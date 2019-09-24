@@ -1,8 +1,9 @@
 import requests
 import logging
-from .storage import StorageObject
-from bs4 import BeautifulSoup
 import contextlib
+from io import BytesIO
+from .storage import StorageObject
+from lxml import etree
 from urllib import request
 logger = logging.getLogger(__name__)
 
@@ -123,11 +124,14 @@ class HTML:
 
     @staticmethod
     def __tags_to_list(parent, tag):
-        elements = parent.find_all(tag)
-        if elements:
-            return [element.renderContents().decode() for element in elements]
-        else:
+        elements = parent.findall(".//%s" % tag)
+        if not elements:
             return None
+        results = []
+        for element in elements:
+            text = element.text if element.text else ""
+            results.append(text + ''.join(etree.tostring(e).decode() for e in element))
+        return results
 
     @staticmethod
     def __append_data(to_list, parent, tag):
@@ -144,16 +148,16 @@ class HTML:
             Both "headers" and "data" are 2D lists.
         """
         content = self.read()
-        soup = BeautifulSoup(content, 'html.parser')
-        
+        html = etree.parse(BytesIO(content), etree.HTMLParser())
+        html_tables = html.findall('.//table')
         data_tables = []
-        html_tables = soup.html.find_all('table')
+        
         for html_table in html_tables:
             table = {
                 "headers": [],
                 "data": []
             }
-            rows = html_table.find_all("tr")
+            rows = html_table.findall(".//tr")
             for row in rows:
                 self.__append_data(table["headers"], row, "th")
                 self.__append_data(table["data"], row, "td")

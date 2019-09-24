@@ -1,4 +1,4 @@
-"""Contains tests for the strings module.
+"""Contains tests for the excel module.
 """
 import re
 import logging
