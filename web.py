@@ -111,16 +111,28 @@ class WebAPI:
 class HTML:
     def __init__(self, uri):
         self.uri = uri
+        self.__etree = None
+        self.__content = None
 
     def read(self):
         obj = StorageObject(self.uri)
         if obj.scheme in ["http", "https"]:
             r = requests.get(self.uri)
-            content = r.content
-        else:
-            with open(self.uri, 'r') as f:
-                content = f.read()
-        return content
+            return r.content
+        with open(self.uri, 'r') as f:
+            return f.read()
+
+    @property
+    def content(self):
+        if not self.__content:
+            self.__content = self.read()
+        return self.__content
+
+    @property
+    def etree(self):
+        if not self.__etree:
+            self.__etree = etree.parse(BytesIO(self.content), etree.HTMLParser())
+        return self.__etree
 
     @staticmethod
     def __tags_to_list(parent, tag):
@@ -147,8 +159,7 @@ class HTML:
             Each dictionary has two keys: "headers" and "data".
             Both "headers" and "data" are 2D lists.
         """
-        content = self.read()
-        html = etree.parse(BytesIO(content), etree.HTMLParser())
+        html = self.etree
         html_tables = html.findall('.//table')
         data_tables = []
         
