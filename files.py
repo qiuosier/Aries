@@ -109,9 +109,9 @@ class File:
         signatures = self.signatures
         for offset, max_size in self.__sign_size.items():
             signs = sorted(signatures.get(offset).keys(), reverse=True)
-            hex_value = self.hex(max_size, offset=int(offset)).decode()
+            hex_value = self.hex(max_size, offset=int(offset)).decode().upper()
             for sign in signs:
-                if hex_value.startswith(sign):
+                if hex_value.startswith(sign.upper()):
                     return signatures.get(offset).get(sign)
         return None
 
@@ -164,28 +164,6 @@ class Markdown:
         return ""
 
 
-def unzip_gz_file(file_path):
-    """Un-zips a .gz file within the same directory.
-
-    Args:
-        file_path (str): the file to be unzipped.
-
-    Returns:
-        The output filename with full path.
-    """
-    output_file = file_path[:-3]
-    with gzip.open(file_path, 'rb') as gzip_file:
-        with open(output_file, "wb") as unzipped_file:
-            print("Unzipping %s..." % file_path.split("/")[-1])
-            block_size = 1 << 20
-            while True:
-                block = gzip_file.read(block_size)
-                if not block:
-                    break
-                unzipped_file.write(block)
-    return output_file
-
-
 class TemporaryFile:
     """Represents a temporary file.
 
@@ -209,7 +187,10 @@ class TemporaryFile:
 
         """
         self.template = template
-        self.temp_file = None
+        self.temp_file = "None"
+    
+    def filename(self):
+        return os.path.basename(self.temp_file)
 
     def __enter__(self):
         """Creates a temp file by copying the template, if any.
