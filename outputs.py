@@ -1,4 +1,5 @@
-"""Contains classes for handling outputs.
+"""provides classes and methods for logging and capturing outputs from the code, 
+like a function or a method. 
 """
 import ast
 import io
@@ -11,38 +12,7 @@ import threading
 import traceback
 import uuid
 from .storage import LocalFolder
-
-
-class PackageLogFilter(logging.Filter):
-    """Logging filter to keep logs generated from packages within a certain location
-    
-    """
-    def __init__(self, folder_path):
-        """Initialize the filter with a folder path containing the packages.
-        This filter keeps only the logs from the packages within the folder.
-        
-        Args:
-            folder_path (str): Full path of a folder
-
-        """
-        self.project_packages = self.get_packages(folder_path)
-        super().__init__()
-
-    def filter(self, record):
-        logger_name = record.name.split(".", 1)[0]
-        if logger_name in self.project_packages:
-            return True
-        return False
-
-    @staticmethod
-    def get_packages(folder_path):
-        project_packages = []
-        project_folder = LocalFolder(folder_path)
-        sub_folders = project_folder.folders
-        for sub_folder in sub_folders:
-            if "__init__.py" in sub_folder.file_names:
-                project_packages.append(sub_folder.name)
-        return project_packages
+logger = logging.getLogger(__name__)
 
 
 class MessageFormatter(logging.Formatter):
@@ -89,31 +59,12 @@ class StreamHandler(logging.StreamHandler):
 
         """
         super().__init__(stream)
-        if formatter:
+        if isinstance(formatter, str):
+            self.setFormatter(MessageFormatter(formatter))
+        elif formatter:
             self.setFormatter(formatter)
         else:
             self.setFormatter(MessageFormatter())
-
-    @staticmethod
-    def enable_logging(logger_name="", level=logging.DEBUG):
-        """Sets logging level to debug and add a stream_handler to format the logging outputs.
-
-        This method is intended to be used in a script or a test.
-        For example, StreamHandler.enable_logging() will add stream handler to root logger.
-
-        Args:
-            logger_name (str): logger name. Default to root logger.
-            level: logging level.
-
-        Returns: the logger.
-
-        """
-        handler = StreamHandler()
-        logger = logging.getLogger(logger_name)
-        logger.setLevel(level)
-        logger.addHandler(handler)
-        logger.debug("Debug Logging Enabled.")
-        return logger
 
 
 class ThreadLogHandler(logging.NullHandler):
@@ -133,12 +84,6 @@ class ThreadLogHandler(logging.NullHandler):
         https://docs.python.org/3.5/library/logging.html#logrecord-attributes
 
     """
-    # This log_formatter is used to format the log messages.
-    log_formatter = logging.Formatter(
-        '%(asctime)s | %(levelname)-8s | %(lineno)4d@%(module)-12s | %(message)s',
-        '%Y-%m-%d %H:%M:%S'
-    )
-
     def __init__(self, thread_id, formatter=None):
         """Initialize the log handler for a particular thread.
 
@@ -146,7 +91,11 @@ class ThreadLogHandler(logging.NullHandler):
             thread_id: The ID of the thread.
         """
         super(ThreadLogHandler, self).__init__()
-        self.setFormatter(MessageFormatter())
+        if formatter is None:
+            formatter = MessageFormatter()
+        elif isinstance(formatter, str):
+            formatter = MessageFormatter(formatter)
+        self.setFormatter(formatter)
         self.thread_id = thread_id
         self.logs = []
 
@@ -187,6 +136,97 @@ class OutputWriter(io.StringIO):
         """
         for listener in self.listeners:
             listener.write(*args, **kwargs)
+
+class PackageLogFilter(logging.Filter):
+    """Logging filter to keep logs generated from packages within a certain location
+    
+    """
+    def __init__(self, package_root=None, packages=None):
+        """Initialize the filter with a folder path containing the packages.
+        This filter keeps only the logs from the packages within the folder.
+        
+        Args:
+            folder_path (str): Full path of a folder
+
+        """
+        if package_root:
+            self.packages = self.get_packages(package_root)
+        else:
+            self.packages = []
+        if isinstance(packages, list):
+            self.packages.extend(packages)
+        super().__init__()
+
+    def filter(self, record):
+        logger_name = record.name.split(".", 1)[0]
+        for name in self.packages:
+            if not name:
+                continue
+            prefix = name if name.endswith(".") else name + "."
+            if logger_name.startswith(prefix):
+                return True
+        return False
+
+    @staticmethod
+    def get_packages(folder_path):
+        project_packages = []
+        project_folder = LocalFolder(folder_path)
+        sub_folders = project_folder.folders
+        for sub_folder in sub_folders:
+            if "__init__.py" in sub_folder.file_names:
+                project_packages.append(sub_folder.name)
+        return project_packages
+
+
+class LoggingConfig:
+    def __init__(self, name="", level=logging.DEBUG, formatter=None, packages=""):
+        self.name = name
+        self.level = level
+        self.existing_level = None
+        self.stream_handler = StreamHandler(formatter=formatter)
+        self.log_filter = None
+        if packages:
+            self.log_filter = PackageLogFilter(packages=packages)
+
+    def enable(self):
+        """Adds a stream_handler to format the logging outputs.
+        """
+        named_logger = logging.getLogger(self.name)
+        self.existing_level = named_logger.getEffectiveLevel()
+        named_logger.setLevel(self.level)
+        if self.log_filter:
+            logger.debug("Adding filter to stream handler...")
+            self.stream_handler.addFilter(self.log_filter)
+        named_logger.addHandler(self.stream_handler)
+        
+        return self
+
+    def disable(self):
+        """Removes the stream_handler added by enable()
+        """
+        named_logger = logging.getLogger(self.name)
+        named_logger.removeHandler(self.stream_handler)
+        named_logger.removeFilter(self.log_filter)
+        named_logger.setLevel(self.existing_level)
+
+    def __enter__(self):
+        """Adds a stream_handler to format the logging outputs.
+        """
+        return self.enable()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Removes the stream_handler added by enable()
+        """
+        self.disable()
+        return False
+
+    @staticmethod
+    def decorate(func, name="", level=logging.DEBUG, formatter=None):
+        def wrapper(*args, **kwargs):
+            with LoggingConfig(name, level, formatter):
+                values = func(*args, **kwargs)
+            return values
+        return wrapper
 
 
 class CaptureOutput:
@@ -236,14 +276,14 @@ class CaptureOutput:
     out_listeners = {}
     err_listeners = {}
 
-    def __init__(self, suppress_exception=False):
+    def __init__(self, suppress_exception=False, log_level=logging.DEBUG):
         """Initializes log handler and attributes to store the outputs.
         """
         self.uuid = uuid.uuid4()
         self.suppress_exception = suppress_exception
 
         self.log_handler = ThreadLogHandler(threading.current_thread().ident)
-        self.log_handler.setLevel(logging.DEBUG)
+        self.log_handler.setLevel(log_level)
 
         self.std_out = ""
         self.std_err = ""

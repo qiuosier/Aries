@@ -55,6 +55,7 @@ class AriesTest(TestCase):
                 logger.setLevel(logging.DEBUG)
                 logger.addHandler(stream_handler)
             try:
+                # Run the function(test)
                 results = func(*args, **kwargs)
             finally:
                 for logger, level in loggers.items():
