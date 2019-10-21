@@ -208,6 +208,19 @@ class GSFolder(GSObject, StorageFolder):
             if not b.name.endswith("/")
         ]
 
+    @property
+    def size(self):
+        size_bytes = 0
+        # Total size of files and folders
+        for c in [self.files, self.folders]:
+            for f in c:
+                s = f.size
+                if not s:
+                    continue
+                size_bytes += s
+        logger.debug("%s %s Bytes." % (self.path, size_bytes))
+        return size_bytes
+
 
 class GSFile(GSObject, StorageFile):
     def __init__(self, gs_path):
@@ -236,6 +249,10 @@ class GSFile(GSObject, StorageFile):
         if self.__blob is None:
             self.__blob = self.__get_or_init_blob()
         return self.__blob
+
+    @property
+    def size(self):
+        return self.blob.size
 
     @property
     def closed(self):
