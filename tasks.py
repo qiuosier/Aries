@@ -326,3 +326,4 @@ class ShellCommand(Task):
         self.std_out = out.decode()
         self.std_err = err.decode()
         self.returns = self.process.returncode
+        return self
