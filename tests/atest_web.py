@@ -30,5 +30,3 @@ class TestWeb(AriesTest):
         url = "https://en.wikipedia.org/wiki/List_of_file_signatures"
         tables = web.HTML(url).get_tables()
         self.assertEqual(len(tables), 2, "There should be two tables in the HTML page.")
-        text = 'Libpcap File Format<sup id="cite_ref-1" class="reference"><a href="#cite_note-1">[1]</a></sup>'
-        self.assertEqual(tables[0].get("data")[0][4].strip(), text)
