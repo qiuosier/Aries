@@ -243,38 +243,9 @@ class GSFile(GSObject, StorageFile):
         return self.__blob
 
     @property
-<<<<<<< HEAD
+
     def file_size(self):
         return self.blob.size
-=======
-    def size(self):
-        return self.blob.size
-
-    @property
-    def closed(self):
-        return False
-
-    def close(self):
-        return
-
-    def fileno(self):
-        raise IOError("GSFile does not use a file descriptor.")
-
-    def readable(self):
-        return True
-
-    def seekable(self):
-        return True
-
-    def writable(self):
-        return False
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self):
-        return
->>>>>>> b75b57ef4960200db56fc893abae9f593228bc15
 
     def __get_or_init_blob(self):
         """Gets or initialize a Google Cloud Storage Blob.
