@@ -2,6 +2,7 @@
 """
 import os
 import shutil
+from io import RawIOBase
 from urllib.parse import urlparse
 
 
@@ -47,12 +48,38 @@ class StorageObject:
         return self.basename
 
 
-class StorageFile(StorageObject):
+class StorageFile(StorageObject, RawIOBase):
     """Represents a storage file.
+    Subclass should implement the RawIOBase interface.
+    The following should be implemented:
+    For seeking:
+        seek(self, pos, whence=0)
+        seekable()
+
+    For reading:
+        read()
+        readable()
+
+    For writing:
+        write(b)
+        writable()
+        flush()
 
     """
     def __init__(self, uri):
         super(StorageFile, self).__init__(uri)
+
+    @staticmethod
+    def open(uri):
+        """Opens a StorageFile as one of the subclass base on the URI.
+        """
+        from .gcp.storage import GSFile
+        uri = str(uri)
+        if uri.startswith("/") or uri.startswith("file://"):
+            return LocalFile(uri)
+        elif uri.startswith("gs://"):
+            return GSFile(uri)
+        return StorageFile(uri)
 
 
 class StorageFolder(StorageObject):
@@ -147,10 +174,15 @@ class StorageFolder(StorageObject):
 
 class LocalFile(StorageFile):
     def delete(self):
+        """Deletes the file if it exists.
+        """
         if os.path.exists(self.path):
             os.remove(self.path)
 
     def copy(self, to):
+        """Copies the file to another location.
+        """
+        # TODO: Copy file across different schema.
         if os.path.exists(self.path):
             shutil.copyfile(self.path, to)
 
