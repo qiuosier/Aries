@@ -72,7 +72,7 @@ class StorageFile(StorageObject, RawIOBase):
         super(StorageFile, self).__init__(uri)
 
     @staticmethod
-    def open(uri):
+    def init(uri):
         """Opens a StorageFile as one of the subclass base on the URI.
         """
         from .gcp.storage import GSFile
@@ -85,6 +85,19 @@ class StorageFile(StorageObject, RawIOBase):
 
     def exists(self):
         raise NotImplementedError()
+
+    def open(self):
+        raise NotImplementedError()
+
+    def close(self):
+        raise NotImplementedError()
+
+    def __enter__(self):
+        return self.open()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+        return
 
     def seekable(self):
         if self.exists():
@@ -211,9 +224,12 @@ class LocalFile(StorageFile):
         return True if os.path.exists(self.path) else False
 
     def open(self):
+        """Opens the file for read/write
+        """
         if self.exists():
             self.file_obj = open(self.path, "r+b")
         else:
+            # 'w' will create a new file from scratch.
             self.file_obj = open(self.path, "w+b")
         self.__closed = False
         self.__offset = 0
@@ -231,13 +247,6 @@ class LocalFile(StorageFile):
         if self.file_obj:
             self.file_obj.close()
             self.file_obj = None
-
-    def __enter__(self):
-        return self.open()
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
-        return
 
     def seek(self, pos, whence=0):
         if self.file_obj:

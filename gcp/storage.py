@@ -423,10 +423,3 @@ class GSFile(GSObject, StorageFile):
         # Reset offset position when open
         self.__offset = 0
         return self
-
-    def __enter__(self):
-        return self.open()
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
-        return
