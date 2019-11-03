@@ -50,7 +50,9 @@ class StorageObject:
 
 class StorageFile(StorageObject, RawIOBase):
     """Represents a storage file.
-    Subclass should implement the RawIOBase interface.
+    Subclass should implement the RawIOBase interface, plus exists().
+    This class implements seekable() and readable() to return True if the file exists.
+
     The following should be implemented:
     For seeking:
         seek(self, pos, whence=0)
@@ -80,6 +82,19 @@ class StorageFile(StorageObject, RawIOBase):
         elif uri.startswith("gs://"):
             return GSFile(uri)
         return StorageFile(uri)
+
+    def exists(self):
+        raise NotImplementedError()
+
+    def seekable(self):
+        if self.exists():
+            return True
+        return False
+
+    def readable(self):
+        if self.exists():
+            return True
+        return False
 
 
 class StorageFolder(StorageObject):
@@ -173,6 +188,12 @@ class StorageFolder(StorageObject):
 
 
 class LocalFile(StorageFile):
+    def __init__(self, uri):
+        super(LocalFile, self).__init__(uri)
+        self.file_obj = None
+        self.__closed = True
+        self.__offset = 0
+
     def delete(self):
         """Deletes the file if it exists.
         """
@@ -185,6 +206,72 @@ class LocalFile(StorageFile):
         # TODO: Copy file across different schema.
         if os.path.exists(self.path):
             shutil.copyfile(self.path, to)
+
+    def exists(self):
+        return True if os.path.exists(self.path) else False
+
+    def open(self):
+        if self.exists():
+            self.file_obj = open(self.path, "r+b")
+        else:
+            self.file_obj = open(self.path, "w+b")
+        self.__closed = False
+        self.__offset = 0
+        return self
+
+    def close(self):
+        """Flush and close the IO object.
+        This method has no effect if the file is already closed.
+        """
+        if not self.__closed:
+            try:
+                self.flush()
+            finally:
+                self.__closed = True
+        if self.file_obj:
+            self.file_obj.close()
+            self.file_obj = None
+
+    def __enter__(self):
+        return self.open()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+        return
+
+    def seek(self, pos, whence=0):
+        if self.file_obj:
+            self.__offset = self.file_obj.seek(pos, whence)
+        else:
+            with open(self.path) as f:
+                f.seek(self.__offset)
+                self.__offset = f.seek(pos, whence)
+        return self.__offset
+
+    def read(self, size=None):
+        if self.file_obj:
+            b = self.file_obj.read(size)
+            self.__offset = self.file_obj.tell()
+        else:
+            with open(self.path) as f:
+                f.seek(self.__offset)
+                b = f.read(size)
+                self.__offset = f.tell()
+        return b
+
+    def writable(self):
+        if self.file_obj:
+            return True
+        return False
+
+    def write(self, b):
+        n = self.file_obj.write(b)
+        self.__offset = self.file_obj.tell()
+        return n
+
+    def flush(self):
+        if self.file_obj:
+            return self.file_obj.flush()
 
 
 class LocalFolder(StorageFolder):
