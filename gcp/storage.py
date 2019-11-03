@@ -243,8 +243,7 @@ class GSFile(GSObject, StorageFile):
         return self.__blob
 
     @property
-
-    def file_size(self):
+    def size(self):
         return self.blob.size
 
     def __get_or_init_blob(self):
@@ -317,7 +316,7 @@ class GSFile(GSObject, StorageFile):
         elif whence == 1:
             self.__offset += pos
         elif whence == 2:
-            self.__offset = self.file_size + pos
+            self.__offset = self.size + pos
         else:
             raise ValueError("whence must be 0, 1 or 2.")
         return self.__offset
