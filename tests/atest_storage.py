@@ -9,7 +9,7 @@ aries_parent = os.path.join(os.path.dirname(__file__), "..", "..")
 if aries_parent not in sys.path:
     sys.path.append(aries_parent)
 from Aries.test import AriesTest
-from Aries.storage import LocalFolder, LocalFile
+from Aries.storage import StorageFile, LocalFolder, LocalFile
 
 logger = logging.getLogger(__name__)
 
@@ -98,3 +98,24 @@ class TestLocalStorage(AriesTest):
         # Delete the folder.
         folder.delete()
         self.assertFalse(os.path.exists(new_folder_path))
+
+    def test_storage_object(self):
+        self.assertEqual(self.test_folder.scheme, "file")
+        self.assertEqual(str(self.test_folder), self.test_folder_path)
+        self.assertEqual(self.test_folder.basename, os.path.basename(self.test_folder_path))
+        self.assertEqual(self.test_folder.name, os.path.basename(self.test_folder_path))
+
+    def test_storage_file(self):
+        gs_file = StorageFile.init("gs://abc/test.txt")
+        self.assertEqual(gs_file.scheme, "gs")
+        self.assertEqual(str(type(gs_file).__name__), "GSFile")
+
+        local_file = StorageFile.init("file://abc/test.txt")
+        self.assertEqual(local_file.scheme, "file")
+        self.assertEqual(str(type(local_file).__name__), "LocalFile")
+        self.assertFalse(local_file.seekable())
+        self.assertFalse(local_file.readable())
+
+        http_obj = StorageFile.init("https://abc.com/test.txt")
+        self.assertEqual(http_obj.scheme, "https")
+        self.assertEqual(str(type(http_obj).__name__), "StorageFile")
