@@ -23,6 +23,8 @@ class StorageObject:
         self.uri = str(uri)
         parse_result = urlparse(self.uri)
         self.scheme = parse_result.scheme
+        if not self.scheme:
+            self.scheme = 'file'
         self.hostname = parse_result.hostname
         self.path = parse_result.path
 
