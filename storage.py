@@ -124,6 +124,18 @@ class StorageFolder(StorageObject):
             self.path += '/'
 
     @staticmethod
+    def init(uri):
+        """Opens a StorageFile as one of the subclass base on the URI.
+        """
+        from .gcp.storage import GSFolder
+        uri = str(uri)
+        if uri.startswith("/") or uri.startswith("file://"):
+            return LocalFolder(uri)
+        elif uri.startswith("gs://"):
+            return GSFolder(uri)
+        return StorageFile(uri)
+
+    @staticmethod
     def _get_attribute(storage_objects, attribute):
         """Gets the attributes of a list of storage objects.
 
