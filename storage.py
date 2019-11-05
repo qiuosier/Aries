@@ -201,6 +201,17 @@ class StorageFolder(StorageObject):
     def folder_names(self):
         return self.get_folders("name")
 
+    def exists(self):
+        """Checks if the folder exists.
+        """
+        raise NotImplementedError()
+
+    def create(self):
+        """Creates a new folder.
+        There should be no error if the folder already exists.
+        """
+        raise NotImplementedError()
+
 
 class LocalFile(StorageFile):
     def __init__(self, uri):
@@ -352,6 +363,9 @@ class LocalFolder(StorageFolder):
             if f.basename == filename:
                 return f
         return None
+
+    def exists(self):
+        return True if os.path.exists(self.path) else False
 
     def create(self):
         if not os.path.exists(self.path):
