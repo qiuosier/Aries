@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class TestFile(AriesTest):
-    def test_load_json_file(self):
+    def test_load_json(self):
         """Tests loading a json file
         """
         # File exists
@@ -33,6 +33,11 @@ class TestFile(AriesTest):
         )
         self.assertEqual(json_dict["default_key"], "default_value")
 
+    def test_file_signature(self):
+        file_path = os.path.join(os.path.dirname(__file__), "fixtures", "excel_test_file.xlsx")
+        f = File(file_path)
+        self.assertIn("application/vnd.openxmlformats-officedocument", f.file_type())
+
 
 class TestMarkdown(AriesTest):
 
@@ -43,10 +48,3 @@ class TestMarkdown(AriesTest):
         """
         md = Markdown(self.test_file)
         self.assertEqual(md.title, "This is title")
-
-
-class TestFile(AriesTest):
-    def test_file_signature(self):
-        file_path = os.path.join(os.path.dirname(__file__), "fixtures", "excel_test_file.xlsx")
-        f = File(file_path)
-        self.assertIn("application/vnd.openxmlformats-officedocument", f.file_type())

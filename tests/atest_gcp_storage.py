@@ -38,7 +38,9 @@ class TestGCStorage(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        # Removes test folder if it is already there
         GSFolder("gs://aries_test/copy_test/").delete()
+        GSFile("gs://aries_test/abc.txt").delete()
 
     def setUp(self):
         # Skip test if "GOOGLE_APPLICATION_CREDENTIALS" is not found.
@@ -66,7 +68,8 @@ class TestGCStorage(unittest.TestCase):
         self.assertEqual(gs_obj.prefix, "test_folder/")
         # Folder without "/"
         gs_obj = GSFolder("gs://aries_test/test_folder")
-        self.assertEqual(gs_obj.uri, "gs://aries_test/test_folder")
+        self.assertEqual(gs_obj.uri, "gs://aries_test/test_folder/")
+        self.assertEqual(gs_obj.gs_path, "gs://aries_test/test_folder/")
         self.assertEqual(gs_obj.bucket_name, "aries_test")
         self.assertEqual(gs_obj.prefix, "test_folder/")
 
@@ -119,6 +122,8 @@ class TestGCStorage(unittest.TestCase):
         # Test listing the folders
         parent = GSFolder(gs_path)
         folders = parent.get_folders()
+        self.assertTrue(parent.exists())
+        self.assertEqual(parent.size, 11)
         self.assertEqual(len(folders), 1)
         self.assertEqual(folders[0], "gs://aries_test/test_folder/test_subfolder/")
         names = parent.folder_names
@@ -139,7 +144,9 @@ class TestGCStorage(unittest.TestCase):
         # Test the blob property
         # File exists
         gs_file_exists = GSFile("gs://aries_test/file_in_root.txt")
+        self.assertFalse(gs_file_exists.is_gz())
         self.assertTrue(gs_file_exists.blob.exists())
+        self.assertEqual(gs_file_exists.size, 34)
         # File does not exists
         gs_file_null = GSFile("gs://aries_test/abc.txt")
         self.assertFalse(gs_file_null.blob.exists())
@@ -147,6 +154,14 @@ class TestGCStorage(unittest.TestCase):
         # Test the read() method
         self.assertEqual(gs_file_exists.read(), b'This is a file in the bucket root.')
         self.assertIsNone(gs_file_null.read())
+
+        # Test write into a new file
+        self.assertTrue(gs_file_null.writable())
+        with gs_file_null as f:
+            f.write(b"abc")
+            f.seek(0)
+            self.assertEqual(f.read(), "abc")
+        gs_file_null.delete()
 
     def test_copy_and_delete_folder(self):
         source_path = "gs://aries_test/test_folder/"
@@ -191,10 +206,9 @@ class TestGCStorage(unittest.TestCase):
         GSFolder("gs://aries_test/copy_test/").delete()
 
     def test_copy_to_root_and_delete(self):
-        # Destination is the bucket root, whether it ends with "/" does not matter.
-        source_path = "gs://aries_test/test_folder"
-        # Without "/"
+        # Source without "/"
         source_path = "gs://aries_test/test_folder/test_subfolder"
+        # Destination is the bucket root, whether it ends with "/" does not matter.
         dest_path = "gs://aries_test"
         folder = GSFolder(source_path)
         folder.copy(dest_path)
@@ -230,9 +244,14 @@ class TestGCStorage(unittest.TestCase):
         self.assertEqual(gs_file.read(), b'This is a local test file.\n')
         gs_file.delete()
 
-    def test_create_blob(self):
+    def test_create_and_move_blob(self):
         gs_file = GSFile("gs://aries_test/new_file.txt")
         self.assertFalse(gs_file.blob.exists())
         gs_file.create()
         self.assertTrue(gs_file.blob.exists())
-        gs_file.delete()
+        dest = "gs://aries_test/moved_file.txt"
+        gs_file.move(dest)
+        self.assertFalse(gs_file.exists())
+        dest_file = GSFile(dest)
+        self.assertTrue(dest_file.exists())
+        dest_file.delete()

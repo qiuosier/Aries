@@ -18,6 +18,7 @@ import binascii
 import logging
 from tempfile import NamedTemporaryFile
 from google.cloud import storage
+from ..tasks import ShellCommand
 from ..storage import StorageObject, StorageFolder, StorageFile
 logger = logging.getLogger(__name__)
 
@@ -36,17 +37,47 @@ class GSObject(StorageObject):
 
         """
         super(GSObject, self).__init__(gs_path)
-        self._client = storage.Client()
+        self._client = None
         self._bucket = None
         # The "prefix" for gcs does not include the beginning "/"
         if self.path.startswith("/"):
             self.prefix = self.path[1:]
         else:
             self.prefix = self.path
+        self.__blob = None
 
-    def __getattribute__(self, item):
-        
-        return super(GSObject, self).__getattribute__(item)
+    @property
+    def blob(self):
+        """Gets or initialize a Google Cloud Storage Blob.
+
+        Returns: A Google Cloud Storage Blob object.
+            Use blob.exists() to determine whether or not the blob exists.
+
+        """
+        if self.__blob is None:
+            file_blob = self.bucket.get_blob(self.prefix)
+            if file_blob is None:
+                # This will not make an HTTP request.
+                # It simply instantiates a blob object owned by this bucket.
+                # See https://googleapis.github.io/google-cloud-python/latest/storage/buckets.html
+                # #google.cloud.storage.bucket.Bucket.blob
+                file_blob = self.bucket.blob(self.prefix)
+            self.__blob = file_blob
+        return self.__blob
+
+    def exists(self):
+        return self.blob.exists()
+
+    def create(self):
+        """Creates an empty blob, if the blob does not exist.
+
+        Returns:
+            Blob: The Google Cloud Storage blob.
+        """
+        blob = storage.Blob(self.prefix, self.bucket)
+        if not blob.exists():
+            blob.upload_from_string("")
+        return blob
 
     @property
     def bucket_name(self):
@@ -55,6 +86,8 @@ class GSObject(StorageObject):
 
     @property
     def client(self):
+        if not self._client:
+            self._client = storage.Client()
         return self._client
             
     def _get_bucket(self):
@@ -177,6 +210,8 @@ class GSFolder(GSObject, StorageFolder):
         """
         # super() will call the __init__() of StorageObject, StorageFolder and GSObject
         super(GSFolder, self).__init__(gs_path)
+        if not self.uri.endswith("/"):
+            self.uri += "/"
 
         # Make sure prefix ends with "/", otherwise it is not a "folder"
         if self.prefix and not self.prefix.endswith("/"):
@@ -201,16 +236,28 @@ class GSFolder(GSObject, StorageFolder):
 
     @property
     def size(self):
+        # size_bytes = 0
+        # # Total size of files and folders
+        # for c in [self.files, self.folders]:
+        #     for f in c:
+        #         s = f.size
+        #         if not s:
+        #             continue
+        #         size_bytes += s
+        cmd = ShellCommand("gsutil du -s %s" % self.uri).run()
+
+        arr = cmd.std_out.strip().split()
+        s = ""
+        if arr:
+            s = arr[0]
         size_bytes = 0
-        # Total size of files and folders
-        for c in [self.files, self.folders]:
-            for f in c:
-                s = f.size
-                if not s:
-                    continue
-                size_bytes += s
+        if s.isdigit():
+            size_bytes = int(s)
         logger.debug("%s %s Bytes." % (self.path, size_bytes))
         return size_bytes
+
+    def exists(self):
+        return True if self.blob.exists() or self.files or self.folders else False
 
 
 class GSFile(GSObject, StorageFile):
@@ -226,32 +273,12 @@ class GSFile(GSObject, StorageFile):
         """
         # super() will call the __init__() of StorageObject, StorageFolder and GSObject
         super(GSFile, self).__init__(gs_path)
-        self.__blob = None
         self.__offset = 0
         self.__closed = True
         self.__buffer = None
         self.__buffer_offset = None
         self.__temp_file = None
         self.__gz = None
-
-    @property
-    def blob(self):
-        """Gets or initialize a Google Cloud Storage Blob.
-
-        Returns: A Google Cloud Storage Blob object.
-            Use blob.exists() to determine whether or not the blob exists.
-
-        """
-        if self.__blob is None:
-            file_blob = self.bucket.get_blob(self.prefix)
-            if file_blob is None:
-                # This will not make an HTTP request.
-                # It simply instantiates a blob object owned by this bucket.
-                # See https://googleapis.github.io/google-cloud-python/latest/storage/buckets.html
-                # #google.cloud.storage.bucket.Bucket.blob
-                file_blob = self.bucket.blob(self.prefix)
-            self.__blob = file_blob
-        return self.__blob
 
     @property
     def size(self):
@@ -265,17 +292,6 @@ class GSFile(GSObject, StorageFile):
             self.blob.upload_from_file(f)
         return True
 
-    def create(self):
-        """Creates an empty file, if the file does not exist.
-
-        Returns:
-            Blob: The Google Cloud Storage blob.
-        """
-        blob = storage.Blob(self.prefix, self.bucket)
-        if not blob.exists():
-            blob.upload_from_string("")
-        return blob
-
     def is_gz(self):
         if self.__gz is None:
             if self.blob.size < 2:
@@ -287,9 +303,6 @@ class GSFile(GSObject, StorageFile):
             self.seek(offset)
             self.__gz = b == b'1f8b'
         return self.__gz
-
-    def exists(self):
-        return self.blob.exists()
 
     # The following implements the IOBase interface.
     # For seeking

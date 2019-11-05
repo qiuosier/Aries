@@ -158,4 +158,4 @@ class TestLocalStorage(AriesTest):
                 getattr(http_obj, attr)()
         with self.assertRaises(NotImplementedError):
             with http_obj:
-                a = 1
+                pass
