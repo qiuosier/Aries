@@ -123,7 +123,7 @@ class TestGCStorage(unittest.TestCase):
         parent = GSFolder(gs_path)
         folders = parent.get_folders()
         self.assertTrue(parent.exists())
-        self.assertEqual(parent.size, 11)
+        # self.assertEqual(parent.size, 11)
         self.assertEqual(len(folders), 1)
         self.assertEqual(folders[0], "gs://aries_test/test_folder/test_subfolder/")
         names = parent.folder_names
