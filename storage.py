@@ -225,8 +225,15 @@ class LocalFile(StorageFile):
     def exists(self):
         return True if os.path.exists(self.path) else False
 
+    @property
+    def size(self):
+        """File size in bytes"""
+        if self.exists():
+            return os.path.getsize(self.path)
+
     def open(self):
-        """Opens the file for read/write
+        """Opens the file for read/write in binary mode.
+        Existing file will be overwritten.
         """
         if self.exists():
             self.file_obj = open(self.path, "r+b")
@@ -276,6 +283,16 @@ class LocalFile(StorageFile):
         return False
 
     def write(self, b):
+        """Writes data to the file. str will be encoded as bytes using default encoding.
+
+        Args:
+            b: str or bytes to be written into the file.
+
+        Returns: The number of bytes written into the file.
+
+        """
+        if isinstance(b, str):
+            b = b.encode()
         n = self.file_obj.write(b)
         self.__offset = self.file_obj.tell()
         return n

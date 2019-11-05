@@ -105,6 +105,10 @@ class TestGCStorage(unittest.TestCase):
         # Access a folder in a bucket
         self.assert_gs_folder("gs://aries_test/test_folder")
         self.assert_gs_folder("gs://aries_test/test_folder/")
+        # StorageFolder methods
+        gs_folder = GSFolder("gs://aries_test/test_folder/")
+        self.assertEqual(len(gs_folder.folder_paths), 1)
+        self.assertEqual(len(gs_folder.file_paths), 1)
 
     def assert_gs_folder(self, gs_path):
         """Checks if a Google Cloud Storage folder contains the expected folders and files.
