@@ -137,6 +137,7 @@ class OutputWriter(io.StringIO):
         for listener in self.listeners:
             listener.write(*args, **kwargs)
 
+
 class PackageLogFilter(logging.Filter):
     """Logging filter to keep logs generated from packages within a certain location
     
@@ -146,7 +147,7 @@ class PackageLogFilter(logging.Filter):
         This filter keeps only the logs from the packages within the folder.
         
         Args:
-            folder_path (str): Full path of a folder
+            package_root (str): Full path of a folder
 
         """
         if package_root:
@@ -159,12 +160,8 @@ class PackageLogFilter(logging.Filter):
 
     def filter(self, record):
         logger_name = record.name.split(".", 1)[0]
-        for name in self.packages:
-            if not name:
-                continue
-            prefix = name if name.endswith(".") else name + "."
-            if logger_name.startswith(prefix):
-                return True
+        if logger_name in self.packages:
+            return True
         return False
 
     @staticmethod
