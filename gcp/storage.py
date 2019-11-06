@@ -348,6 +348,8 @@ class GSFile(GSObject, StorageFile):
         elif self.blob.exists():
             # Read data from bucket
             blob_size = self.blob.size
+            if self.__offset >= blob_size:
+                return ""
             end = blob_size - 1
             if size:
                 end = self.__offset + size - 1
