@@ -25,8 +25,42 @@ class GoogleDriveFile:
 
 class GoogleSheet(GoogleDriveFile):
     def get(self, **kwargs):
+        """Returns properties of the spreadsheet along with properties and merges of sheets in the spreadsheet.
+        By default, data within grids will not be returned. You can include grid data one of two ways:
+            1. Specify a field mask listing your desired fields using the fields parameter.
+            2. Use key word argument "includeGridData=True".
+        If a field mask is set, the includeGridData parameter is ignored
+        For large spreadsheets, it is recommended to retrieve only the specific fields of the spreadsheet that you want.
+
+        To retrieve only subsets of the spreadsheet, use the ranges parameter. Multiple ranges can be specified.
+        Limiting the range will return only the portions of the spreadsheet that intersect the requested ranges.
+        Ranges are specified using A1 notation.
+
+        Args:
+            **kwargs: ranges, includeGridData, fields
+
+        Returns: A dictionary containing the information of the spreadsheet.
+
+        See Also:
+            https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/get
+            https://developers.google.com/sheets/api/guides/concepts#partial_responses
+        """
         return self.api.get_json(
             "https://sheets.googleapis.com/v4/spreadsheets/%s" % self.file_id,
+            **kwargs
+        )
+
+    def values(self, data_range, **kwargs):
+        """Gets the values of a specific range.
+
+        Args:
+            data_range: A1 notation of a range in a sheet.
+                e.g. "SheetName!A1:B5"
+
+        Returns: A dictionary containing the values from the range requested.
+        """
+        return self.api.get_json(
+            "https://sheets.googleapis.com/v4/spreadsheets/%s/values/%s" % (self.file_id, data_range),
             **kwargs
         )
 
