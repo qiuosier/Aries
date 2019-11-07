@@ -1,4 +1,4 @@
-"""Contains tests for the strings module.
+"""Contains tests for the file module.
 """
 import datetime
 import logging
@@ -43,3 +43,10 @@ class TestMarkdown(AriesTest):
         """
         md = Markdown(self.test_file)
         self.assertEqual(md.title, "This is title")
+
+
+class TestFile(AriesTest):
+    def test_file_signature(self):
+        file_path = os.path.join(os.path.dirname(__file__), "fixtures", "excel_test_file.xlsx")
+        f = File(file_path)
+        self.assertIn("application/vnd.openxmlformats-officedocument", f.file_type())

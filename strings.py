@@ -14,7 +14,7 @@ class AString(str):
     AString inherits all methods of the python str.
     Instance of AString can be use in place of python str.
 
-    AString converts NoneType to empty string.
+    Important: AString converts NoneType to empty string.
 
     For methods in python str returning a str, list, or tuple,
         additional post-processing are added to convert the returning str values to instances AString.
@@ -24,6 +24,15 @@ class AString(str):
 
     """
     def __new__(cls, string_literal):
+        """Creates a new string from string literal.
+        str is immutable and it cannot be modified in __init__
+
+        Args:
+            string_literal (str): String literal
+
+        Returns:
+            str: [description]
+        """
         if string_literal is None:
             return super(AString, cls).__new__(cls, "")
         else:
@@ -40,22 +49,22 @@ class AString(str):
             https://stackoverflow.com/questions/7255655/how-to-subclass-str-in-python
 
         """
+        def method(s, *args, **kwargs):
+            # super() returns a a proxy object that delegates method calls to a parent or sibling class
+            # See https://docs.python.org/3/library/functions.html#super
+            value = getattr(super(AString, self), item)(*args, **kwargs)
+            # Return value is str, list, tuple:
+            if isinstance(value, str):
+                return type(s)(value)
+            elif isinstance(value, list):
+                return [type(s)(i) for i in value]
+            elif isinstance(value, tuple):
+                return tuple(type(s)(i) for i in value)
+            # Return value is dict, bool, or int
+            return value
+
         # If the method is a method of str
         if item in dir(str):  # only handle str methods here
-            def method(s, *args, **kwargs):
-                # super() returns a a proxy object that delegates method calls to a parent or sibling class
-                # See https://docs.python.org/3/library/functions.html#super
-                value = getattr(super(AString, self), item)(*args, **kwargs)
-                # Return value is str, list, tuple:
-                if isinstance(value, str):
-                    return type(s)(value)
-                elif isinstance(value, list):
-                    return [type(s)(i) for i in value]
-                elif isinstance(value, tuple):
-                    return tuple(type(s)(i) for i in value)
-                else:
-                    # dict, bool, or int
-                    return value
             # Bound method
             return method.__get__(self, type(self))
         else:
@@ -257,17 +266,51 @@ class FileName(AString):
 
 
 class Base64String(str):
+    """Represents a string that is base64encoded from bytes.
+
+    The error parameter used in the methods are passed into the str.encode() method.
+    See Also: https://docs.python.org/3/library/stdtypes.html#str.encode
+    
+    """
     @staticmethod
     def encode_from_file(file_path, encoding='utf-8', errors="strict"):
+        """Encodes a file into Base64 string.
+        
+        Args:
+            file_path (str): Location of the file
+            encoding (str, optional): Character encoding. Defaults to 'utf-8'.
+            errors (str, optional): Error handling scheme. Defaults to "strict".
+        
+        Returns:
+            Base64String: The encoded Base64 string.
+        """
         with open(file_path, "rb") as f:
             content = f.read()
             return Base64String(base64.b64encode(content).decode(encoding, errors))
 
     @staticmethod
     def encode_from_string(s, encoding='utf-8', errors="strict"):
+        """Encodes a string into Base64 string.
+        
+        Args:
+            s (str): The string to be encoded.
+            encoding (str, optional): Character encoding. Defaults to 'utf-8'.
+            errors (str, optional): Error handling scheme. Defaults to "strict".
+        
+        Returns:
+            Base64String: The encoded Base64 string.
+        """
         return Base64String(base64.b64encode(s.encode(encoding, errors)).decode(encoding, errors))
 
     def decode_to_file(self, file_path, encoding='utf-8', errors="strict"):
+        """Decodes the Base64 string and saves the contents into a file.
+        
+        Args:
+            file_path (str): The location to save the file. Existing file will be overwritten.
+            encoding (str, optional): Character encoding. Defaults to 'utf-8'.
+            errors (str, optional): Error handling scheme. Defaults to "strict".
+
+        """
         folder = os.path.dirname(file_path)
         if not os.path.exists(folder):
             os.makedirs(folder)
@@ -275,6 +318,15 @@ class Base64String(str):
             f.write(base64.b64decode(self.encode(encoding, errors)))
 
     def decode_to_string(self, encoding='utf-8', errors="strict"):
+        """Decodes the Base64 string and saves the contents into a string.
+        
+        Args:
+            encoding (str, optional): Character encoding. Defaults to 'utf-8'.
+            errors (str, optional): Error handling scheme. Defaults to "strict".
+        
+        Returns:
+            [type]: [description]
+        """
         return base64.b64decode(self.encode(encoding, errors)).decode(encoding, errors)
 
 

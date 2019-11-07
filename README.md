@@ -1,6 +1,6 @@
 # Aries
 
-Aries is a collection of Qiu's python modules. These modules are reusable code for Qiu's python projects.
+Aries is a collection of python modules providing shortcuts to tasks like running background tasks, creating spreadsheets, configuring logging, etc.
 
 [![Build Status](https://travis-ci.org/qiuosier/Aries.svg?branch=master)](https://travis-ci.org/qiuosier/Aries)
 [![Coverage Status](https://coveralls.io/repos/github/qiuosier/Aries/badge.svg?branch=master)](https://coveralls.io/github/qiuosier/Aries?branch=master)
@@ -8,8 +8,9 @@ Aries is a collection of Qiu's python modules. These modules are reusable code f
 
 Aries includes:
 * Database(`db.py`) module to access SQLite database files.
-* Excel(`excel.py`) module to create, read and modify Microsoft Excel files.
+* Excel(`excel.py`) module to create, read and modify Microsoft Excel spreadsheets.
 * Files(`files.py`) module to handle JSON, Markdown and temporary files with templates.
+* [Outputs(`outputs.py`)](docs/outputs.md) module for logging and capturing outputs.
 * Storage(`storage.py`) module to provide object-oriented shortcuts for listing, copying, deleting files/folder.
 * String(`string.py`) module to provide enhanced String types, as well as FileName, Base64String.
 * Task(`tasks.py`) module to manage asynchronous/background functions and commands.

@@ -135,6 +135,14 @@ class PlotlyFigure:
         self.data.append(trace)
         return self
 
+    def __parse_args(names, array, *args):
+        for arg in args:
+            if isinstance(arg, str):
+                names.append(arg)
+            else:
+                array.append(arg)
+        return names, array
+
     def lines(self, x, *args, **kwargs):
         """
 
@@ -160,11 +168,7 @@ class PlotlyFigure:
             y_list.append(series)
             y_name.append(series.name)
         else:
-            for arg in args:
-                if isinstance(arg, str):
-                    y_name.append(arg)
-                else:
-                    y_list.append(arg)
+            y_name, y_list = self.__parse_args(y_name, y_list, *args)
 
         for i in range(len(y_list)):
             trace = go.Scatter(

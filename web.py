@@ -1,8 +1,9 @@
 import requests
 import logging
-from .storage import StorageObject
-from bs4 import BeautifulSoup
 import contextlib
+from io import BytesIO
+from .storage import StorageObject
+from lxml import etree
 from urllib import request
 logger = logging.getLogger(__name__)
 
@@ -110,24 +111,39 @@ class WebAPI:
 class HTML:
     def __init__(self, uri):
         self.uri = uri
+        self.__etree = None
+        self.__content = None
 
     def read(self):
         obj = StorageObject(self.uri)
         if obj.scheme in ["http", "https"]:
             r = requests.get(self.uri)
-            content = r.content
-        else:
-            with open(self.uri, 'r') as f:
-                content = f.read()
-        return content
+            return r.content
+        with open(self.uri, 'r') as f:
+            return f.read()
+
+    @property
+    def content(self):
+        if not self.__content:
+            self.__content = self.read()
+        return self.__content
+
+    @property
+    def etree(self):
+        if not self.__etree:
+            self.__etree = etree.parse(BytesIO(self.content), etree.HTMLParser())
+        return self.__etree
 
     @staticmethod
     def __tags_to_list(parent, tag):
-        elements = parent.find_all(tag)
-        if elements:
-            return [element.renderContents().decode() for element in elements]
-        else:
+        elements = parent.findall(".//%s" % tag)
+        if not elements:
             return None
+        results = []
+        for element in elements:
+            text = element.text if element.text else ""
+            results.append(text + ''.join(etree.tostring(e).decode() for e in element))
+        return results
 
     @staticmethod
     def __append_data(to_list, parent, tag):
@@ -143,36 +159,21 @@ class HTML:
             Each dictionary has two keys: "headers" and "data".
             Both "headers" and "data" are 2D lists.
         """
-        content = self.read()
-        soup = BeautifulSoup(content, 'html.parser')
-        
+        html = self.etree
+        html_tables = html.findall('.//table')
         data_tables = []
-        html_tables = soup.html.find_all('table')
+        
         for html_table in html_tables:
             table = {
                 "headers": [],
                 "data": []
             }
-            rows = html_table.find_all("tr")
+            rows = html_table.findall(".//tr")
             for row in rows:
                 self.__append_data(table["headers"], row, "th")
                 self.__append_data(table["data"], row, "td")
             data_tables.append(table)
         return data_tables
-
-# # Use requests package to download via HTTP
-# def download(url, file_path):
-#     response = requests.get(url, stream=True)
-#     if response.status_code != 200:
-#         return response.status_code
-#     logger.debug("Response code: %s" % response.status_code)
-#     logger.debug("Downloading data from %s" % url)
-#     with open(file_path, 'wb') as f:
-#         for chunk in response.iter_content(chunk_size=1024):
-#             if chunk:
-#                 f.write(chunk)
-#     logger.debug("Data saved to %s" % file_path)
-#     return response.status_code
 
 
 def download(url, file_path):
