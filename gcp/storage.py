@@ -16,20 +16,11 @@ See Also: https://googleapis.github.io/google-cloud-python/latest/core/auth.html
 import os
 import binascii
 import logging
-import zlib
+from tempfile import NamedTemporaryFile
 from google.cloud import storage
-logger = logging.getLogger(__name__)
-# try:
+from ..tasks import ShellCommand
 from ..storage import StorageObject, StorageFolder, StorageFile
-
-# except (SystemError, ValueError):
-#     import sys
-#     from os.path import dirname
-#     aries_parent = dirname(dirname(dirname(__file__)))
-#     if aries_parent not in sys.path:
-#         sys.path.append(aries_parent)
-#     from Aries.storage import StorageObject, StorageFolder, StorageFile
-#     from Aries.tasks import FunctionTask
+logger = logging.getLogger(__name__)
 
 
 class GSObject(StorageObject):
@@ -46,17 +37,47 @@ class GSObject(StorageObject):
 
         """
         super(GSObject, self).__init__(gs_path)
-        self._client = storage.Client()
+        self._client = None
         self._bucket = None
         # The "prefix" for gcs does not include the beginning "/"
         if self.path.startswith("/"):
             self.prefix = self.path[1:]
         else:
             self.prefix = self.path
+        self.__blob = None
 
-    def __getattribute__(self, item):
-        
-        return super(GSObject, self).__getattribute__(item)
+    @property
+    def blob(self):
+        """Gets or initialize a Google Cloud Storage Blob.
+
+        Returns: A Google Cloud Storage Blob object.
+            Use blob.exists() to determine whether or not the blob exists.
+
+        """
+        if self.__blob is None:
+            file_blob = self.bucket.get_blob(self.prefix)
+            if file_blob is None:
+                # This will not make an HTTP request.
+                # It simply instantiates a blob object owned by this bucket.
+                # See https://googleapis.github.io/google-cloud-python/latest/storage/buckets.html
+                # #google.cloud.storage.bucket.Bucket.blob
+                file_blob = self.bucket.blob(self.prefix)
+            self.__blob = file_blob
+        return self.__blob
+
+    def exists(self):
+        return self.blob.exists()
+
+    def create(self):
+        """Creates an empty blob, if the blob does not exist.
+
+        Returns:
+            Blob: The Google Cloud Storage blob.
+        """
+        blob = storage.Blob(self.prefix, self.bucket)
+        if not blob.exists():
+            blob.upload_from_string("")
+        return blob
 
     @property
     def bucket_name(self):
@@ -65,6 +86,8 @@ class GSObject(StorageObject):
 
     @property
     def client(self):
+        if not self._client:
+            self._client = storage.Client()
         return self._client
             
     def _get_bucket(self):
@@ -101,10 +124,11 @@ class GSObject(StorageObject):
         """Deletes all objects with the same prefix."""
         # This needs to be done before the batch.
         blobs = self.blobs()
-        if blobs:
-            with self.client.batch():
-                for blob in blobs:
-                    blob.delete()
+        if not blobs:
+            return
+        with self.client.batch():
+            for blob in blobs:
+                blob.delete()
 
     def copy(self, to):
         """Copies folder/file in a Google Cloud storage directory to another one.
@@ -160,7 +184,7 @@ class GSObject(StorageObject):
         with self.client.batch():
             for blob in source_files:
                 new_name = str(blob.name).replace(self.prefix, destination.prefix, 1)
-                if new_name != str(blob.name):
+                if new_name != str(blob.name) or self.bucket_name != destination.bucket_name:
                     self.bucket.copy_blob(blob, destination.bucket, new_name)
 
         logger.debug("%d blobs copied" % len(source_files))
@@ -186,6 +210,8 @@ class GSFolder(GSObject, StorageFolder):
         """
         # super() will call the __init__() of StorageObject, StorageFolder and GSObject
         super(GSFolder, self).__init__(gs_path)
+        if not self.uri.endswith("/"):
+            self.uri += "/"
 
         # Make sure prefix ends with "/", otherwise it is not a "folder"
         if self.prefix and not self.prefix.endswith("/"):
@@ -210,135 +236,66 @@ class GSFolder(GSObject, StorageFolder):
 
     @property
     def size(self):
+        # size_bytes = 0
+        # # Total size of files and folders
+        # for c in [self.files, self.folders]:
+        #     for f in c:
+        #         s = f.size
+        #         if not s:
+        #             continue
+        #         size_bytes += s
+        # TODO: This command requires gsutil installed
+        cmd = ShellCommand("gsutil du -s %s" % self.uri).run()
+
+        arr = cmd.std_out.strip().split()
+        s = ""
+        if arr:
+            s = arr[0]
         size_bytes = 0
-        # Total size of files and folders
-        for c in [self.files, self.folders]:
-            for f in c:
-                s = f.size
-                if not s:
-                    continue
-                size_bytes += s
+        if s.isdigit():
+            size_bytes = int(s)
         logger.debug("%s %s Bytes." % (self.path, size_bytes))
         return size_bytes
+
+    def exists(self):
+        return True if self.blob.exists() or self.files or self.folders else False
+
+    def filter_files(self, prefix):
+        return [
+            GSFile("gs://%s/%s" % (self.bucket_name, b.name))
+            for b in self.bucket.list_blobs(prefix=os.path.join(self.prefix, prefix), delimiter='/')
+            if not b.name.endswith("/")
+        ]
 
 
 class GSFile(GSObject, StorageFile):
     def __init__(self, gs_path):
-        """
+        """Represents a file on Google Cloud Storage as a file-like object implementing the IOBase interface.
 
         Args:
             gs_path:
 
+        GSFile allows seek and read without opening the file.
+        However, position/offset will be reset when open() is called.
+        The context manager calls open() when enter.
         """
         # super() will call the __init__() of StorageObject, StorageFolder and GSObject
         super(GSFile, self).__init__(gs_path)
-        self.__blob = None
         self.__offset = 0
+        self.__closed = True
+        self.__buffer = None
+        self.__buffer_offset = None
+        self.__temp_file = None
         self.__gz = None
-        self.__decompress = zlib.decompressobj(32 + zlib.MAX_WBITS)
-        self.__buffer = ""
-
-    @property
-    def blob(self):
-        """Gets or initialize a Google Cloud Storage Blob.
-
-        Returns: A Google Cloud Storage Blob object.
-            Use blob.exists() to determine whether or not the blob exists.
-
-        """
-        if self.__blob is None:
-            self.__blob = self.__get_or_init_blob()
-        return self.__blob
 
     @property
     def size(self):
         return self.blob.size
 
-    @property
-    def closed(self):
-        return False
-
-    def close(self):
-        return
-
-    def fileno(self):
-        raise IOError("GSFile does not use a file descriptor.")
-
-    def readable(self):
-        return True
-
-    def seekable(self):
-        return True
-
-    def writable(self):
-        return False
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self):
-        return
-
-    def __get_or_init_blob(self):
-        """Gets or initialize a Google Cloud Storage Blob.
-
-        Returns: A Google Cloud Storage Blob object.
-            Use blob.exists() to determine whether or not the blob exists.
-
-        """
-        file_blob = self.bucket.get_blob(self.prefix)
-        if file_blob is None:
-            # This will not make an HTTP request.
-            # It simply instantiates a blob object owned by this bucket.
-            # See https://googleapis.github.io/google-cloud-python/latest/storage/buckets.html
-            # #google.cloud.storage.bucket.Bucket.blob
-            file_blob = self.bucket.blob(self.prefix)
-        return file_blob
-
-    def read(self, size=None):
-        """Reads the file from the Google Cloud bucket to memory
-
-        Returns: Bytes containing the contents of the file.
-        """
-        if self.blob.exists():
-            blob_size = self.blob.size
-            if not size:
-                return self.blob.download_as_string()
-            else:
-                end = self.__offset + size - 1
-                if end >= blob_size - 1:
-                    end = None
-                print("Reading from %s to %s" % (self.__offset, end))
-                b = self.blob.download_as_string(start=self.__offset, end=end)
-                if end:
-                    self.__offset = end + 1
-                else:
-                    self.__offset = blob_size
-                return b
-        else:
-            return None
-
-    def seek(self, offset):
-        self.__offset = offset
-
-    def tell(self):
-        return self.__offset
-
-    def create(self):
-        """Creates an empty file, if the file does not exist.
-        
-        Returns:
-            Blob: The Google Cloud Storage blob.
-        """
-        blob = storage.Blob(self.prefix, self.bucket)
-        if not blob.exists():
-            blob.upload_from_string("")
-        return blob
-
     def upload_from_file(self, file_path):
         if not os.path.exists(file_path):
             raise FileNotFoundError("File not found: %s" % file_path)
-        
+
         with open(file_path, 'rb') as f:
             self.blob.upload_from_file(f)
         return True
@@ -354,3 +311,140 @@ class GSFile(GSObject, StorageFile):
             self.seek(offset)
             self.__gz = b == b'1f8b'
         return self.__gz
+
+    # The following implements the IOBase interface.
+    # For seeking
+    def seek(self, pos, whence=0):
+        """Changes the read beginning position to byte offset pos.
+        Args:
+            pos (int): The number of bytes.
+            whence (int):
+                * 0 -- start of stream (the default); offset should be zero or positive
+                * 1 -- current stream position; offset may be negative
+                * 2 -- end of stream; offset is usually negative
+
+        Returns:
+
+        """
+        # Run __append() to save and clear the buffer
+        if self.__buffer:
+            self.__append()
+
+        if whence == 0:
+            self.__offset = pos
+        elif whence == 1:
+            self.__offset += pos
+        elif whence == 2:
+            self.__offset = self.size + pos
+        else:
+            raise ValueError("whence must be 0, 1 or 2.")
+        return self.__offset
+
+    # For reading
+    def read(self, size=None):
+        """Reads the file from the Google Cloud bucket to memory
+
+        Returns: Bytes containing the contents of the file.
+        """
+        # Read data from temp file if it exist.
+        if self.__temp_file:
+            with open(self.__temp_file) as f:
+                f.seek(self.__offset)
+                b = f.read(size)
+                self.__offset = f.tell()
+                return b
+        elif self.blob.exists():
+            # Read data from bucket
+            blob_size = self.blob.size
+            if self.__offset >= blob_size:
+                return ""
+            end = blob_size - 1
+            if size:
+                end = self.__offset + size - 1
+            if end >= blob_size - 1:
+                end = None
+            logger.debug("Reading from %s to %s" % (self.__offset, end))
+            b = self.blob.download_as_string(start=self.__offset, end=end)
+            self.__offset = end + 1 if end else blob_size
+            return b
+        return None
+
+    # For writing
+    def __append(self):
+        """Appends the data from buffer to temp file.
+        """
+        logger.debug("Writing buffer into file...offset=%s" % self.__buffer_offset)
+        # Do nothing if there is no buffer.
+        if not self.__buffer:
+            return
+        # Create a temp file if it does not exist.
+        if not self.__temp_file:
+            f = NamedTemporaryFile(delete=False)
+            self.__temp_file = f.name
+            # Download the blob to temp file if it exists.
+            if self.blob.exists():
+                self.blob.download_to_file(f)
+            f.seek(self.__buffer_offset)
+        else:
+            # Open existing temp file.
+            f = open(self.__temp_file, 'r+b')
+            f.seek(self.__buffer_offset)
+        if isinstance(self.__buffer, str):
+            b = self.__buffer.encode()
+        else:
+            b = self.__buffer
+        f.write(b)
+        self.__buffer = None
+        self.__buffer_offset = None
+        self.__offset += len(b)
+        f.close()
+
+    def writable(self):
+        return True
+
+    def write(self, b):
+        if self.closed:
+            raise ValueError("write to closed file")
+        if self.__buffer is None:
+            self.__buffer_offset = self.__offset
+            self.__buffer = b
+        else:
+            self.__buffer += b
+        # Append the buffer to temp file if size is greater than 1MB
+        buffer_size = len(self.__buffer)
+        if buffer_size > 1024 * 1024:
+            self.__append()
+        self.__offset += len(b)
+        return len(b)
+
+    def flush(self):
+        """Flush write buffers and upload the data to bucket.
+        """
+        self.__append()
+        if self.__temp_file:
+            self.blob.upload_from_filename(self.__temp_file)
+
+    def close(self):
+        """Flush and close the file.
+        This method has no effect if the file is already closed.
+        """
+        if self.__closed:
+            return
+        try:
+            self.flush()
+        finally:
+            # Remove __temp_file if it exists.
+            if self.__temp_file:
+                os.unlink(self.__temp_file)
+                self.__temp_file = None
+            self.__buffer = None
+            # Set __closed attribute
+            self.__closed = True
+
+    def open(self):
+        self.__closed = False
+        self.__buffer = None
+        self.__temp_file = None
+        # Reset offset position when open
+        self.__offset = 0
+        return self

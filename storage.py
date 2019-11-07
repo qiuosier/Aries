@@ -2,6 +2,7 @@
 """
 import os
 import shutil
+from io import RawIOBase
 from urllib.parse import urlparse
 
 
@@ -22,6 +23,8 @@ class StorageObject:
         self.uri = str(uri)
         parse_result = urlparse(self.uri)
         self.scheme = parse_result.scheme
+        if not self.scheme:
+            self.scheme = 'file'
         self.hostname = parse_result.hostname
         self.path = parse_result.path
 
@@ -47,12 +50,66 @@ class StorageObject:
         return self.basename
 
 
-class StorageFile(StorageObject):
+class StorageFile(StorageObject, RawIOBase):
     """Represents a storage file.
+    Subclass should implement the RawIOBase interface, plus exists().
+    This class implements seekable() and readable() to return True if the file exists.
+
+    The following should be implemented:
+    For seeking:
+        seek(self, pos, whence=0)
+        seekable()
+
+    For reading:
+        read()
+        readable()
+
+    For writing:
+        write(b)
+        writable()
+        flush()
 
     """
     def __init__(self, uri):
         super(StorageFile, self).__init__(uri)
+
+    @staticmethod
+    def init(uri):
+        """Opens a StorageFile as one of the subclass base on the URI.
+        """
+        from .gcp.storage import GSFile
+        uri = str(uri)
+        if uri.startswith("/") or uri.startswith("file://"):
+            return LocalFile(uri)
+        elif uri.startswith("gs://"):
+            return GSFile(uri)
+        return StorageFile(uri)
+
+    def exists(self):
+        raise NotImplementedError()
+
+    def open(self):
+        raise NotImplementedError()
+
+    def close(self):
+        raise NotImplementedError()
+
+    def __enter__(self):
+        return self.open()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+        return
+
+    def seekable(self):
+        if self.exists():
+            return True
+        return False
+
+    def readable(self):
+        if self.exists():
+            return True
+        return False
 
 
 class StorageFolder(StorageObject):
@@ -65,6 +122,18 @@ class StorageFolder(StorageObject):
         # Make sure path ends with "/"
         if self.path and self.path[-1] != '/':
             self.path += '/'
+
+    @staticmethod
+    def init(uri):
+        """Opens a StorageFile as one of the subclass base on the URI.
+        """
+        from .gcp.storage import GSFolder
+        uri = str(uri)
+        if uri.startswith("/") or uri.startswith("file://"):
+            return LocalFolder(uri)
+        elif uri.startswith("gs://"):
+            return GSFolder(uri)
+        return StorageFile(uri)
 
     @staticmethod
     def _get_attribute(storage_objects, attribute):
@@ -144,15 +213,119 @@ class StorageFolder(StorageObject):
     def folder_names(self):
         return self.get_folders("name")
 
+    def exists(self):
+        """Checks if the folder exists.
+        """
+        raise NotImplementedError()
+
+    def create(self):
+        """Creates a new folder.
+        There should be no error if the folder already exists.
+        """
+        raise NotImplementedError()
+
+    def filter_files(self, prefix):
+        raise NotImplementedError
+
 
 class LocalFile(StorageFile):
+    def __init__(self, uri):
+        super(LocalFile, self).__init__(uri)
+        self.file_obj = None
+        self.__closed = True
+        self.__offset = 0
+
     def delete(self):
+        """Deletes the file if it exists.
+        """
         if os.path.exists(self.path):
             os.remove(self.path)
 
     def copy(self, to):
+        """Copies the file to another location.
+        """
+        # TODO: Copy file across different schema.
         if os.path.exists(self.path):
             shutil.copyfile(self.path, to)
+
+    def exists(self):
+        return True if os.path.exists(self.path) else False
+
+    @property
+    def size(self):
+        """File size in bytes"""
+        if self.exists():
+            return os.path.getsize(self.path)
+
+    def open(self):
+        """Opens the file for read/write in binary mode.
+        Existing file will be overwritten.
+        """
+        if self.exists():
+            self.file_obj = open(self.path, "r+b")
+        else:
+            # 'w' will create a new file from scratch.
+            self.file_obj = open(self.path, "w+b")
+        self.__closed = False
+        self.__offset = 0
+        return self
+
+    def close(self):
+        """Flush and close the IO object.
+        This method has no effect if the file is already closed.
+        """
+        if not self.__closed:
+            try:
+                self.flush()
+            finally:
+                self.__closed = True
+        if self.file_obj:
+            self.file_obj.close()
+            self.file_obj = None
+
+    def seek(self, pos, whence=0):
+        if self.file_obj:
+            self.__offset = self.file_obj.seek(pos, whence)
+        else:
+            with open(self.path) as f:
+                f.seek(self.__offset)
+                self.__offset = f.seek(pos, whence)
+        return self.__offset
+
+    def read(self, size=None):
+        if self.file_obj:
+            b = self.file_obj.read(size)
+            self.__offset = self.file_obj.tell()
+        else:
+            with open(self.path) as f:
+                f.seek(self.__offset)
+                b = f.read(size)
+                self.__offset = f.tell()
+        return b
+
+    def writable(self):
+        if self.file_obj:
+            return True
+        return False
+
+    def write(self, b):
+        """Writes data to the file. str will be encoded as bytes using default encoding.
+
+        Args:
+            b: str or bytes to be written into the file.
+
+        Returns: The number of bytes written into the file.
+
+        """
+        if isinstance(b, str):
+            b = b.encode()
+        n = self.file_obj.write(b)
+        self.__offset = self.file_obj.tell()
+        return n
+
+    def flush(self):
+        if self.file_obj:
+            return self.file_obj.flush()
 
 
 class LocalFolder(StorageFolder):
@@ -206,6 +379,9 @@ class LocalFolder(StorageFolder):
                 return f
         return None
 
+    def exists(self):
+        return True if os.path.exists(self.path) else False
+
     def create(self):
         if not os.path.exists(self.path):
             os.makedirs(self.path)
@@ -242,3 +418,10 @@ class LocalFolder(StorageFolder):
             return False
         else:
             return True
+
+    def filter_files(self, prefix):
+        files = []
+        for f in self.files:
+            if f.name.startswith(prefix):
+                files.append(f)
+        return files

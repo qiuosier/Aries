@@ -11,8 +11,7 @@ Aries includes:
 * Excel(`excel.py`) module to create, read and modify Microsoft Excel spreadsheets.
 * Files(`files.py`) module to handle JSON, Markdown and temporary files with templates.
 * [Outputs(`outputs.py`)](docs/outputs.md) module for logging and capturing outputs.
-* Storage(`storage.py`) module to provide object-oriented shortcuts for listing, copying, deleting files/folder.
+* [Storage(`storage.py`)](docs/storage.md) module to provide a unified interface for access data (including data on Google Cloud Storage) and object-oriented shortcuts for listing, copying, deleting files/folder.
 * String(`string.py`) module to provide enhanced String types, as well as FileName, Base64String.
 * Task(`tasks.py`) module to manage asynchronous/background functions and commands.
 * Web(`web.py`) module to access web APIs.
-* Google Storage(`gcp/storage.py`) module to access and operate files on the Google Cloud Storage.

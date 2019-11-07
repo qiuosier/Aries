@@ -3,10 +3,49 @@
 """
 import re
 import logging
+import string
 from tempfile import TemporaryFile
 from openpyxl import load_workbook, Workbook
 from openpyxl.utils import get_column_letter
 logger = logging.getLogger(__name__)
+
+
+def int2letters(n):
+    """Converts an integer to a string like the MS excel column letters.
+    It is essentially a numeral system with a base of 26.
+    Examples:
+        1 -> A, 2 -> B, ..., 26 -> Z, 27 -> AA, 28 -> AB, ..., 705 -> AAA
+
+    Args:
+        n: An integer number (with a base of 10).
+
+    Returns (str): A string like the MS excel column letters
+
+    """
+    suffix = ""
+    while n > 0:
+        n, r = divmod(n - 1, 26)
+        suffix = chr(r + ord('A')) + suffix
+    return suffix
+
+
+def letters2int(letters):
+    """Converts a string of Excel column like letters to integer.
+    Examples:
+        A -> 1, B -> 2, ..., Z -> 26, AA -> 27, AB -> 28, ..., AAA -> 705
+
+    Args:
+        letters: A string contains only ASCII letters.
+
+    Returns: An integer representing the input string with a base of 10.
+
+    """
+    n = 0
+    for c in letters:
+        if c not in string.ascii_letters:
+            raise ValueError("Input can only contain ASCII letters. Invalid character: %s." % c)
+        n = n * 26 + (ord(c.upper()) - ord('A')) + 1
+    return n
 
 
 class ExcelFile:
