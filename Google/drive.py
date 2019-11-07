@@ -57,7 +57,10 @@ class GoogleSheet(GoogleDriveFile):
             data_range: A1 notation of a range in a sheet.
                 e.g. "SheetName!A1:B5"
 
-        Returns: A dictionary containing the values from the range requested.
+        Returns: A dictionary containing the following keys:
+            majorDimension:
+            range: The actual range in the sheet containing data.
+            values: Two 2-D list containing the values.
         """
         return self.api.get_json(
             "https://sheets.googleapis.com/v4/spreadsheets/%s/values/%s" % (self.file_id, data_range),
