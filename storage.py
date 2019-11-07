@@ -224,6 +224,9 @@ class StorageFolder(StorageObject):
         """
         raise NotImplementedError()
 
+    def filter_files(self, prefix):
+        raise NotImplementedError
+
 
 class LocalFile(StorageFile):
     def __init__(self, uri):
@@ -415,3 +418,10 @@ class LocalFolder(StorageFolder):
             return False
         else:
             return True
+
+    def filter_files(self, prefix):
+        files = []
+        for f in self.files:
+            if f.name.startswith(prefix):
+                files.append(f)
+        return files

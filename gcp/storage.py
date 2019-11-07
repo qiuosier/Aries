@@ -259,6 +259,13 @@ class GSFolder(GSObject, StorageFolder):
     def exists(self):
         return True if self.blob.exists() or self.files or self.folders else False
 
+    def filter_files(self, prefix):
+        return [
+            GSFile("gs://%s/%s" % (self.bucket_name, b.name))
+            for b in self.bucket.list_blobs(prefix=os.path.join(self.prefix, prefix), delimiter='/')
+            if not b.name.endswith("/")
+        ]
+
 
 class GSFile(GSObject, StorageFile):
     def __init__(self, gs_path):
