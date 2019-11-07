@@ -244,6 +244,7 @@ class GSFolder(GSObject, StorageFolder):
         #         if not s:
         #             continue
         #         size_bytes += s
+        # TODO: This command requires gsutil installed
         cmd = ShellCommand("gsutil du -s %s" % self.uri).run()
 
         arr = cmd.std_out.strip().split()
@@ -372,6 +373,7 @@ class GSFile(GSObject, StorageFile):
     def __append(self):
         """Appends the data from buffer to temp file.
         """
+        logger.debug("Writing buffer into file...offset=%s" % self.__buffer_offset)
         # Do nothing if there is no buffer.
         if not self.__buffer:
             return
@@ -382,6 +384,7 @@ class GSFile(GSObject, StorageFile):
             # Download the blob to temp file if it exists.
             if self.blob.exists():
                 self.blob.download_to_file(f)
+            f.seek(self.__buffer_offset)
         else:
             # Open existing temp file.
             f = open(self.__temp_file, 'r+b')
