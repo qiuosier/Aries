@@ -104,7 +104,11 @@ class WebAPI:
         for key, val in kwargs.items():
             if "?" not in url:
                 url += "?"
-            url += "&%s=%s" % (key, val)
+            if isinstance(val, list):
+                pass
+                url += "".join(["&%s=%s" % (key, v) for v in val])
+            else:
+                url += "&%s=%s" % (key, val)
         return url
 
 

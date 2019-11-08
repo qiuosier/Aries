@@ -45,10 +45,8 @@ class GoogleSheet(GoogleDriveFile):
             https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/get
             https://developers.google.com/sheets/api/guides/concepts#partial_responses
         """
-        return self.api.get_json(
-            "https://sheets.googleapis.com/v4/spreadsheets/%s" % self.file_id,
-            **kwargs
-        )
+        api_url = "https://sheets.googleapis.com/v4/spreadsheets/%s" % self.file_id
+        return self.api.get_json(api_url, **kwargs)
 
     def values(self, data_range, **kwargs):
         """Gets the values of a specific range.
