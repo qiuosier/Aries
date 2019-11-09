@@ -29,7 +29,7 @@ class GSObject(StorageObject):
     Attributes:
         prefix: The Google Cloud Storage prefix, which is the path without the beginning "/"
     """
-    def __init__(self, gs_path):
+    def __init__(self, gs_path, *args, **kwargs):
         """Initializes a Google Cloud Storage Object.
 
         Args:
