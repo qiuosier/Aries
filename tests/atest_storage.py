@@ -139,7 +139,7 @@ class TestLocalStorage(AriesTest):
         if local_file.exists():
             local_file.delete()
         self.assertFalse(local_file.exists())
-        with local_file as f:
+        with local_file('w') as f:
             self.assertTrue(local_file.writable())
             f.write("abc")
             f.seek(0)

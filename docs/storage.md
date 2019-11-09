@@ -17,9 +17,11 @@ Both `LocalFile` and `GSFile` implements all IOBase stub methods and mixin metho
 # If uri is '/var/text.txt', a LocalFile instance will be returned.
 f = StorageFile.init(uri)
 ```
-`StorageFile.init()` automatically determines the storage type by the schemes in the URI. For local file, it can be also written as `/var/text.txt` without the schema. An instance of a subclass of StorageFile will be returned. The instance will have:
+`StorageFile.init()` automatically determines the storage type by the schemes in the URI. For local file, URI can also be `/var/text.txt` without the schema. An instance of a subclass of StorageFile will be returned. The instance will have:
 * `open()` and `close()` for opening and closing the file for read/write
 * `exists()` for determining whether the file exists.
+
+While `open()` and `close()` do not take any arguments, `StorageFile.ini(uri, mode)` accepts an additional argument `mode` for specifying the mode in which the file is opened. `mode` takes the same values as the Python built-in `open()`.
 
 It also provides context manager to open and close the file:
 ```
@@ -27,7 +29,7 @@ import pandas as pd
 df = pd.DataFrame([1, 3, 5])
 
 # Using StorageFile in pandas
-with StorageFile.init(uri) as f:
+with StorageFile.init(uri, 'w') as f:
     # f will be a file-like object
     df.to_csv(f)
 ```
