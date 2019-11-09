@@ -366,6 +366,7 @@ class GSFile(GSObject, StorageFile):
             logger.debug("Reading from %s to %s" % (self.__offset, end))
             b = self.blob.download_as_string(start=self.__offset, end=end)
             self.__offset = end + 1 if end else blob_size
+            logger.debug("%s bytes" % len(b))
             return b
         return None
 

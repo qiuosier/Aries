@@ -111,6 +111,9 @@ class StorageFile(StorageObject, RawIOBase):
             return True
         return False
 
+    def copy(self, to):
+        raise NotImplementedError()
+
 
 class StorageFolder(StorageObject):
     """Represents a storage folder.
