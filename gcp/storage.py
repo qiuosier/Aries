@@ -269,7 +269,7 @@ class GSFolder(GSObject, StorageFolder):
 
 
 class GSFile(GSObject, StorageFile):
-    def __init__(self, gs_path):
+    def __init__(self, gs_path, mode='r'):
         """Represents a file on Google Cloud Storage as a file-like object implementing the IOBase interface.
 
         Args:
@@ -280,13 +280,13 @@ class GSFile(GSObject, StorageFile):
         The context manager calls open() when enter.
         """
         # super() will call the __init__() of StorageObject, StorageFolder and GSObject
-        super(GSFile, self).__init__(gs_path)
         self.__offset = 0
         self.__closed = True
         self.__buffer = None
         self.__buffer_offset = None
         self.__temp_file = None
         self.__gz = None
+        super(GSFile, self).__init__(gs_path, mode)
 
     @property
     def size(self):
@@ -400,9 +400,6 @@ class GSFile(GSObject, StorageFile):
         self.__offset += len(b)
         f.close()
 
-    def writable(self):
-        return True
-
     def write(self, b):
         if self.closed:
             raise ValueError("write to closed file")
@@ -443,9 +440,19 @@ class GSFile(GSObject, StorageFile):
             self.__closed = True
 
     def open(self):
+        """Opens the file for writing
+        """
         self.__closed = False
         self.__buffer = None
         self.__temp_file = None
         # Reset offset position when open
-        self.__offset = 0
+        if 'a' in self.mode:
+            # Move to the end of the file if open in appending mode.
+            self.seek(0, 2)
+        elif 'w' in self.mode:
+            # Delete the file if open in write mode.
+            self.delete()
+            self.__offset = 0
+        else:
+            self.__offset = 0
         return self
