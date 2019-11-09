@@ -72,22 +72,43 @@ class StorageFile(StorageObject, RawIOBase):
         flush()
 
     """
-    def __init__(self, uri):
+    def __init__(self, uri, mode='r'):
         super(StorageFile, self).__init__(uri)
+        self.__set_mode(mode)
+
+    def __set_mode(self, mode):
+        self.mode = mode
+        if 'x' in mode:
+            if self.exists():
+                raise FileExistsError("File %s already exists." % self.uri)
+            self._writable = True
+        elif 'a' in mode:
+            self._writable = True
+        elif 'w' in mode:
+            self._writable = True
+        else:
+            self._writable = False
+
+        if '+' in mode:
+            self._writable = True
+
+    def __call__(self, mode='r'):
+        self.__set_mode(mode)
+        return self
 
     @staticmethod
-    def init(uri):
+    def init(uri, mode='r'):
         """Opens a StorageFile as one of the subclass base on the URI.
         """
         from .gcp.storage import GSFile
         uri = str(uri)
         if uri.startswith("/") or uri.startswith("file://"):
             logger.debug("Using local file: %s" % uri)
-            return LocalFile(uri)
+            return LocalFile(uri, mode)
         elif uri.startswith("gs://"):
             logger.debug("Using GS file: %s" % uri)
-            return GSFile(uri)
-        return StorageFile(uri)
+            return GSFile(uri, mode)
+        return StorageFile(uri, mode)
 
     def exists(self):
         raise NotImplementedError()
@@ -114,6 +135,9 @@ class StorageFile(StorageObject, RawIOBase):
         if self.exists():
             return True
         return False
+
+    def writable(self):
+        return self._writable
 
     def copy(self, to):
         raise NotImplementedError()
@@ -238,8 +262,8 @@ class StorageFolder(StorageObject):
 
 
 class LocalFile(StorageFile):
-    def __init__(self, uri):
-        super(LocalFile, self).__init__(uri)
+    def __init__(self, uri, mode='r'):
+        super(LocalFile, self).__init__(uri, mode)
         self.file_obj = None
         self.__closed = True
         self.__offset = 0
@@ -270,13 +294,8 @@ class LocalFile(StorageFile):
         """Opens the file for read/write in binary mode.
         Existing file will be overwritten.
         """
-        if self.exists():
-            self.file_obj = open(self.path, "r+b")
-            logger.debug("Opening file %s with r+b..." % self.path)
-        else:
-            # 'w' will create a new file from scratch.
-            self.file_obj = open(self.path, "w+b")
-            logger.debug("Opening file %s with w+b..." % self.path)
+        logger.debug("Opening %s with %s..." % (self.path, self.mode))
+        self.file_obj = open(self.path, self.mode)
         self.__closed = False
         self.__offset = 0
         return self
@@ -287,6 +306,7 @@ class LocalFile(StorageFile):
         """
         if not self.__closed:
             try:
+                logger.debug("Saving data into file %s" % self.path)
                 self.flush()
             finally:
                 self.__closed = True
@@ -316,9 +336,11 @@ class LocalFile(StorageFile):
         return b
 
     def writable(self):
-        if self.file_obj:
-            return True
-        return False
+        if not self.file_obj:
+            return False
+        if hasattr(self.file_obj, "writable"):
+            return self.file_obj.writable()
+        return True
 
     def write(self, b):
         """Writes data to the file. str will be encoded as bytes using default encoding.
@@ -329,7 +351,7 @@ class LocalFile(StorageFile):
         Returns: The number of bytes written into the file.
 
         """
-        if isinstance(b, str):
+        if 'b' in self.mode and isinstance(b, str):
             b = b.encode()
         n = self.file_obj.write(b)
         self.__offset = self.file_obj.tell()
@@ -337,6 +359,7 @@ class LocalFile(StorageFile):
 
     def flush(self):
         if self.file_obj:
+            logger.debug("Flusing...")
             return self.file_obj.flush()
 
 
