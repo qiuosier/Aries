@@ -2,8 +2,10 @@
 """
 import os
 import shutil
+import logging
 from io import RawIOBase
 from urllib.parse import urlparse
+logger = logging.getLogger(__file__)
 
 
 class StorageObject:
@@ -80,8 +82,10 @@ class StorageFile(StorageObject, RawIOBase):
         from .gcp.storage import GSFile
         uri = str(uri)
         if uri.startswith("/") or uri.startswith("file://"):
+            logger.debug("Using local file: %s" % uri)
             return LocalFile(uri)
         elif uri.startswith("gs://"):
+            logger.debug("Using GS file: %s" % uri)
             return GSFile(uri)
         return StorageFile(uri)
 
@@ -133,10 +137,12 @@ class StorageFolder(StorageObject):
         from .gcp.storage import GSFolder
         uri = str(uri)
         if uri.startswith("/") or uri.startswith("file://"):
+            logger.debug("Using local folder: %s" % uri)
             return LocalFolder(uri)
         elif uri.startswith("gs://"):
+            logger.debug("Using GS folder: %s" % uri)
             return GSFolder(uri)
-        return StorageFile(uri)
+        return StorageFolder(uri)
 
     @staticmethod
     def _get_attribute(storage_objects, attribute):
@@ -266,9 +272,11 @@ class LocalFile(StorageFile):
         """
         if self.exists():
             self.file_obj = open(self.path, "r+b")
+            logger.debug("Opening file %s with r+b..." % self.path)
         else:
             # 'w' will create a new file from scratch.
             self.file_obj = open(self.path, "w+b")
+            logger.debug("Opening file %s with w+b..." % self.path)
         self.__closed = False
         self.__offset = 0
         return self
@@ -283,6 +291,7 @@ class LocalFile(StorageFile):
             finally:
                 self.__closed = True
         if self.file_obj:
+            logger.debug("Closing file %s..." % self.path)
             self.file_obj.close()
             self.file_obj = None
 
@@ -423,8 +432,10 @@ class LocalFolder(StorageFolder):
             return True
 
     def filter_files(self, prefix):
+        logger.debug("Filtering files by prefix: %s" % prefix)
         files = []
         for f in self.files:
+            logger.debug(f.name)
             if f.name.startswith(prefix):
                 files.append(f)
         return files
