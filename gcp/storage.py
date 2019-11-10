@@ -330,9 +330,9 @@ class GSFile(GSObject, StorageFile):
         if self.__buffer:
             self.__append()
 
-        if whence == 0:
-            if pos < 0:
-                raise ValueError("negative seek position %r" % (pos,))
+        if whence == 0 and pos < 0:
+            raise ValueError("negative seek position %r" % (pos,))
+        elif whence == 0:
             self.__offset = pos
         elif whence == 1:
             self.__offset = max(0, self.__offset + pos)
@@ -381,21 +381,18 @@ class GSFile(GSObject, StorageFile):
         if not self.__buffer:
             return
         # Create a temp file if it does not exist.
-        if not self.__temp_file:
+        if self.__temp_file:
+            # Open existing temp file.
+            f = open(self.__temp_file, 'r+b')
+        else:
             f = NamedTemporaryFile(delete=False)
             self.__temp_file = f.name
             # Download the blob to temp file if it exists.
             if self.blob.exists():
                 self.blob.download_to_file(f)
-            f.seek(self.__buffer_offset)
-        else:
-            # Open existing temp file.
-            f = open(self.__temp_file, 'r+b')
-            f.seek(self.__buffer_offset)
-        if isinstance(self.__buffer, str):
-            b = self.__buffer.encode()
-        else:
-            b = self.__buffer
+
+        f.seek(self.__buffer_offset)
+        b = self.__buffer.encode() if isinstance(self.__buffer, str) else self.__buffer
         f.write(b)
         self.__buffer = None
         self.__buffer_offset = None
