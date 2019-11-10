@@ -100,6 +100,8 @@ class StorageFile(StorageObject, RawIOBase):
     def init(uri, mode='r'):
         """Opens a StorageFile as one of the subclass base on the URI.
         """
+        if uri is None:
+            raise ValueError("uri cannot be None")
         from .gcp.storage import GSFile
         uri = str(uri)
         if uri.startswith("/") or uri.startswith("file://"):
@@ -108,16 +110,17 @@ class StorageFile(StorageObject, RawIOBase):
         elif uri.startswith("gs://"):
             logger.debug("Using GS file: %s" % uri)
             return GSFile(uri, mode)
+        logger.debug("No implementation available for scheme %s" % uri)
         return StorageFile(uri, mode)
 
     def exists(self):
-        raise NotImplementedError()
+        raise NotImplementedError("exists() is not implemented for %s" % self.__class__.__name__)
 
     def open(self):
-        raise NotImplementedError()
+        raise NotImplementedError("open() is not implemented for %s" % self.__class__.__name__)
 
     def close(self):
-        raise NotImplementedError()
+        raise NotImplementedError("close() is not implemented for %s" % self.__class__.__name__)
 
     def __enter__(self):
         return self.open()
@@ -140,7 +143,7 @@ class StorageFile(StorageObject, RawIOBase):
         return self._writable
 
     def copy(self, to):
-        raise NotImplementedError()
+        raise NotImplementedError("copy() is not implemented for %s" % self.__class__.__name__)
 
 
 class StorageFolder(StorageObject):
