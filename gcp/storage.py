@@ -330,9 +330,9 @@ class GSFile(GSObject, StorageFile):
         if self.__buffer:
             self.__append()
 
-        if whence == 0 and pos < 0:
-            raise ValueError("negative seek position %r" % (pos,))
-        elif whence == 0:
+        if whence == 0:
+            if pos < 0:
+                raise ValueError("negative seek position %r" % (pos,))
             self.__offset = pos
         elif whence == 1:
             self.__offset = max(0, self.__offset + pos)
