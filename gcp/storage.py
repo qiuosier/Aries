@@ -286,7 +286,7 @@ class GSFolder(GSObject, StorageFolder):
     def files(self):
         """Files in the directory
         """
-        return self.__files
+        return self.__files()
 
     @property
     def size(self):
