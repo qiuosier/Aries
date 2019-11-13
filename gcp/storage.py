@@ -16,11 +16,46 @@ See Also: https://googleapis.github.io/google-cloud-python/latest/core/auth.html
 import os
 import binascii
 import logging
+from functools import wraps
 from tempfile import NamedTemporaryFile
 from google.cloud import storage
-from ..tasks import ShellCommand
+from ..tasks import ShellCommand, FunctionTask
 from ..storage import StorageObject, StorageFolder, StorageFile
 logger = logging.getLogger(__name__)
+
+
+def api_call(func=None, *args, **kwargs):
+    """Makes API call and retry if there is an exception.
+    This is designed to resolve the 500 Backend Error from Google.
+
+    Args:
+        func (callable): A function or method.
+
+    Examples:
+        api_call(self.bucket.get_blob, self.prefix)
+
+    See Also: https://developers.google.com/drive/api/v3/handle-errors#resolve_a_500_error_backend_error
+    """
+    if func:
+        # logger.debug("Making API call: %s..." % func.__name__)
+        return FunctionTask(func, *args, **kwargs).run_and_retry(max_retry=5, base_interval=60, retry_pattern='linear')
+
+
+def api_decorator(method):
+    """Decorator for making API call and retry if there is an exception.
+    This is designed to resolve the 500 Backend Error from Google.
+    When the decorated function is called, the function call will be retry if there is an exception.
+
+    Examples:
+        @api_decorator
+        def exists(self):
+            return self.blob.exists
+    """
+    # logger.debug("Decorating %s for API call..." % method.__name__)
+    @wraps(method)
+    def wrapper(*method_args, **method_kwargs):
+        return api_call(method, *method_args, **method_kwargs)
+    return wrapper
 
 
 class GSObject(StorageObject):
@@ -55,9 +90,9 @@ class GSObject(StorageObject):
 
         """
         if self.__blob is None:
-            file_blob = self.bucket.get_blob(self.prefix)
+            file_blob = api_call(self.bucket.get_blob, self.prefix)
             if file_blob is None:
-                # This will not make an HTTP request.
+                # The following will not make an HTTP request.
                 # It simply instantiates a blob object owned by this bucket.
                 # See https://googleapis.github.io/google-cloud-python/latest/storage/buckets.html
                 # #google.cloud.storage.bucket.Bucket.blob
@@ -65,9 +100,11 @@ class GSObject(StorageObject):
             self.__blob = file_blob
         return self.__blob
 
+    @api_decorator
     def exists(self):
         return self.blob.exists()
 
+    @api_decorator
     def create(self):
         """Creates an empty blob, if the blob does not exist.
 
@@ -89,7 +126,8 @@ class GSObject(StorageObject):
         if not self._client:
             self._client = storage.Client()
         return self._client
-            
+
+    @api_decorator
     def _get_bucket(self):
         self._bucket = self.client.get_bucket(self.bucket_name)
 
@@ -103,6 +141,7 @@ class GSObject(StorageObject):
     def gs_path(self):
         return self.uri
 
+    @api_decorator
     def blobs(self, delimiter=None):
         """Gets the blobs in the bucket having the prefix.
 
@@ -120,6 +159,7 @@ class GSObject(StorageObject):
         """
         return list(self.bucket.list_blobs(prefix=self.prefix, delimiter=delimiter))
 
+    @api_decorator
     def delete(self):
         """Deletes all objects with the same prefix."""
         # This needs to be done before the batch.
@@ -130,6 +170,7 @@ class GSObject(StorageObject):
             for blob in blobs:
                 blob.delete()
 
+    @api_decorator
     def copy(self, to):
         """Copies folder/file in a Google Cloud storage directory to another one.
 
@@ -189,6 +230,7 @@ class GSObject(StorageObject):
 
         logger.debug("%d blobs copied" % len(source_files))
 
+    @api_decorator
     def move(self, to):
         """Moves the objects to another location."""
         self.copy(to)
@@ -217,8 +259,8 @@ class GSFolder(GSObject, StorageFolder):
         if self.prefix and not self.prefix.endswith("/"):
             self.prefix += "/"
 
-    @property
-    def folders(self):
+    @api_decorator
+    def __folders(self):
         iterator = self.bucket.list_blobs(prefix=self.prefix, delimiter='/')
         list(iterator)
         return [
@@ -227,12 +269,24 @@ class GSFolder(GSObject, StorageFolder):
         ]
 
     @property
-    def files(self):
+    def folders(self):
+        """Folders(Directories) in the directory.
+        """
+        return self.__folders()
+
+    @api_decorator
+    def __files(self):
         return [
             GSFile("gs://%s/%s" % (self.bucket_name, b.name))
             for b in self.bucket.list_blobs(prefix=self.prefix, delimiter='/')
             if not b.name.endswith("/")
         ]
+
+    @property
+    def files(self):
+        """Files in the directory
+        """
+        return self.__files
 
     @property
     def size(self):
@@ -260,6 +314,7 @@ class GSFolder(GSObject, StorageFolder):
     def exists(self):
         return True if self.blob.exists() or self.files or self.folders else False
 
+    @api_decorator
     def filter_files(self, prefix):
         return [
             GSFile("gs://%s/%s" % (self.bucket_name, b.name))
@@ -297,7 +352,7 @@ class GSFile(GSObject, StorageFile):
             raise FileNotFoundError("File not found: %s" % file_path)
 
         with open(file_path, 'rb') as f:
-            self.blob.upload_from_file(f)
+            api_call(self.blob.upload_from_file, f)
         return True
 
     def is_gz(self):
@@ -366,7 +421,7 @@ class GSFile(GSObject, StorageFile):
             if end >= blob_size - 1:
                 end = None
             logger.debug("Reading from %s to %s" % (self.__offset, end))
-            b = self.blob.download_as_string(start=self.__offset, end=end)
+            b = api_call(self.blob.download_as_string, start=self.__offset, end=end)
             self.__offset = end + 1 if end else blob_size
             logger.debug("%s bytes" % len(b))
             return b
@@ -389,7 +444,7 @@ class GSFile(GSObject, StorageFile):
             self.__temp_file = f.name
             # Download the blob to temp file if it exists.
             if self.blob.exists():
-                self.blob.download_to_file(f)
+                api_call(self.blob.download_to_file, f)
 
         f.seek(self.__buffer_offset)
         b = self.__buffer.encode() if isinstance(self.__buffer, str) else self.__buffer
@@ -400,6 +455,14 @@ class GSFile(GSObject, StorageFile):
         f.close()
 
     def write(self, b):
+        """Writes data into the file.
+
+        Args:
+            b: Bytes or str data
+
+        Returns: The number of bytes written into the file.
+
+        """
         if self.closed:
             raise ValueError("write to closed file")
         if self.__buffer is None:
@@ -414,6 +477,7 @@ class GSFile(GSObject, StorageFile):
         self.__offset += len(b)
         return len(b)
 
+    @api_decorator
     def flush(self):
         """Flush write buffers and upload the data to bucket.
         """

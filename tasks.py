@@ -266,8 +266,7 @@ class FunctionTask(Task):
                 return results
         # The following will be executed only if for loop finishes without break/return
         else:
-            if error:
-                raise error
+            raise error
 
 
 class ShellCommand(Task):
