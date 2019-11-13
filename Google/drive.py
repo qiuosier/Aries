@@ -13,10 +13,24 @@ class GoogleDriveFile:
 
     @property
     def metadata(self):
+        """
+        See Also: https://developers.google.com/drive/api/v3/fields-parameter
+        """
         if not self._metadata:
-            url = "https://www.googleapis.com/drive/v3/files/%s" % self.file_id
+            url = "https://www.googleapis.com/drive/v3/files/%s?fields=*" % self.file_id
             self._metadata = self.api.get_json(url)
         return self._metadata
+
+    def get_meta(self, fields):
+        """
+        See Also: https://developers.google.com/drive/api/v3/fields-parameter
+        """
+        if isinstance(fields, list):
+            fields = "&".join(["fields=%s" % f for f in fields])
+            url = "https://www.googleapis.com/drive/v3/files/%s?%s" % (self.file_id, fields)
+        else:
+            url = "https://www.googleapis.com/drive/v3/files/%s?fields=%s" % (self.file_id, fields)
+        return self.api.get_json(url)
 
     @property
     def revisions(self):
