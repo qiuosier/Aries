@@ -441,6 +441,7 @@ class GSFile(GSObject, StorageFile):
             f = open(self.__temp_file, 'r+b')
         else:
             f = NamedTemporaryFile(delete=False)
+            logger.debug("Created temp file: %s" % f.name)
             self.__temp_file = f.name
             # Download the blob to temp file if it exists.
             if self.blob.exists():
@@ -497,6 +498,7 @@ class GSFile(GSObject, StorageFile):
             # Remove __temp_file if it exists.
             if self.__temp_file:
                 os.unlink(self.__temp_file)
+                logger.debug("Deleted temp file %s" % self.__temp_file)
                 self.__temp_file = None
             self.__buffer = None
             # Set __closed attribute
