@@ -440,12 +440,8 @@ class GSFile(GSObject, StorageFile):
             # Open existing temp file.
             f = open(self.__temp_file, 'r+b')
         else:
-            f = NamedTemporaryFile(delete=False)
-            logger.debug("Created temp file: %s" % f.name)
+            f = self.download()
             self.__temp_file = f.name
-            # Download the blob to temp file if it exists.
-            if self.blob.exists():
-                api_call(self.blob.download_to_file, f)
 
         f.seek(self.__buffer_offset)
         b = self.__buffer.encode() if isinstance(self.__buffer, str) else self.__buffer
@@ -454,6 +450,16 @@ class GSFile(GSObject, StorageFile):
         self.__buffer_offset = None
         self.__offset += len(b)
         f.close()
+
+    def download(self, to_file_obj=None):
+        if not to_file_obj:
+            to_file_obj = NamedTemporaryFile(delete=False)
+            logger.debug("Created temp file: %s" % to_file_obj.name)
+        # Download the blob to temp file if it exists.
+        if self.blob.exists():
+            api_call(self.blob.download_to_file, to_file_obj)
+            to_file_obj.flush()
+        return to_file_obj
 
     def write(self, b):
         """Writes data into the file.
