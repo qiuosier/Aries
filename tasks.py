@@ -187,7 +187,8 @@ class FunctionTask(Task):
             # This is for run_and_retry()
             self.exception = None
         try:
-            logger.debug("Sending captured outputs...")
+            name = self.func.__name__ if hasattr(self.func, "__name__") else str(self.func)
+            logger.debug("Sending captured outputs of %s..." % name)
             return self.__pack_outputs(out)
         except Exception as ex:
             print(ex)
