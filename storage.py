@@ -258,7 +258,7 @@ class StorageFolder(StorageObject):
         """Creates a new folder.
         There should be no error if the folder already exists.
         """
-        raise NotImplementedError()
+        return self
 
     def filter_files(self, prefix):
         raise NotImplementedError
