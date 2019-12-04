@@ -173,7 +173,7 @@ class ExcelFile:
         out_ws = out_wb.active
         out_ws.append([cell.value for cell in in_ws[1]])
         for row in row_list:
-            if row is None:
+            if row is None or row <= 0:
                 continue
             cells = [cell.value if cell.value is not None else '' for cell in in_ws[int(row)]]
             out_ws.append(cells)
