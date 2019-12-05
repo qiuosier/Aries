@@ -159,6 +159,17 @@ class GSObject(StorageObject):
         """
         return list(self.bucket.list_blobs(prefix=self.prefix, delimiter=delimiter))
 
+    def files(self, delimiter=None):
+        """Gets all files with the prefix as GSFile objects
+
+        Returns (list):
+        """
+        return [
+            GSFile("gs://%s/%s" % (self.bucket_name, b.name))
+            for b in self.blobs(delimiter)
+            if not b.name.endswith("/")
+        ]
+
     @api_decorator
     def delete(self):
         """Deletes all objects with the same prefix."""
