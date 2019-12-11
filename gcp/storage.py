@@ -159,7 +159,7 @@ class GSObject(StorageObject):
         """
         return list(self.bucket.list_blobs(prefix=self.prefix, delimiter=delimiter))
 
-    def files(self, delimiter=None):
+    def get_files(self, delimiter=None):
         """Gets all files with the prefix as GSFile objects
 
         Returns (list):
@@ -352,7 +352,8 @@ class GSFile(GSObject, StorageFile):
         self.__buffer_offset = None
         self.__temp_file = None
         self.__gz = None
-        super(GSFile, self).__init__(gs_path, mode)
+        GSObject.__init__(self, gs_path, mode)
+        StorageFile.__init__(self, gs_path, mode)
 
     @property
     def size(self):
@@ -416,7 +417,7 @@ class GSFile(GSObject, StorageFile):
         """
         # Read data from temp file if it exist.
         if self.__temp_file:
-            with open(self.__temp_file) as f:
+            with open(self.__temp_file, self.mode) as f:
                 f.seek(self.__offset)
                 b = f.read(size)
                 self.__offset = f.tell()
@@ -438,6 +439,12 @@ class GSFile(GSObject, StorageFile):
             return b
         return None
 
+    def local(self):
+        if not self.__temp_file:
+            f = self.download()
+            self.__temp_file = f.name
+        return self
+
     # For writing
     def __append(self):
         """Appends the data from buffer to temp file.
@@ -446,13 +453,11 @@ class GSFile(GSObject, StorageFile):
         # Do nothing if there is no buffer.
         if not self.__buffer:
             return
-        # Create a temp file if it does not exist.
-        if self.__temp_file:
-            # Open existing temp file.
-            f = open(self.__temp_file, 'r+b')
-        else:
-            f = self.download()
-            self.__temp_file = f.name
+        # Create a temp local file if it does not exist.
+        self.local()
+
+        # Open the temp file.
+        f = open(self.__temp_file, 'r+b')
 
         f.seek(self.__buffer_offset)
         b = self.__buffer.encode() if isinstance(self.__buffer, str) else self.__buffer
@@ -468,6 +473,7 @@ class GSFile(GSObject, StorageFile):
             logger.debug("Created temp file: %s" % to_file_obj.name)
         # Download the blob to temp file if it exists.
         if self.blob.exists():
+            logger.debug("Downloading %s ..." % self.uri)
             api_call(self.blob.download_to_file, to_file_obj)
             to_file_obj.flush()
         return to_file_obj

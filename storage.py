@@ -74,6 +74,7 @@ class StorageFile(StorageObject, RawIOBase):
     """
     def __init__(self, uri, mode='r'):
         super(StorageFile, self).__init__(uri)
+        self.mode = 'r'
         self.__set_mode(mode)
 
     def __set_mode(self, mode):
@@ -144,6 +145,10 @@ class StorageFile(StorageObject, RawIOBase):
 
     def copy(self, to):
         raise NotImplementedError("copy() is not implemented for %s" % self.__class__.__name__)
+
+    def local(self):
+        """Creates a temporary local copy of the file to improve the performance."""
+        return self
 
 
 class StorageFolder(StorageObject):
