@@ -96,3 +96,16 @@ class GoogleSheet(GoogleDriveFile):
             grid.append(row_values)
         return grid
 
+    def get_column_data(self, sheet_name, col_idx, from_row=None):
+        values = self.values("%s!%s:%s" % (sheet_name, col_idx, col_idx)).get("values")
+        if not values:
+            return []
+        if from_row:
+            values = values[from_row:]
+        values = [v[0] if len(v) > 0 else "" for v in values]
+        return values
+
+    @property
+    def sheets(self):
+        return self.get().get("sheets")
+
