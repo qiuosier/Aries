@@ -1,4 +1,3 @@
-import requests
 import logging
 from ..web import WebAPI
 logger = logging.getLogger(__name__)
@@ -108,4 +107,3 @@ class GoogleSheet(GoogleDriveFile):
     @property
     def sheets(self):
         return self.get().get("sheets")
-
