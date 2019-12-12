@@ -89,7 +89,7 @@ class TestGCStorage(unittest.TestCase):
         parent = GSFolder(gs_path)
         # Test listing the folders
         folders = parent.folders
-        self.assertEqual(len(folders), 1)
+        self.assertEqual(len(folders), 1, str(folders))
         self.assertTrue(isinstance(folders[0], GSFolder), "Type: %s" % type(folders[0]))
         self.assertEqual(folders[0].uri, "gs://aries_test/test_folder/")
         # Test listing the files
@@ -157,7 +157,7 @@ class TestGCStorage(unittest.TestCase):
 
         # Test write into a new file
         self.assertFalse(gs_file_null.writable())
-        with gs_file_null('w') as f:
+        with gs_file_null('w+') as f:
             self.assertTrue(gs_file_null.writable())
             f.write(b"abc")
             f.seek(0)

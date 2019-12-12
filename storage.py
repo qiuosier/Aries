@@ -79,6 +79,7 @@ class StorageFile(StorageObject, RawIOBase):
 
     def __set_mode(self, mode):
         self.mode = mode
+        logger.debug("File mode: %s" % self.mode)
         if 'x' in mode:
             if self.exists():
                 raise FileExistsError("File %s already exists." % self.uri)

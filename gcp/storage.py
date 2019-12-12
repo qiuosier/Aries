@@ -159,7 +159,7 @@ class GSObject(StorageObject):
         """
         return list(self.bucket.list_blobs(prefix=self.prefix, delimiter=delimiter))
 
-    def get_files(self, delimiter=None):
+    def list_files(self, delimiter=None):
         """Gets all files with the prefix as GSFile objects
 
         Returns (list):
@@ -415,13 +415,15 @@ class GSFile(GSObject, StorageFile):
 
         Returns: Bytes containing the contents of the file.
         """
+        # Write buffer if there is data in buffer
+        if self.__buffer:
+            self.__append()
         # Read data from temp file if it exist.
         if self.__temp_file:
-            with open(self.__temp_file, self.mode) as f:
-                f.seek(self.__offset)
-                b = f.read(size)
-                self.__offset = f.tell()
-                return b
+            self.__temp_file.seek(self.__offset)
+            b = self.__temp_file.read(size)
+            self.__offset = self.__temp_file.tell()
+            return b
         elif self.blob.exists():
             # Read data from bucket
             blob_size = self.blob.size
@@ -441,8 +443,7 @@ class GSFile(GSObject, StorageFile):
 
     def local(self):
         if not self.__temp_file:
-            f = self.download()
-            self.__temp_file = f.name
+            self.__temp_file = self.download()
         return self
 
     # For writing
@@ -455,21 +456,26 @@ class GSFile(GSObject, StorageFile):
             return
         # Create a temp local file if it does not exist.
         self.local()
+        # Write data from buffer to file
+        self.__temp_file.seek(self.__buffer_offset)
 
-        # Open the temp file.
-        f = open(self.__temp_file, 'r+b')
+        # Convert string to bytes if needed
+        if 'b' in self.mode and isinstance(self.__buffer, str):
+            b = self.__buffer.encode()
 
-        f.seek(self.__buffer_offset)
-        b = self.__buffer.encode() if isinstance(self.__buffer, str) else self.__buffer
-        f.write(b)
+        # Convert bytes to string if needed
+        if 'b' not in self.mode and isinstance(self.__buffer, bytes):
+            b = self.__buffer.decode()
+
+        self.__temp_file.write(b)
+        # Clear buffer
         self.__buffer = None
         self.__buffer_offset = None
         self.__offset += len(b)
-        f.close()
 
     def download(self, to_file_obj=None):
         if not to_file_obj:
-            to_file_obj = NamedTemporaryFile(delete=False)
+            to_file_obj = NamedTemporaryFile(self.mode)
             logger.debug("Created temp file: %s" % to_file_obj.name)
         # Download the blob to temp file if it exists.
         if self.blob.exists():
@@ -507,7 +513,8 @@ class GSFile(GSObject, StorageFile):
         """
         self.__append()
         if self.__temp_file:
-            self.blob.upload_from_filename(self.__temp_file)
+            self.__temp_file.seek(0)
+            self.blob.upload_from_file(self.__temp_file)
 
     def close(self):
         """Flush and close the file.
@@ -520,7 +527,7 @@ class GSFile(GSObject, StorageFile):
         finally:
             # Remove __temp_file if it exists.
             if self.__temp_file:
-                os.unlink(self.__temp_file)
+                self.__temp_file.close()
                 logger.debug("Deleted temp file %s" % self.__temp_file)
                 self.__temp_file = None
             self.__buffer = None
@@ -544,3 +551,8 @@ class GSFile(GSObject, StorageFile):
         else:
             self.__offset = 0
         return self
+
+    def readable(self):
+        if self.__buffer or self.__temp_file or self.exists():
+            return True
+        return False
