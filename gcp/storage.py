@@ -443,6 +443,7 @@ class GSFile(GSObject, StorageFile):
 
     def local(self):
         if not self.__temp_file:
+            self.__temp_file = NamedTemporaryFile(delete=False)
             self.__temp_file = self.download()
         return self
 
@@ -475,7 +476,7 @@ class GSFile(GSObject, StorageFile):
 
     def download(self, to_file_obj=None):
         if not to_file_obj:
-            to_file_obj = NamedTemporaryFile(self.mode)
+            to_file_obj = NamedTemporaryFile(delete=False)
             logger.debug("Created temp file: %s" % to_file_obj.name)
         # Download the blob to temp file if it exists.
         if self.blob.exists():
@@ -528,6 +529,8 @@ class GSFile(GSObject, StorageFile):
             # Remove __temp_file if it exists.
             if self.__temp_file:
                 self.__temp_file.close()
+                if os.path.exists(self.__temp_file.name):
+                    os.unlink(self.__temp_file.name)
                 logger.debug("Deleted temp file %s" % self.__temp_file)
                 self.__temp_file = None
             self.__buffer = None
