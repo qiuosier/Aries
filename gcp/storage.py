@@ -36,9 +36,12 @@ def api_call(func=None, *args, **kwargs):
 
     See Also: https://developers.google.com/drive/api/v3/handle-errors#resolve_a_500_error_backend_error
     """
-    if func:
+    if not func:
+        return None
         # logger.debug("Making API call: %s..." % func.__name__)
-        return FunctionTask(func, *args, **kwargs).run_and_retry(max_retry=5, base_interval=60, retry_pattern='linear')
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", ResourceWarning)
+        return FunctionTask(func, *args, **kwargs).run_and_retry(max_retry=3, base_interval=20, retry_pattern='linear')
 
 
 def api_decorator(method):
