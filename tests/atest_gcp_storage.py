@@ -41,6 +41,7 @@ class TestGCStorage(unittest.TestCase):
         # Removes test folder if it is already there
         GSFolder("gs://aries_test/copy_test/").delete()
         GSFile("gs://aries_test/abc.txt").delete()
+        GSFile("gs://aries_test/new_file.txt").delete()
 
     def setUp(self):
         # Skip test if "GOOGLE_APPLICATION_CREDENTIALS" is not found.
@@ -161,7 +162,7 @@ class TestGCStorage(unittest.TestCase):
             self.assertTrue(gs_file_null.writable())
             f.write(b"abc")
             f.seek(0)
-            self.assertEqual(f.read(), "abc")
+            self.assertEqual(f.read(), b"abc")
         gs_file_null.delete()
 
     def test_copy_and_delete_folder(self):

@@ -339,7 +339,7 @@ class GSFolder(GSObject, StorageFolder):
 
 
 class GSFile(GSObject, StorageFile):
-    def __init__(self, gs_path, mode='r'):
+    def __init__(self, gs_path, mode='rb'):
         """Represents a file on Google Cloud Storage as a file-like object implementing the IOBase interface.
 
         Args:
@@ -413,6 +413,17 @@ class GSFile(GSObject, StorageFile):
             raise ValueError("whence must be 0, 1 or 2.")
         return self.__offset
 
+    def __convert_bytes_and_strings(self, s):
+        # Convert string to bytes if needed
+        if 'b' in self.mode and isinstance(s, str):
+            s = s.encode()
+
+        # Convert bytes to string if needed
+        if 'b' not in self.mode and isinstance(s, bytes):
+            s = s.decode()
+
+        return s
+
     # For reading
     def read(self, size=None):
         """Reads the file from the Google Cloud bucket to memory
@@ -442,9 +453,7 @@ class GSFile(GSObject, StorageFile):
             b = api_call(self.blob.download_as_string, start=self.__offset, end=end)
             self.__offset = end + 1 if end else blob_size
             logger.debug("%s bytes" % len(b))
-            if isinstance(b, bytes) and "b" not in self.mode:
-                return b.decode()
-            return b
+            return self.__convert_bytes_and_strings(b)
         return None
 
     def local(self):
@@ -466,14 +475,7 @@ class GSFile(GSObject, StorageFile):
         # Write data from buffer to file
         self.__temp_file.seek(self.__buffer_offset)
 
-        # Convert string to bytes if needed
-        if 'b' in self.mode and isinstance(self.__buffer, str):
-            b = self.__buffer.encode()
-
-        # Convert bytes to string if needed
-        if 'b' not in self.mode and isinstance(self.__buffer, bytes):
-            b = self.__buffer.decode()
-
+        b = self.__convert_bytes_and_strings(self.__buffer)
         self.__temp_file.write(b)
         # Clear buffer
         self.__buffer = None
