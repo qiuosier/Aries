@@ -7,7 +7,7 @@ if aries_parent not in sys.path:
     sys.path.append(aries_parent)
 from Aries.test import AriesTest
 from Aries.web import WebAPI
-from Aries.outputs import CaptureOutput, StreamHandler, LoggingConfig
+from Aries.outputs import CaptureOutput, StreamHandler, LoggingConfig, PackageLogFilter
 
 
 class TestLogging(AriesTest):
@@ -76,7 +76,8 @@ class TestConfigLogging(TestCase):
     def test_log_filter(self):
         """Test config logging with filter
         """
-        with LoggingConfig(packages=["tests"]):
+        package_filter = PackageLogFilter(packages="tests")
+        with LoggingConfig(filters=[package_filter]):
             logger = logging.getLogger(__name__)
             logger.debug("tests package Debug")
             WebAPI("https://www.google.com").get("")

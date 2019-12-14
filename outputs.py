@@ -323,6 +323,8 @@ class PackageLogFilter(logging.Filter):
             self.packages = []
         if isinstance(packages, list):
             self.packages.extend(packages)
+        else:
+            self.packages.append(packages)
         super().__init__()
 
     def filter(self, record):
