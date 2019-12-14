@@ -304,9 +304,6 @@ class ThreadLogHandler(logging.NullHandler):
         self.logs.append(message)
 
 
-class StackdriverLoggingHandler()
-
-
 class PackageLogFilter(logging.Filter):
     """Logging filter to keep logs generated from packages within a certain location
     
@@ -459,11 +456,11 @@ class LoggingConfigDict:
         config[key] = entries
         return config
 
-    def __add_entry(self, key, name, **kwargs):
-        existing = self.config_dict.get(key, dict())
-        entry = {name: kwargs}
+    def __add_entry(self, entry_key, entry_name, **kwargs):
+        existing = self.config_dict.get(entry_key, dict())
+        entry = {entry_name: kwargs}
         existing.update(entry)
-        self.config_dict[key] = existing
+        self.config_dict[entry_key] = existing
         return self
 
     def __update_entries(self, config_key, entry_key, names):
