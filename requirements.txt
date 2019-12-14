@@ -1,5 +1,6 @@
 openpyxl==2.4.8
 requests==2.22.0
 lxml==4.4.1
-google-cloud-storage>=1.23.0
+google-cloud-core==1.0.3
+google-cloud-storage==1.23.0
 plotly>=4.4.1
