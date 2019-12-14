@@ -42,6 +42,7 @@ class TestGCStorage(unittest.TestCase):
         GSFolder("gs://aries_test/copy_test/").delete()
         GSFile("gs://aries_test/abc.txt").delete()
         GSFile("gs://aries_test/new_file.txt").delete()
+        GSFile("gs://aries_test/local_upload.txt").delete()
 
     def setUp(self):
         # Skip test if "GOOGLE_APPLICATION_CREDENTIALS" is not found.
