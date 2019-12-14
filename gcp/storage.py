@@ -16,6 +16,7 @@ See Also: https://googleapis.github.io/google-cloud-python/latest/core/auth.html
 import os
 import binascii
 import logging
+import warnings
 from functools import wraps
 from tempfile import NamedTemporaryFile
 from google.cloud import storage
@@ -441,6 +442,8 @@ class GSFile(GSObject, StorageFile):
             b = api_call(self.blob.download_as_string, start=self.__offset, end=end)
             self.__offset = end + 1 if end else blob_size
             logger.debug("%s bytes" % len(b))
+            if isinstance(b, bytes) and "b" not in self.mode:
+                return b.decode()
             return b
         return None
 
@@ -479,7 +482,11 @@ class GSFile(GSObject, StorageFile):
 
     def download(self, to_file_obj=None):
         if not to_file_obj:
-            to_file_obj = NamedTemporaryFile(delete=False)
+            if 'b' in self.mode:
+                mode = 'w+b'
+            else:
+                mode = 'w+'
+            to_file_obj = NamedTemporaryFile(mode, delete=False)
             logger.debug("Created temp file: %s" % to_file_obj.name)
         # Download the blob to temp file if it exists.
         if self.blob.exists():

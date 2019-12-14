@@ -157,7 +157,7 @@ class TestGCStorage(unittest.TestCase):
 
         # Test write into a new file
         self.assertFalse(gs_file_null.writable())
-        with gs_file_null('w+') as f:
+        with gs_file_null('w+b') as f:
             self.assertTrue(gs_file_null.writable())
             f.write(b"abc")
             f.seek(0)
