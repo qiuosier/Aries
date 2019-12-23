@@ -1,11 +1,9 @@
 """provides classes and methods for logging and capturing outputs from the code, 
 like a function or a method. 
 """
-import ast
 import io
 import json
 import logging
-import os
 import pprint
 import sys
 import threading

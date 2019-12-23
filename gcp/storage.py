@@ -42,6 +42,7 @@ def api_call(func=None, *args, **kwargs):
         # logger.debug("Making API call: %s..." % func.__name__)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", ResourceWarning)
+        warnings.simplefilter("ignore", UserWarning)
         return FunctionTask(func, *args, **kwargs).run_and_retry(max_retry=3, base_interval=20, retry_pattern='linear')
 
 
