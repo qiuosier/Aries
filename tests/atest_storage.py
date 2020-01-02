@@ -153,7 +153,7 @@ class TestLocalStorage(AriesTest):
         self.assertEqual(str(type(http_obj).__name__), "StorageFile")
 
         # Not implemented
-        for attr in ["exists", "open", "close"]:
+        for attr in ["exists", "close"]:
             with self.assertRaises(NotImplementedError):
                 getattr(http_obj, attr)()
         with self.assertRaises(NotImplementedError):
