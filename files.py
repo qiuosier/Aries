@@ -130,7 +130,7 @@ class File:
             output_file = to_path
         with gzip.open(self.file_path, 'rb') as gzip_file:
             with open(output_file, "wb") as unzipped_file:
-                logger.debug("Unzipping %s..." % self.file_path)
+                logger.debug("Unzipping %s to %s ..." % (self.file_path, output_file))
                 block_size = 1 << 20
                 while True:
                     block = gzip_file.read(block_size)
