@@ -4,7 +4,7 @@ import os
 import json
 import tempfile
 import logging
-from shutil import copyfile
+from shutil import copyfile, copyfileobj
 from .strings import FileName
 
 logger = logging.getLogger(__name__)
@@ -138,6 +138,14 @@ class File:
                         break
                     unzipped_file.write(block)
         return output_file
+
+    def gzip(self, to_path=None):
+        if to_path is None:
+            to_path = self.file_path + ".gz"
+        with open(self.file_path, 'rb') as f_in:
+            with gzip.open(to_path, 'wb') as f_out:
+                copyfileobj(f_in, f_out)
+        return to_path
 
 
 class Markdown:
