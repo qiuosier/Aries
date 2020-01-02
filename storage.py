@@ -118,8 +118,9 @@ class StorageFile(StorageObject, RawIOBase):
     def exists(self):
         raise NotImplementedError("exists() is not implemented for %s" % self.__class__.__name__)
 
-    def open(self):
-        raise NotImplementedError("open() is not implemented for %s" % self.__class__.__name__)
+    def open(self, mode=None):
+        if mode:
+            self.mode = mode
 
     def close(self):
         raise NotImplementedError("close() is not implemented for %s" % self.__class__.__name__)
@@ -299,10 +300,11 @@ class LocalFile(StorageFile):
         if self.exists():
             return os.path.getsize(self.path)
 
-    def open(self):
+    def open(self, mode=None):
         """Opens the file for read/write in binary mode.
         Existing file will be overwritten.
         """
+        super().open(mode)
         logger.debug("Opening %s with %s..." % (self.path, self.mode))
         self.file_obj = open(self.path, self.mode)
         self.__closed = False

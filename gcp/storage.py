@@ -550,9 +550,10 @@ class GSFile(GSObject, StorageFile):
             # Set __closed attribute
             self.__closed = True
 
-    def open(self):
+    def open(self, mode=None):
         """Opens the file for writing
         """
+        super().open(mode)
         self.__closed = False
         self.__buffer = None
         self.__temp_file = None
