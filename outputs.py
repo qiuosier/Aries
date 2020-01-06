@@ -352,7 +352,6 @@ class LoggingConfig:
             name (str, optional): [description]. Defaults to "".
             level ([type], optional): [description]. Defaults to logging.DEBUG.
             formatter ([type], optional): [description]. Defaults to None.
-            packages (str, optional): [description]. Defaults to "".
         """
         self.name = name
         self.level = level
@@ -402,6 +401,7 @@ class LoggingConfig:
                 values = func(*args, **kwargs)
             return values
         return wrapper
+
 
 class LoggingConfigDict:
     default_config_dict = {
@@ -472,7 +472,7 @@ class LoggingConfigDict:
 
     def add_logger(self, logger_name, level="DEBUG", propagate=True, **kwargs):
         kwargs.update({
-            "level" : level,
+            "level": level,
             "propagate": propagate
         })
         self.__add_entry("loggers", logger_name, **kwargs)
@@ -484,6 +484,7 @@ class LoggingConfigDict:
         Args:
             handler_name (str): Handler name
             handler_class (class): Handler class
+            level:
         """
         kwargs.update({
             "class": handler_class,
