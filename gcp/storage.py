@@ -176,6 +176,15 @@ class GSObject(StorageObject):
         ]
 
     @api_decorator
+    def list_folders(self):
+        iterator = self.bucket.list_blobs(prefix=self.prefix, delimiter='/')
+        list(iterator)
+        return [
+            GSFolder("gs://%s/%s" % (self.bucket_name, p))
+            for p in iterator.prefixes
+        ]
+
+    @api_decorator
     def delete(self):
         """Deletes all objects with the same prefix."""
         # This needs to be done before the batch.
@@ -275,20 +284,11 @@ class GSFolder(GSObject, StorageFolder):
         if self.prefix and not self.prefix.endswith("/"):
             self.prefix += "/"
 
-    @api_decorator
-    def __folders(self):
-        iterator = self.bucket.list_blobs(prefix=self.prefix, delimiter='/')
-        list(iterator)
-        return [
-            GSFolder("gs://%s/%s" % (self.bucket_name, p))
-            for p in iterator.prefixes
-        ]
-
     @property
     def folders(self):
         """Folders(Directories) in the directory.
         """
-        return self.__folders()
+        return self.list_folders()
 
     @api_decorator
     def __files(self):
