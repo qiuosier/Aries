@@ -364,6 +364,12 @@ class GSFile(GSObject, StorageFile):
     def size(self):
         return self.blob.size
 
+    @property
+    def local_temp_path(self):
+        if self.__temp_file:
+            return self.__temp_file.name
+        return None
+
     def upload_from_file(self, file_path):
         if not os.path.exists(file_path):
             raise FileNotFoundError("File not found: %s" % file_path)
@@ -439,12 +445,12 @@ class GSFile(GSObject, StorageFile):
             self.__temp_file.seek(self.__offset)
             b = self.__temp_file.read(size)
             self.__offset = self.__temp_file.tell()
-            return b
+            return self.__convert_bytes_and_strings(b)
         elif self.blob.exists():
             # Read data from bucket
             blob_size = self.blob.size
             if self.__offset >= blob_size:
-                return ""
+                return self.__convert_bytes_and_strings("")
             end = blob_size - 1
             if size:
                 end = self.__offset + size - 1
