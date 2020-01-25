@@ -63,3 +63,27 @@ class TableData:
                 else:
                     data.append(row)
         return TableData(headers, data)
+
+    @staticmethod
+    def from_csv_string(s, header_row=0, **kwargs):
+        """
+
+        Args:
+            s (str):
+            header_row:
+            **kwargs:
+
+        Returns:
+
+        """
+        headers = []
+        data = []
+        csv_file = csv.reader(s.splitlines(), **kwargs)
+        for i, row in enumerate(csv_file):
+            if i < header_row:
+                continue
+            if i == header_row:
+                headers = row
+            else:
+                data.append(row)
+        return TableData(headers, data)
