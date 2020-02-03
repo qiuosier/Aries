@@ -1,4 +1,5 @@
 import plotly.graph_objs as go
+import IPython
 from plotly.offline import init_notebook_mode, plot, iplot
 
 
@@ -13,6 +14,32 @@ def in_ipython_notebook():
             return False
     except NameError:
         return False
+
+
+def init_notebook():
+    """Initialize plotly in a jupyter notebook for each cell.
+    In Jupyter notebook, plotly can be initialized for the entire notebook using
+    init_notebook_mode(connected=True)
+    However, in Google Colab, the initialization needs to be done in each cell.
+    IPython allows user to register event callbacks for each cell.
+    This cell register the initialization as the "pre_execute" event callback.
+    See Also: https://ipython.readthedocs.io/en/stable/config/callbacks.html
+    """
+    def init_plotly():
+        display(IPython.core.display.HTML(
+            '''
+            <script src="/static/components/requirejs/require.js"></script>
+            <script>
+            requirejs.config({
+                paths: {
+                base: '/static/base',
+                plotly: 'https://cdn.plot.ly/plotly-latest.min.js?noext',
+                },
+            });
+            </script>
+            '''
+        ))
+    IPython.get_ipython().events.register('pre_execute', init_plotly)
 
 
 class PlotlyFigure:
