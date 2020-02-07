@@ -247,6 +247,9 @@ class GSObject(StorageObject):
         destination = GSObject(to)
 
         source_files = self.blobs()
+        if not source_files:
+            logger.debug("No files in %s" % self.uri)
+            return
         with self.client.batch():
             for blob in source_files:
                 new_name = str(blob.name).replace(self.prefix, destination.prefix, 1)
