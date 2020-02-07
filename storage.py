@@ -1,6 +1,7 @@
 """Provides unified shortcuts/interfaces for access folders and files.
 """
 import os
+import json
 import shutil
 import logging
 from io import RawIOBase
@@ -114,6 +115,10 @@ class StorageFile(StorageObject, RawIOBase):
             return GSFile(uri, mode)
         logger.debug("No implementation available for scheme %s" % uri)
         return StorageFile(uri, mode)
+
+    @staticmethod
+    def load_json(uri):
+        return json.loads(StorageFile.init(uri).read())
 
     def exists(self):
         raise NotImplementedError("exists() is not implemented for %s" % self.__class__.__name__)
