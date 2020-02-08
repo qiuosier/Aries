@@ -114,7 +114,7 @@ class TableData:
 
         """
         if self.row_pointer < len(self.data):
-            row = TableRow(self.headers, self.data[self.row_pointer])
+            row = TableRow(self.data[self.row_pointer], self.headers)
             self.row_pointer += 1
             return row
         else:
