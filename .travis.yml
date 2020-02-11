@@ -6,7 +6,7 @@ python: 3.7
 cache: pip
 install:
   - pip install -r requirements.txt
-  - pip install coverage coveralls-python
+  - pip install coverage coveralls
 script: pip freeze && coverage run --source=. -m unittest discover -v -s tests -p "atest_*.py"
 after_success:
   - coveralls
