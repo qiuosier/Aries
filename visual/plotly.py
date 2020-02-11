@@ -1,5 +1,4 @@
 import plotly.graph_objs as go
-import IPython
 from plotly.offline import init_notebook_mode, plot, iplot
 
 
@@ -25,6 +24,8 @@ def init_notebook():
     This cell register the initialization as the "pre_execute" event callback.
     See Also: https://ipython.readthedocs.io/en/stable/config/callbacks.html
     """
+    # Import IPython here so that it is not required.
+    import IPython
     def init_plotly():
         display(IPython.core.display.HTML(
             '''
