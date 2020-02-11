@@ -148,9 +148,9 @@ class TestLocalStorage(AriesTest):
         local_file.delete()
 
         # Http scheme, no subclass available
-        # http_obj = StorageFile.init("https://abc.com/test.txt")
-        # self.assertEqual(http_obj.scheme, "https")
-        # self.assertEqual(str(type(http_obj).__name__), "StorageFile")
+        http_obj = StorageFile.init("https://abc.com/test.txt")
+        self.assertEqual(http_obj.scheme, "https")
+        self.assertEqual(str(type(http_obj).__name__), "StorageFile")
 
         # Not implemented
         for attr in ["exists", "close"]:
