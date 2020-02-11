@@ -113,7 +113,7 @@ class StorageFile(StorageObject, RawIOBase):
         elif uri.startswith("gs://"):
             logger.debug("Using GS file: %s" % uri)
             return GSFile(uri, mode)
-        logger.debug("No implementation available for scheme %s" % uri)
+        raise ValueError("No implementation available for scheme %s" % uri)
         return StorageFile(uri, mode)
 
     @staticmethod
