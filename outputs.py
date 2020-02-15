@@ -10,7 +10,6 @@ import threading
 import traceback
 import uuid
 import copy
-from .storage import LocalFolder
 logger = logging.getLogger(__name__)
 
 
@@ -333,6 +332,7 @@ class PackageLogFilter(logging.Filter):
 
     @staticmethod
     def get_packages(folder_path):
+        from .storage import LocalFolder
         project_packages = []
         project_folder = LocalFolder(folder_path)
         sub_folders = project_folder.folders
