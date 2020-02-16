@@ -57,9 +57,23 @@ class StorageObject:
         return self.basename
 
 
-class StorageIOBase(RawIOBase):
-    """Base class designed to be the underlying RawIO for a BufferedIO.
-    Similar to the implementation of FileIO
+class StorageIOBase(StorageObject, RawIOBase):
+    """Base class designed to provide:
+        1. The underlying RawIO for a BufferedIO.
+        2. High level operations like copy() and delete().
+
+    The RawIO implementation is similar to the implementation of FileIO
+    Sub-class should implement:
+        read()
+        write()
+        close()
+
+    For high level operations, subclass should implement:
+        size
+        exists()
+        delete()
+
+
     See Also:
         https://docs.python.org/3/library/io.html#io.FileIO
         https://docs.python.org/3/library/io.html#io.BufferedIOBase
@@ -68,7 +82,7 @@ class StorageIOBase(RawIOBase):
     """
 
     def __init__(self, uri, mode='rb'):
-        self.uri = uri
+        StorageObject.__init__(self, uri)
         self.mode = mode
         # Subclasses can use the following attributes
         self._closed = True
@@ -212,16 +226,19 @@ class StorageIOBase(RawIOBase):
     def closed(self):
         return self._closed
 
-
-class SeekableStorage:
-    def __init__(self):
-        self._offset = 0
-
     @property
     def size(self):
-        """Returns the size of the file as an integer.
+        """Returns the size in bytes of the file as an integer.
         """
-        raise NotImplementedError("size property must be implemented for SeekableStorage")
+        raise NotImplementedError("")
+
+
+class StorageIOSeekable(StorageIOBase):
+    """Base class for seekable Storage
+    """
+    def __init__(self, uri, mode):
+        StorageIOBase.__init__(self, uri, mode)
+        self._offset = 0
 
     def seek(self, pos, whence=SEEK_SET):
         """Move to new file position.
