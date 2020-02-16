@@ -21,7 +21,7 @@ from functools import wraps
 from tempfile import NamedTemporaryFile
 from google.cloud import storage
 from ..tasks import ShellCommand, FunctionTask
-from ..storage import StorageObject, StorageFolder, StorageFile
+from ..storage import StorageIOSeekable, StorageObject, StorageFolder
 logger = logging.getLogger(__name__)
 
 
@@ -69,7 +69,7 @@ class GSObject(StorageObject):
     Attributes:
         prefix: The Google Cloud Storage prefix, which is the path without the beginning "/"
     """
-    def __init__(self, gs_path, *args, **kwargs):
+    def __init__(self, gs_path):
         """Initializes a Google Cloud Storage Object.
 
         Args:
@@ -346,7 +346,7 @@ class GSFolder(GSObject, StorageFolder):
         ]
 
 
-class GSFile(GSObject, StorageFile):
+class GSFile(GSObject, StorageIOSeekable):
     def __init__(self, gs_path, mode='rb'):
         """Represents a file on Google Cloud Storage as a file-like object implementing the IOBase interface.
 
@@ -357,22 +357,18 @@ class GSFile(GSObject, StorageFile):
         However, position/offset will be reset when open() is called.
         The context manager calls open() when enter.
         """
-        # super() will call the __init__() of StorageObject, StorageFolder and GSObject
-        self.__offset = 0
+        GSObject.__init__(self, gs_path)
+        StorageIOSeekable.__init__(self, gs_path, mode)
         self.__closed = True
-        self.__buffer = None
-        self.__buffer_offset = None
         self.__temp_file = None
         self.__gz = None
-        GSObject.__init__(self, gs_path, mode)
-        StorageFile.__init__(self, gs_path, mode)
 
     @property
     def size(self):
         return self.blob.size
 
     @property
-    def local_temp_path(self):
+    def temp_path(self):
         if self.__temp_file:
             return self.__temp_file.name
         return None
@@ -397,36 +393,6 @@ class GSFile(GSObject, StorageFile):
             self.__gz = b == b'1f8b'
         return self.__gz
 
-    # The following implements the IOBase interface.
-    # For seeking
-    def seek(self, pos, whence=0):
-        """Changes the read beginning position to byte offset pos.
-        Args:
-            pos (int): The number of bytes.
-            whence (int):
-                * 0 -- start of stream (the default); offset should be zero or positive
-                * 1 -- current stream position; offset may be negative
-                * 2 -- end of stream; offset is usually negative
-
-        Returns:
-
-        """
-        # Run __append() to save and clear the buffer
-        if self.__buffer:
-            self.__append()
-
-        if whence == 0:
-            if pos < 0:
-                raise ValueError("negative seek position %r" % (pos,))
-            self.__offset = pos
-        elif whence == 1:
-            self.__offset = max(0, self.__offset + pos)
-        elif whence == 2:
-            self.__offset = max(0, self.size + pos)
-        else:
-            raise ValueError("whence must be 0, 1 or 2.")
-        return self.__offset
-
     def __convert_bytes_and_strings(self, s):
         # Convert string to bytes if needed
         if 'b' in self.mode and isinstance(s, str):
@@ -444,57 +410,19 @@ class GSFile(GSObject, StorageFile):
 
         Returns: Bytes containing the contents of the file.
         """
-        # Write buffer if there is data in buffer
-        if self.__buffer:
-            self.__append()
-        # Read data from temp file if it exist.
-        if self.__temp_file:
-            self.__temp_file.seek(self.__offset)
-            b = self.__temp_file.read(size)
-            self.__offset = self.__temp_file.tell()
-            return self.__convert_bytes_and_strings(b)
-        elif self.blob.exists():
-            # Read data from bucket
-            blob_size = self.blob.size
-            if self.__offset >= blob_size:
-                return self.__convert_bytes_and_strings("")
-            end = blob_size - 1
-            if size:
-                end = self.__offset + size - 1
-            if end >= blob_size - 1:
-                end = None
-            logger.debug("Reading from %s to %s" % (self.__offset, end))
-            b = api_call(self.blob.download_as_string, start=self.__offset, end=end)
-            self.__offset = end + 1 if end else blob_size
-            logger.debug("%s bytes" % len(b))
-            return self.__convert_bytes_and_strings(b)
-        return None
+        start = self.tell()
+        end = None
+        if size:
+            end = start + size - 1
+        logger.debug("Reading from %s to %s" % (start, end))
+        b = api_call(self.blob.download_as_string, start=start, end=end)
+        return b
 
     def local(self):
         if not self.__temp_file:
             self.__temp_file = NamedTemporaryFile(delete=False)
             self.__temp_file = self.download()
         return self
-
-    # For writing
-    def __append(self):
-        """Appends the data from buffer to temp file.
-        """
-        logger.debug("Writing buffer into file...offset=%s" % self.__buffer_offset)
-        # Do nothing if there is no buffer.
-        if not self.__buffer:
-            return
-        # Create a temp local file if it does not exist.
-        self.local()
-        # Write data from buffer to file
-        self.__temp_file.seek(self.__buffer_offset)
-
-        b = self.__convert_bytes_and_strings(self.__buffer)
-        self.__temp_file.write(b)
-        # Clear buffer
-        self.__buffer = None
-        self.__buffer_offset = None
-        self.__offset += len(b)
 
     def download(self, to_file_obj=None):
         if not to_file_obj:
@@ -522,26 +450,34 @@ class GSFile(GSObject, StorageFile):
         """
         if self.closed:
             raise ValueError("write to closed file")
-        if self.__buffer is None:
-            self.__buffer_offset = self.__offset
-            self.__buffer = b
-        else:
-            self.__buffer += b
-        # Append the buffer to temp file if size is greater than 1MB
-        buffer_size = len(self.__buffer)
-        if buffer_size > 1024 * 1024:
-            self.__append()
-        self.__offset += len(b)
-        return len(b)
+        # Create a temp local file
+        if not self.__temp_file:
+            if 'a' not in self.mode and '+' not in self.mode:
+                # Create an empty new file if mode is not read/write or appending
+                self.__temp_file = NamedTemporaryFile(delete=False)
+            else:
+                self.local()
+        # Write data from buffer to file
+        self.__temp_file.seek(self.tell())
+        size = self.__temp_file.write(b)
+        return size
 
     @api_decorator
     def flush(self):
         """Flush write buffers and upload the data to bucket.
         """
-        self.__append()
         if self.__temp_file:
             self.__temp_file.seek(0)
             self.blob.upload_from_file(self.__temp_file)
+
+    def __rm_temp(self):
+        if not self.__temp_file:
+            return
+        self.__temp_file.close()
+        if os.path.exists(self.__temp_file.name):
+            os.unlink(self.__temp_file.name)
+        logger.debug("Deleted temp file %s" % self.__temp_file)
+        self.__temp_file = None
 
     def close(self):
         """Flush and close the file.
@@ -553,23 +489,17 @@ class GSFile(GSObject, StorageFile):
             self.flush()
         finally:
             # Remove __temp_file if it exists.
-            if self.__temp_file:
-                self.__temp_file.close()
-                if os.path.exists(self.__temp_file.name):
-                    os.unlink(self.__temp_file.name)
-                logger.debug("Deleted temp file %s" % self.__temp_file)
-                self.__temp_file = None
-            self.__buffer = None
+            self.__rm_temp()
             # Set __closed attribute
             self.__closed = True
 
     def open(self, mode=None):
         """Opens the file for writing
         """
+        if not self.__closed:
+            self.close()
         super().open(mode)
         self.__closed = False
-        self.__buffer = None
-        self.__temp_file = None
         # Reset offset position when open
         if 'a' in self.mode:
             # Move to the end of the file if open in appending mode.
@@ -577,12 +507,4 @@ class GSFile(GSObject, StorageFile):
         elif 'w' in self.mode:
             # Delete the file if open in write mode.
             self.delete()
-            self.__offset = 0
-        else:
-            self.__offset = 0
         return self
-
-    def readable(self):
-        if self.__buffer or self.__temp_file or self.exists():
-            return True
-        return False
