@@ -1,12 +1,10 @@
 """Provides unified shortcuts/interfaces for access folders and files.
 """
 import os
-import json
 import logging
-from io import RawIOBase
 from urllib.parse import urlparse
-
-logger = logging.getLogger(__file__)
+from io import RawIOBase, UnsupportedOperation, SEEK_SET
+logger = logging.getLogger(__name__)
 
 
 class StorageObject:
@@ -20,19 +18,23 @@ class StorageObject:
 
         Args:
             uri (str): Uniform Resource Identifier for the object.
+            The uri should include a scheme, except local files.
 
         See https://en.wikipedia.org/wiki/Uniform_Resource_Identifier
         """
         super(StorageObject, self).__init__()
         self.uri = str(uri)
         parse_result = urlparse(self.uri)
-        self.scheme = parse_result.scheme
-        if not self.scheme:
-            self.scheme = 'file'
         self.hostname = parse_result.hostname
         self.path = parse_result.path
+        self.scheme = parse_result.scheme
+        # Use file as scheme if one is not in the URI
+        if not self.scheme:
+            self.scheme = 'file'
 
     def __str__(self):
+        """Returns the URI
+        """
         return self.uri
 
     @property
@@ -47,6 +49,7 @@ class StorageObject:
     @property
     def name(self):
         """The basename of the file/folder, without path or "/".
+        Same as basename.
 
         Returns:
             str: The basename of the file/folder
@@ -54,82 +57,148 @@ class StorageObject:
         return self.basename
 
 
-class StorageFile(StorageObject, RawIOBase):
-    """Represents a storage file.
-    Subclass should implement the RawIOBase interface, plus exists().
-    This class implements seekable() and readable() to return True if the file exists.
-
-    The following should be implemented:
-    For seeking:
-        seek(self, pos, whence=0)
-        seekable()
-
-    For reading:
-        read()
-        readable()
-
-    For writing:
-        write(b)
-        writable()
-        flush()
+class StorageIOBase(RawIOBase):
+    """Base class designed to be the underlying RawIO for a BufferedIO.
+    Similar to the implementation of FileIO
+    See Also:
+        https://docs.python.org/3/library/io.html#io.FileIO
+        https://docs.python.org/3/library/io.html#io.BufferedIOBase
+        https://github.com/python/cpython/blob/1ed61617a4a6632905ad6a0b440cd2cafb8b6414/Lib/_pyio.py#L1461
 
     """
 
-    def __init__(self, uri, mode='r'):
-        super(StorageFile, self).__init__(uri)
-        self.mode = 'r'
+    def __init__(self, uri, mode='rb'):
+        self.uri = uri
+        self.mode = mode
+        # Subclasses can use the following attributes
+        self._closed = True
+        # The following can be set by calling __set_mode(mode)
+        self._created = False
+        self._readable = False
+        self._writable = False
+        self._appending = False
         self.__set_mode(mode)
 
-    def __set_mode(self, mode):
-        self.mode = mode
-        logger.debug("File mode: %s" % self.mode)
-        if 'x' in mode:
-            if self.exists():
-                raise FileExistsError("File %s already exists." % self.uri)
-            self._writable = True
-        elif 'a' in mode:
-            self._writable = True
-        elif 'w' in mode:
-            self._writable = True
-        else:
-            self._writable = False
+    def __str__(self):
+        """The URI of the file.
+        """
+        return self.uri
 
-        if '+' in mode:
-            self._writable = True
-
-    def __call__(self, mode='r'):
+    def __call__(self, mode='rb'):
         self.__set_mode(mode)
         return self
 
-    @staticmethod
-    def init(uri, mode='r'):
-        """Opens a StorageFile as one of the subclass base on the URI.
-        """
-        if uri is None:
-            raise ValueError("uri cannot be None")
-        from . import LocalFile, GSFile
-        uri = str(uri)
-        if uri.startswith("/") or uri.startswith("file://"):
-            logger.debug("Using local file: %s" % uri)
-            return LocalFile(uri, mode)
-        elif uri.startswith("gs://"):
-            logger.debug("Using GS file: %s" % uri)
-            return GSFile(uri, mode)
-        logger.info("No implementation available for scheme %s" % uri)
-        return StorageFile(uri, mode)
+    def __set_mode(self, mode):
+        """Sets attributes base on the mode.
 
-    @staticmethod
-    def load_json(uri):
-        return json.loads(StorageFile.init(uri).read())
+        See Also: https://docs.python.org/3/library/functions.html#open
+
+        """
+        # The following code is modified based on the __init__() of python FileIO class
+        if not isinstance(mode, str):
+            raise TypeError('Invalid mode: %s' % (mode,))
+        if not set(mode) <= set('xrwab+'):
+            raise ValueError('Invalid mode: %s' % (mode,))
+        if sum(c in 'rwax' for c in mode) != 1 or mode.count('+') > 1:
+            raise ValueError('Must have exactly one of create/read/write/append '
+                             'mode and at most one plus')
+
+        if 'x' in mode:
+            self._created = True
+            self._writable = True
+        elif 'r' in mode:
+            self._readable = True
+        elif 'w' in mode:
+            self._writable = True
+        elif 'a' in mode:
+            self._writable = True
+            self._appending = True
+        if '+' in mode:
+            self._readable = True
+            self._writable = True
+
+    def _check_readable(self):
+        """Checks if the file is readable, raise an UnsupportedOperation exception if not.
+        """
+        if not self.readable():
+            raise UnsupportedOperation("File is not opened for read.")
+
+    def _check_writable(self):
+        """Checks if the file is writable, raise an UnsupportedOperation exception if not.
+        """
+        if not self.writable():
+            raise UnsupportedOperation("File is not opened for write.")
 
     def exists(self):
+        """Checks if the file exists.
+        """
         raise NotImplementedError("exists() is not implemented for %s" % self.__class__.__name__)
+
+    def readable(self):
+        """Returns True if the file exists and readable, otherwise False.
+        """
+        if self.exists() and self._readable:
+            return True
+        return False
+
+    def read(self, size=None):
+        """Reads at most "size" bytes.
+
+        Args:
+            size: The maximum number of bytes to be returned
+
+        Returns (bytes): At most "size" bytes from the file.
+            Returns empty bytes object at EOF.
+
+        """
+        self._check_readable()
+        raise NotImplementedError()
+
+    def readall(self):
+        """Reads all data from the file.
+
+        Returns (bytes): All data in the file as bytes.
+
+        """
+        return self.read()
+
+    def readinto(self, b):
+        """Reads bytes into a pre-allocated bytes-like object b.
+
+        Returns: An int representing the number of bytes read (0 for EOF), or
+            None if the object is set not to block and has no data to read.
+
+        This function is copied from FileIO.readinto()
+        """
+        # Copied from FileIO.readinto()
+        m = memoryview(b).cast('B')
+        data = self.read(len(m))
+        n = len(data)
+        m[:n] = data
+        return n
+
+    def writable(self):
+        """Writable if file is writable and not closed.
+        """
+        return True if self._writable and not self._closed else False
+
+    def write(self, b):
+        """Writes bytes b to file.
+
+        Returns: The number of bytes written into the file.
+            None if the write would block.
+        """
+        self._check_writable()
+        raise NotImplementedError()
 
     def open(self, mode=None):
         if mode:
-            self.mode = mode
+            self.__set_mode(mode)
+        self._closed = False
+        return self
 
     def close(self):
+        self._closed = True
         raise NotImplementedError("close() is not implemented for %s" % self.__class__.__name__)
 
     def __enter__(self):
@@ -139,141 +208,46 @@ class StorageFile(StorageObject, RawIOBase):
         self.close()
         return
 
-    def seekable(self):
-        if self.exists():
-            return True
-        return False
-
-    def readable(self):
-        if self.exists():
-            return True
-        return False
-
-    def writable(self):
-        return self._writable
-
-    def copy(self, to):
-        raise NotImplementedError("copy() is not implemented for %s" % self.__class__.__name__)
-
-    def local(self):
-        """Creates a temporary local copy of the file to improve the performance."""
-        return self
+    @property
+    def closed(self):
+        return self._closed
 
 
-class StorageFolder(StorageObject):
-    """Represents a storage folder.
-    The path of a StorageFolder will always end with "/"
+class SeekableStorage:
+    def __init__(self):
+        self._offset = 0
 
-    """
-
-    def __init__(self, uri):
-        super(StorageFolder, self).__init__(uri)
-        # Make sure path ends with "/"
-        if self.path and self.path[-1] != '/':
-            self.path += '/'
-
-    @staticmethod
-    def init(uri):
-        """Opens a StorageFile as one of the subclass base on the URI.
+    @property
+    def size(self):
+        """Returns the size of the file as an integer.
         """
-        from . import LocalFolder, GSFolder
-        uri = str(uri)
-        if uri.startswith("/") or uri.startswith("file://"):
-            logger.debug("Using local folder: %s" % uri)
-            return LocalFolder(uri)
-        elif uri.startswith("gs://"):
-            logger.debug("Using GS folder: %s" % uri)
-            return GSFolder(uri)
-        return StorageFolder(uri)
+        raise NotImplementedError("size property must be implemented for SeekableStorage")
 
-    @staticmethod
-    def _get_attribute(storage_objects, attribute):
-        """Gets the attributes of a list of storage objects.
-
-        Args:
-            storage_objects (list): A list of Storage Objects, from which the values of an attribute will be extracted.
-            attribute (str): A attribute of the storage object.
-
-        Returns (list): A list of attribute values.
-
+    def seek(self, pos, whence=SEEK_SET):
+        """Move to new file position.
+        Argument offset is a byte count.  Optional argument whence defaults to
+        SEEK_SET or 0 (offset from start of file, offset should be >= 0); other values
+        are SEEK_CUR or 1 (move relative to current position, positive or negative),
+        and SEEK_END or 2 (move relative to end of file, usually negative, although
+        many platforms allow seeking beyond the end of a file).
+        Note that not all file objects are seekable.
         """
-        if not storage_objects:
-            return []
-        elif not attribute:
-            return [str(f) for f in storage_objects]
+        if not isinstance(pos, int):
+            raise TypeError('pos must be an integer.')
+        if whence == 0:
+            if pos < 0:
+                raise ValueError("negative seek position %r" % (pos,))
+            self._offset = pos
+        elif whence == 1:
+            self._offset = max(0, self._offset + pos)
+        elif whence == 2:
+            self._offset = max(0, self.size + pos)
         else:
-            return [getattr(f, attribute) for f in storage_objects]
+            raise ValueError("whence must be 0, 1 or 2.")
+        return self._offset
 
-    @property
-    def files(self):
-        """
+    def tell(self):
+        return self._offset
 
-        Returns: A list of StorageFiles in the folder.
-
-        """
-        raise NotImplementedError
-
-    @property
-    def folders(self):
-        """
-
-        Returns: A list of StorageFolders in the folder.
-
-        """
-        raise NotImplementedError
-
-    def get_files(self, attribute=None):
-        """Gets a list of files (represented by uri or other attribute) in the folder.
-
-        Args:
-            attribute: The attribute of the StorageFile to be returned in the list representing the files.
-
-        Returns: A list of objects, each represents a file in this folder.
-            If attribute is None, each object in the returning list will be the URI of the StorageFile
-            If attribute is specified, each object in the returning list will be the attribute value of a StorageFile.
-
-        """
-        return self._get_attribute(self.files, attribute)
-
-    def get_folders(self, attribute=None):
-        """Gets a list of folders (represented by uri or other attribute) in the folder
-
-        Args:
-            attribute: The attribute of the StorageFolder to be returned in the list representing the folders.
-
-        Returns: A list of objects, each represents a folder in this folder.
-            If attribute is None, each object in the returning list will be the URI of the StorageFolder
-            If attribute is specified, each object in the returning list will be the attribute value of a StorageFolder.
-
-        """
-        return self._get_attribute(self.folders, attribute)
-
-    @property
-    def file_paths(self):
-        return self.get_files()
-
-    @property
-    def folder_paths(self):
-        return self.get_folders()
-
-    @property
-    def file_names(self):
-        return self.get_files("name")
-
-    @property
-    def folder_names(self):
-        return self.get_folders("name")
-
-    def exists(self):
-        """Checks if the folder exists.
-        """
-        raise NotImplementedError()
-
-    def create(self):
-        """Creates a new folder.
-        There should be no error if the folder already exists.
-        """
-        return self
-
-    def filter_files(self, prefix):
-        raise NotImplementedError
+    def seekable(self):
+        return True
