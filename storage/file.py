@@ -1,7 +1,8 @@
 import os
 import shutil
 import logging
-from . import StorageFolder, StorageFile
+from io import FileIO
+from . import StorageFolder, StorageIOSeekable
 logger = logging.getLogger(__name__)
 
 
@@ -106,12 +107,10 @@ class LocalFolder(StorageFolder):
         return files
 
 
-class LocalFile(StorageFile):
+class LocalFile(FileIO, StorageIOSeekable):
     def __init__(self, uri, mode='r'):
-        super(LocalFile, self).__init__(uri, mode)
-        self.file_obj = None
-        self.__closed = True
-        self.__offset = 0
+        StorageIOSeekable.__init__(self, uri, mode)
+        FileIO.__init__(self, self.path, self.mode)
 
     def delete(self):
         """Deletes the file if it exists.
@@ -136,74 +135,8 @@ class LocalFile(StorageFile):
             return os.path.getsize(self.path)
 
     def open(self, mode=None):
-        """Opens the file for read/write in binary mode.
-        Existing file will be overwritten.
+        """
         """
         super().open(mode)
-        logger.debug("Opening %s with %s..." % (self.path, self.mode))
-        self.file_obj = open(self.path, self.mode)
-        self.__closed = False
-        self.__offset = 0
+        FileIO.__init__(self, self.path, self.mode)
         return self
-
-    def close(self):
-        """Flush and close the IO object.
-        This method has no effect if the file is already closed.
-        """
-        if not self.__closed:
-            try:
-                logger.debug("Saving data into file %s" % self.path)
-                self.flush()
-            finally:
-                self.__closed = True
-        if self.file_obj:
-            logger.debug("Closing file %s..." % self.path)
-            self.file_obj.close()
-            self.file_obj = None
-
-    def seek(self, pos, whence=0):
-        if self.file_obj:
-            self.__offset = self.file_obj.seek(pos, whence)
-        else:
-            with open(self.path) as f:
-                f.seek(self.__offset)
-                self.__offset = f.seek(pos, whence)
-        return self.__offset
-
-    def read(self, size=None):
-        if self.file_obj:
-            b = self.file_obj.read(size)
-            self.__offset = self.file_obj.tell()
-        else:
-            with open(self.path) as f:
-                f.seek(self.__offset)
-                b = f.read(size)
-                self.__offset = f.tell()
-        return b
-
-    def writable(self):
-        if not self.file_obj:
-            return False
-        if hasattr(self.file_obj, "writable"):
-            return self.file_obj.writable()
-        return True
-
-    def write(self, b):
-        """Writes data to the file. str will be encoded as bytes using default encoding.
-
-        Args:
-            b: str or bytes to be written into the file.
-
-        Returns: The number of bytes written into the file.
-
-        """
-        if 'b' in self.mode and isinstance(b, str):
-            b = b.encode()
-        n = self.file_obj.write(b)
-        self.__offset = self.file_obj.tell()
-        return n
-
-    def flush(self):
-        if self.file_obj:
-            logger.debug("Flusing...")
-            return self.file_obj.flush()
