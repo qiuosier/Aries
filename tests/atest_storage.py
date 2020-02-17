@@ -60,7 +60,7 @@ class TestLocalStorage(AriesTest):
         self.assertIn(os.path.join(self.test_folder_path, "test_subfolder0"), sub_folders)
         self.assertIn(os.path.join(self.test_folder_path, "test_subfolder1"), sub_folders)
 
-    def test_create_and_delete(self):
+    def test_create_copy_and_delete(self):
         sub_folder_path = os.path.join(self.test_new_folder_path, "sub_folder")
         # Folder should not exist
         self.assertFalse(os.path.exists(self.test_new_folder_path))
@@ -114,7 +114,7 @@ class TestLocalStorage(AriesTest):
         self.assertGreater(len(self.test_folder.get_folders()), 1)
         self.assertIn("file_in_test_folder", self.test_folder.get_files("name"))
 
-    def test_storage_file(self):
+    def test_gs_read_seek(self):
         # GSFile instance
         gs_file = StorageFile("gs://aries_test/file_in_root.txt")
         self.assertEqual(gs_file.scheme, "gs")
@@ -124,8 +124,8 @@ class TestLocalStorage(AriesTest):
         with gs_file as f:
             self.assertEqual(f.size, 34)
 
-        # LocalFile instance
-        # File does not exist
+    def test_local_binary_read_write(self):
+        # File does not exist, a new one will be created
         file_path = os.path.join(self.test_folder_path, "test.txt")
         local_file = StorageFile("file://%s" % file_path, 'wb')
         self.assertEqual(local_file.scheme, "file")
@@ -133,28 +133,37 @@ class TestLocalStorage(AriesTest):
         self.assertTrue(local_file.seekable())
         self.assertFalse(local_file.readable())
         local_file.write(b"abc")
-        local_file.delete()
+        self.assertEqual(local_file.tell(), 3)
         local_file.close()
+        local_file.open('rb')
+        self.assertEqual(local_file.read(), b"abc")
+        local_file.close()
+        local_file.delete()
+        self.assertFalse(os.path.exists(file_path))
 
-        # File exists
+    def test_local_text_read(self):
         with StorageFile(os.path.join(self.test_folder_path, "file_in_test_folder")) as f:
             self.assertEqual(f.size, 0)
             self.assertEqual(f.tell(), 0)
             self.assertEqual(f.seek(0, 2), 0)
             self.assertEqual(len(f.read()), 0)
 
+    def test_local_text_write(self):
         # Write a new file
         temp_file_path = os.path.join(self.test_folder_path, "temp_file")
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
         with StorageFile(temp_file_path, 'w+') as f:
             self.assertTrue(f.writable())
-            f.write("abc")
+            self.assertEqual(f.tell(), 0)
+            self.assertEqual(f.write("abc"), 3)
+            self.assertEqual(f.tell(), 3)
             f.seek(0)
             self.assertEqual(f.read(), "abc")
             self.assertTrue(f.exists())
         f.delete()
 
+    def test_http(self):
         # Http scheme, no subclass available
         # http_obj = StorageFile.init("https://abc.com/test.txt")
         # self.assertEqual(http_obj.scheme, "https")
