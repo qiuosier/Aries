@@ -5,6 +5,7 @@ import logging
 
 import os
 import sys
+import shutil
 aries_parent = os.path.join(os.path.dirname(__file__), "..", "..")
 if aries_parent not in sys.path:
     sys.path.append(aries_parent)
@@ -17,16 +18,19 @@ logger = logging.getLogger(__name__)
 class TestLocalStorage(AriesTest):
 
     test_folder_path = os.path.join(os.path.dirname(__file__), "fixtures", "test_folder")
+    test_new_folder_path = os.path.join(test_folder_path, "new_folder")
 
     def setUp(self):
         self.test_folder = LocalFolder(self.test_folder_path)
+        if os.path.exists(self.test_new_folder_path):
+            shutil.rmtree(TestLocalStorage.test_new_folder_path)
 
     def test_get_names(self):
         """Tests getting the folder names
         """
         folder_names = self.test_folder.folder_names
         # There are two sub-folders
-        self.assertEqual(len(folder_names), 2)
+        self.assertEqual(len(folder_names), 2, 'Folders: %s' % folder_names)
         self.assertIn("test_subfolder0", folder_names)
         self.assertIn("test_subfolder1", folder_names)
         # "/" should not be found in folder names
@@ -57,14 +61,13 @@ class TestLocalStorage(AriesTest):
         self.assertIn(os.path.join(self.test_folder_path, "test_subfolder1"), sub_folders)
 
     def test_create_and_delete(self):
-        new_folder_path = os.path.join(self.test_folder_path, "new_folder")
-        sub_folder_path = os.path.join(new_folder_path, "sub_folder")
+        sub_folder_path = os.path.join(self.test_new_folder_path, "sub_folder")
         # Folder should not exist
-        self.assertFalse(os.path.exists(new_folder_path))
+        self.assertFalse(os.path.exists(self.test_new_folder_path))
         
         # Create a new folder
-        folder = LocalFolder(new_folder_path).create()
-        self.assertTrue(os.path.isdir(new_folder_path))
+        folder = LocalFolder(self.test_new_folder_path).create()
+        self.assertTrue(os.path.isdir(self.test_new_folder_path))
         self.assertTrue(folder.is_empty())
         
         # Create a sub folder inside the new folder
@@ -73,23 +76,23 @@ class TestLocalStorage(AriesTest):
 
         # Copy a file
         src_file_path = os.path.join(self.test_folder_path, "test_subfolder0", "empty_file")
-        dst_file_path = os.path.join(new_folder_path, "copied_file")
+        dst_file_path = os.path.join(self.test_new_folder_path, "copied_file")
         f = LocalFile(src_file_path)
         f.copy(dst_file_path)
         self.assertTrue(os.path.isfile(dst_file_path))
         
         # Empty the folder. This should delete file and sub folder only
         folder.empty()
-        self.assertTrue(os.path.exists(new_folder_path))
+        self.assertTrue(os.path.exists(self.test_new_folder_path))
         self.assertTrue(folder.is_empty())
         self.assertFalse(os.path.exists(sub_folder_path))
         self.assertFalse(os.path.exists(dst_file_path))
         
         # Copy a folder into this folder, so that the folder is no longer empty.
         src_folder_path = os.path.join(self.test_folder_path, "test_subfolder0")
-        dst_folder_path = os.path.join(new_folder_path, "test_subfolder0")
+        dst_folder_path = os.path.join(self.test_new_folder_path, "test_subfolder0")
         # dst_path ends with "/"
-        dst_path = os.path.join(new_folder_path, "")
+        dst_path = os.path.join(self.test_new_folder_path, "")
         LocalFolder(src_folder_path).copy(dst_path)
         self.assertFalse(folder.is_empty())
         self.assertTrue(os.path.exists(dst_folder_path))
@@ -97,7 +100,7 @@ class TestLocalStorage(AriesTest):
 
         # Delete the folder.
         folder.delete()
-        self.assertFalse(os.path.exists(new_folder_path))
+        self.assertFalse(os.path.exists(self.test_new_folder_path))
 
     def test_storage_object(self):
         self.assertEqual(self.test_folder.scheme, "file")
@@ -113,9 +116,9 @@ class TestLocalStorage(AriesTest):
 
     def test_storage_file(self):
         # GSFile instance
-        gs_file = StorageFile.init("gs://aries_test/file_in_root.txt")
+        gs_file = StorageFile("gs://aries_test/file_in_root.txt")
         self.assertEqual(gs_file.scheme, "gs")
-        self.assertEqual(str(type(gs_file).__name__), "GSFile")
+        # self.assertEqual(str(type(gs_file).__name__), "GSFile")
         self.assertTrue(gs_file.seekable())
         self.assertTrue(gs_file.readable())
         with gs_file as f:
@@ -123,39 +126,43 @@ class TestLocalStorage(AriesTest):
 
         # LocalFile instance
         # File does not exist
-        local_file = StorageFile.init("file://abc/test.txt")
+        file_path = os.path.join(self.test_folder_path, "test.txt")
+        local_file = StorageFile("file://%s" % file_path, 'wb')
         self.assertEqual(local_file.scheme, "file")
-        self.assertEqual(str(type(local_file).__name__), "LocalFile")
-        self.assertFalse(local_file.seekable())
+        # self.assertEqual(str(type(local_file).__name__), "LocalFile")
+        self.assertTrue(local_file.seekable())
         self.assertFalse(local_file.readable())
+        local_file.write(b"abc")
+        local_file.delete()
+        local_file.close()
+
         # File exists
-        local_file = StorageFile.init(os.path.join(self.test_folder_path, "file_in_test_folder"))
-        self.assertEqual(local_file.size, 0)
-        self.assertEqual(local_file.tell(), 0)
-        self.assertEqual(local_file.seek(0, 2), 0)
-        self.assertEqual(len(local_file.read()), 0)
+        with StorageFile(os.path.join(self.test_folder_path, "file_in_test_folder")) as f:
+            self.assertEqual(f.size, 0)
+            self.assertEqual(f.tell(), 0)
+            self.assertEqual(f.seek(0, 2), 0)
+            self.assertEqual(len(f.read()), 0)
+
         # Write a new file
-        local_file = StorageFile.init(os.path.join(self.test_folder_path, "temp_file"))
-        if local_file.exists():
-            local_file.delete()
-        self.assertFalse(local_file.exists())
-        with local_file('w+') as f:
-            self.assertTrue(local_file.writable())
+        temp_file_path = os.path.join(self.test_folder_path, "temp_file")
+        if os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
+        with StorageFile(temp_file_path, 'w+') as f:
+            self.assertTrue(f.writable())
             f.write("abc")
             f.seek(0)
             self.assertEqual(f.read(), "abc")
-        self.assertTrue(local_file.exists())
-        local_file.delete()
+            self.assertTrue(f.exists())
+        f.delete()
 
         # Http scheme, no subclass available
-        http_obj = StorageFile.init("https://abc.com/test.txt")
-        self.assertEqual(http_obj.scheme, "https")
-        self.assertEqual(str(type(http_obj).__name__), "StorageFile")
-
-        # Not implemented
-        for attr in ["exists", "close"]:
-            with self.assertRaises(NotImplementedError):
-                getattr(http_obj, attr)()
+        # http_obj = StorageFile.init("https://abc.com/test.txt")
+        # self.assertEqual(http_obj.scheme, "https")
+        # self.assertEqual(str(type(http_obj).__name__), "StorageFile")
+        #
+        # # Not implemented
+        # for attr in ["exists", "close"]:
+        #     with self.assertRaises(NotImplementedError):
+        #         getattr(http_obj, attr)()
         with self.assertRaises(NotImplementedError):
-            with http_obj:
-                pass
+            StorageFile("https://abc.com/test.txt")

@@ -2,7 +2,8 @@ import os
 import shutil
 import logging
 from io import FileIO
-from . import StorageFolder, StorageIOSeekable
+from .base import StorageIOSeekable
+from .io import StorageFolder
 logger = logging.getLogger(__name__)
 
 
@@ -107,10 +108,40 @@ class LocalFolder(StorageFolder):
         return files
 
 
-class LocalFile(FileIO, StorageIOSeekable):
-    def __init__(self, uri, mode='r'):
+class LocalFile(StorageIOSeekable):
+    def __init__(self, uri, mode='r', closefd=True, opener=None):
+        self.file_io = None
+        self._closefd = closefd
+        self._opener = opener
         StorageIOSeekable.__init__(self, uri, mode)
-        FileIO.__init__(self, self.path, self.mode)
+
+    # LocalFile supports low level API: fileno() and isatty()
+    def fileno(self):
+        return self.file_io.fileno()
+
+    def isatty(self):
+        return self.file_io.isatty()
+
+    def read(self, size=None):
+        self._check_readable()
+        return self.file_io.read(size)
+
+    def write(self, b):
+        self._check_writable()
+        return self.file_io.write(b)
+
+    def close(self):
+        self._closed = True
+        return self.file_io.close()
+
+    @property
+    def size(self):
+        """File size in bytes"""
+        if self.exists():
+            return os.path.getsize(self.path)
+
+    def exists(self):
+        return True if os.path.exists(self.path) else False
 
     def delete(self):
         """Deletes the file if it exists.
@@ -125,18 +156,15 @@ class LocalFile(FileIO, StorageIOSeekable):
         if os.path.exists(self.path):
             shutil.copyfile(self.path, to)
 
-    def exists(self):
-        return True if os.path.exists(self.path) else False
-
-    @property
-    def size(self):
-        """File size in bytes"""
-        if self.exists():
-            return os.path.getsize(self.path)
-
     def open(self, mode=None):
         """
         """
         super().open(mode)
-        FileIO.__init__(self, self.path, self.mode)
+        if self.file_io:
+            if not self._is_same_mode(mode):
+                self.file_io.close()
+                self.file_io = None
+        if not self.file_io:
+            mode = "".join([c for c in self.mode if c in "rw+ax"])
+            self.file_io = FileIO(self.path, mode, closefd=self._closefd, opener=self._opener)
         return self

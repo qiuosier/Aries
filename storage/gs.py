@@ -21,7 +21,8 @@ from functools import wraps
 from tempfile import NamedTemporaryFile
 from google.cloud import storage
 from ..tasks import ShellCommand, FunctionTask
-from ..storage import StorageIOSeekable, StorageObject, StorageFolder
+from .base import StorageIOSeekable, StorageObject
+from .io import StorageFolder
 logger = logging.getLogger(__name__)
 
 
@@ -76,7 +77,7 @@ class GSObject(StorageObject):
             gs_path: The path of the object, e.g. "gs://bucket_name/path/to/file.txt".
 
         """
-        super(GSObject, self).__init__(gs_path)
+        StorageObject.__init__(self, gs_path)
         self._client = None
         self._bucket = None
         # The "prefix" for gcs does not include the beginning "/"
@@ -347,7 +348,7 @@ class GSFolder(GSObject, StorageFolder):
 
 
 class GSFile(GSObject, StorageIOSeekable):
-    def __init__(self, gs_path, mode='rb'):
+    def __init__(self, gs_path, mode='r'):
         """Represents a file on Google Cloud Storage as a file-like object implementing the IOBase interface.
 
         Args:
@@ -359,7 +360,6 @@ class GSFile(GSObject, StorageIOSeekable):
         """
         GSObject.__init__(self, gs_path)
         StorageIOSeekable.__init__(self, gs_path, mode)
-        self.__closed = True
         self.__temp_file = None
         self.__gz = None
 
@@ -395,11 +395,11 @@ class GSFile(GSObject, StorageIOSeekable):
 
     def __convert_bytes_and_strings(self, s):
         # Convert string to bytes if needed
-        if 'b' in self.mode and isinstance(s, str):
+        if 'b' in self._mode and isinstance(s, str):
             s = s.encode()
 
         # Convert bytes to string if needed
-        if 'b' not in self.mode and isinstance(s, bytes):
+        if 'b' not in self._mode and isinstance(s, bytes):
             s = s.decode()
 
         return s
@@ -426,7 +426,7 @@ class GSFile(GSObject, StorageIOSeekable):
 
     def download(self, to_file_obj=None):
         if not to_file_obj:
-            if 'b' in self.mode:
+            if 'b' in self._mode:
                 mode = 'w+b'
             else:
                 mode = 'w+'
@@ -452,7 +452,7 @@ class GSFile(GSObject, StorageIOSeekable):
             raise ValueError("write to closed file")
         # Create a temp local file
         if not self.__temp_file:
-            if 'a' not in self.mode and '+' not in self.mode:
+            if 'a' not in self._mode and '+' not in self._mode:
                 # Create an empty new file if mode is not read/write or appending
                 self.__temp_file = NamedTemporaryFile(delete=False)
             else:
@@ -483,28 +483,28 @@ class GSFile(GSObject, StorageIOSeekable):
         """Flush and close the file.
         This method has no effect if the file is already closed.
         """
-        if self.__closed:
+        if self._closed:
             return
         try:
             self.flush()
         finally:
             # Remove __temp_file if it exists.
             self.__rm_temp()
-            # Set __closed attribute
-            self.__closed = True
+            # Set _closed attribute
+            self._closed = True
 
     def open(self, mode=None):
         """Opens the file for writing
         """
-        if not self.__closed:
+        if not self._closed:
             self.close()
         super().open(mode)
-        self.__closed = False
+        self._closed = False
         # Reset offset position when open
-        if 'a' in self.mode:
+        if 'a' in self._mode:
             # Move to the end of the file if open in appending mode.
             self.seek(0, 2)
-        elif 'w' in self.mode:
+        elif 'w' in self._mode:
             # Delete the file if open in write mode.
             self.delete()
         return self

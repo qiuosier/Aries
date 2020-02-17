@@ -22,7 +22,6 @@ class StorageObject:
 
         See https://en.wikipedia.org/wiki/Uniform_Resource_Identifier
         """
-        super(StorageObject, self).__init__()
         self.uri = str(uri)
         parse_result = urlparse(self.uri)
         self.hostname = parse_result.hostname
@@ -81,17 +80,19 @@ class StorageIOBase(StorageObject, RawIOBase):
 
     """
 
-    def __init__(self, uri, mode='rb'):
+    def __init__(self, uri, mode='r'):
         StorageObject.__init__(self, uri)
-        self.mode = mode
         # Subclasses can use the following attributes
+        self._mode = str(mode)
         self._closed = True
         # The following can be set by calling __set_mode(mode)
         self._created = False
         self._readable = False
         self._writable = False
         self._appending = False
-        self.__set_mode(mode)
+        # Open the file
+        # This may call open() in subclass
+        self.open(mode)
 
     def __str__(self):
         """The URI of the file.
@@ -99,18 +100,20 @@ class StorageIOBase(StorageObject, RawIOBase):
         return self.uri
 
     def __call__(self, mode='rb'):
-        self.__set_mode(mode)
+        self._set_mode(mode)
         return self
 
-    def __set_mode(self, mode):
+    @property
+    def closed(self):
+        return self._closed
+
+    def _set_mode(self, mode):
         """Sets attributes base on the mode.
 
         See Also: https://docs.python.org/3/library/functions.html#open
 
         """
         # The following code is modified based on the __init__() of python FileIO class
-        if not isinstance(mode, str):
-            raise TypeError('Invalid mode: %s' % (mode,))
         if not set(mode) <= set('xrwab+'):
             raise ValueError('Invalid mode: %s' % (mode,))
         if sum(c in 'rwax' for c in mode) != 1 or mode.count('+') > 1:
@@ -131,6 +134,23 @@ class StorageIOBase(StorageObject, RawIOBase):
             self._readable = True
             self._writable = True
 
+    def open(self, mode=None):
+        if mode:
+            self._set_mode(mode)
+        self._closed = False
+        return self
+
+    def close(self):
+        self._closed = True
+        raise NotImplementedError("close() is not implemented for %s" % self.__class__.__name__)
+
+    def __enter__(self):
+        return self.open()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+        return
+
     def _check_readable(self):
         """Checks if the file is readable, raise an UnsupportedOperation exception if not.
         """
@@ -143,30 +163,12 @@ class StorageIOBase(StorageObject, RawIOBase):
         if not self.writable():
             raise UnsupportedOperation("File is not opened for write.")
 
-    def exists(self):
-        """Checks if the file exists.
-        """
-        raise NotImplementedError("exists() is not implemented for %s" % self.__class__.__name__)
-
     def readable(self):
         """Returns True if the file exists and readable, otherwise False.
         """
         if self.exists() and self._readable:
             return True
         return False
-
-    def read(self, size=None):
-        """Reads at most "size" bytes.
-
-        Args:
-            size: The maximum number of bytes to be returned
-
-        Returns (bytes): At most "size" bytes from the file.
-            Returns empty bytes object at EOF.
-
-        """
-        self._check_readable()
-        raise NotImplementedError()
 
     def readall(self):
         """Reads all data from the file.
@@ -191,6 +193,27 @@ class StorageIOBase(StorageObject, RawIOBase):
         m[:n] = data
         return n
 
+    def read(self, size=None):
+        """Reads at most "size" bytes.
+
+        Args:
+            size: The maximum number of bytes to be returned
+
+        Returns (bytes): At most "size" bytes from the file.
+            Returns empty bytes object at EOF.
+
+        """
+        self._check_readable()
+        raise NotImplementedError()
+
+    def exists(self):
+        """Checks if the file exists.
+        """
+        raise NotImplementedError("exists() is not implemented for %s" % self.__class__.__name__)
+
+    def delete(self):
+        raise NotImplementedError()
+
     def writable(self):
         """Writable if file is writable and not closed.
         """
@@ -205,32 +228,12 @@ class StorageIOBase(StorageObject, RawIOBase):
         self._check_writable()
         raise NotImplementedError()
 
-    def open(self, mode=None):
-        if mode:
-            self.__set_mode(mode)
-        self._closed = False
-        return self
-
-    def close(self):
-        self._closed = True
-        raise NotImplementedError("close() is not implemented for %s" % self.__class__.__name__)
-
-    def __enter__(self):
-        return self.open()
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
-        return
-
     @property
-    def closed(self):
-        return self._closed
+    def mode(self):
+        return self._mode
 
-    @property
-    def size(self):
-        """Returns the size in bytes of the file as an integer.
-        """
-        raise NotImplementedError("")
+    def _is_same_mode(self, mode):
+        return sorted(self.mode) == sorted(mode)
 
 
 class StorageIOSeekable(StorageIOBase):
@@ -267,4 +270,12 @@ class StorageIOSeekable(StorageIOBase):
         return self._offset
 
     def seekable(self):
-        return True
+        if self.exists():
+            return True
+        return False
+
+    @property
+    def size(self):
+        """Returns the size in bytes of the file as an integer.
+        """
+        raise NotImplementedError("")
