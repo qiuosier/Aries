@@ -1,7 +1,7 @@
 import os
 import shutil
 import logging
-from io import FileIO, SEEK_SET
+from io import FileIO, SEEK_SET, DEFAULT_BUFFER_SIZE
 from .base import StorageIOSeekable
 from .io import StorageFolder
 logger = logging.getLogger(__name__)

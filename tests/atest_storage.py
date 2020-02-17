@@ -10,7 +10,7 @@ aries_parent = os.path.join(os.path.dirname(__file__), "..", "..")
 if aries_parent not in sys.path:
     sys.path.append(aries_parent)
 from Aries.test import AriesTest
-from Aries.storage import StorageFile, StorageFolder, LocalFolder, LocalFile
+from Aries.storage import StorageFile, StorageFolder, LocalFolder
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ class TestLocalStorage(AriesTest):
         f = sub_folder.get_file("not_exist")
         self.assertIsNone(f)
         f = sub_folder.get_file(".hidden_file")
-        self.assertTrue(isinstance(f, LocalFile), "Failed to get the file.")
+        self.assertTrue(f.exists(), "Failed to get the file.")
         self.assertEqual(f.basename, ".hidden_file")
         
     def test_get_paths(self):

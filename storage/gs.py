@@ -106,22 +106,6 @@ class GSObject(StorageObject):
             self.__blob = file_blob
         return self.__blob
 
-    @api_decorator
-    def exists(self):
-        return self.blob.exists()
-
-    @api_decorator
-    def create(self):
-        """Creates an empty blob, if the blob does not exist.
-
-        Returns:
-            Blob: The Google Cloud Storage blob.
-        """
-        blob = storage.Blob(self.prefix, self.bucket)
-        if not blob.exists():
-            blob.upload_from_string("")
-        return blob
-
     @property
     def bucket_name(self):
         """The name of the Google Cloud Storage bucket as a string."""
@@ -195,6 +179,24 @@ class GSObject(StorageObject):
         with self.client.batch():
             for blob in blobs:
                 blob.delete()
+
+    @api_decorator
+    def exists(self):
+        """Determines if there is an actual blob corresponds to this object.
+        """
+        return self.blob.exists()
+
+    @api_decorator
+    def create(self):
+        """Creates an empty blob, if the blob does not exist.
+
+        Returns:
+            Blob: The Google Cloud Storage blob.
+        """
+        blob = storage.Blob(self.prefix, self.bucket)
+        if not blob.exists():
+            blob.upload_from_string("")
+        return blob
 
     @api_decorator
     def copy(self, to):

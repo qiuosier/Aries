@@ -3,7 +3,7 @@
 import os
 import logging
 from urllib.parse import urlparse
-from io import RawIOBase, UnsupportedOperation, SEEK_SET
+from io import RawIOBase, UnsupportedOperation, SEEK_SET, DEFAULT_BUFFER_SIZE
 logger = logging.getLogger(__name__)
 
 
@@ -77,6 +77,7 @@ class StorageIOBase(StorageObject, RawIOBase):
         size, the size of the file in bytes .
         exists(), determine if a file exists.
         delete(), to delete the file.
+        load_from(), to load/create the file from a stream.
 
 
     See Also:
@@ -212,14 +213,6 @@ class StorageIOBase(StorageObject, RawIOBase):
         self._check_readable()
         raise NotImplementedError()
 
-    def exists(self):
-        """Checks if the file exists.
-        """
-        raise NotImplementedError("exists() is not implemented for %s" % self.__class__.__name__)
-
-    def delete(self):
-        raise NotImplementedError()
-
     def writable(self):
         """Writable if file is writable and not closed.
         """
@@ -240,6 +233,27 @@ class StorageIOBase(StorageObject, RawIOBase):
 
     def _is_same_mode(self, mode):
         return sorted(self.mode) == sorted(mode)
+
+    def exists(self):
+        """Checks if the file exists.
+        """
+        raise NotImplementedError("exists() is not implemented for %s" % self.__class__.__name__)
+
+    def delete(self):
+        raise NotImplementedError()
+
+    def load_from(self, stream):
+        """Creates/Loads the file from a stream
+        """
+        chunk_size = DEFAULT_BUFFER_SIZE
+        file_size = 0
+        with self("w+") as f:
+            while True:
+                b = stream.read(chunk_size)
+                if not b:
+                    break
+                file_size += f.write(b)
+        return file_size
 
 
 class StorageIOSeekable(StorageIOBase):
