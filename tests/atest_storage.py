@@ -65,7 +65,7 @@ class TestLocalStorage(AriesTest):
         # Folder should not exist
         self.assertFalse(os.path.exists(self.test_new_folder_path))
         
-        # Create a new folder
+        # Create a new empty folder
         folder = LocalFolder(self.test_new_folder_path).create()
         self.assertTrue(os.path.isdir(self.test_new_folder_path))
         self.assertTrue(folder.is_empty())
@@ -87,20 +87,35 @@ class TestLocalStorage(AriesTest):
         self.assertTrue(folder.is_empty())
         self.assertFalse(os.path.exists(sub_folder_path))
         self.assertFalse(os.path.exists(dst_file_path))
-        
-        # Copy a folder into this folder, so that the folder is no longer empty.
-        src_folder_path = os.path.join(self.test_folder_path, "test_subfolder0")
-        dst_folder_path = os.path.join(self.test_new_folder_path, "test_subfolder0")
-        # dst_path ends with "/"
-        dst_path = os.path.join(self.test_new_folder_path, "")
-        LocalFolder(src_folder_path).copy(dst_path)
-        self.assertFalse(folder.is_empty())
-        self.assertTrue(os.path.exists(dst_folder_path))
-        self.assertTrue(os.path.exists(os.path.join(dst_folder_path, "empty_file")))
 
         # Delete the folder.
         folder.delete()
         self.assertFalse(os.path.exists(self.test_new_folder_path))
+
+    def test_copy_folder(self):
+        # Source folder to be copied
+        src_folder_path = os.path.join(self.test_folder_path, "test_subfolder0")
+        sub_folder = LocalFolder(src_folder_path)
+        # Source folder should exist
+        self.assertTrue(sub_folder.exists())
+
+        # Destination folder
+        dst_folder_path = os.path.join(self.test_new_folder_path, "test_subfolder0")
+        dst_parent = self.test_new_folder_path
+
+        # Destination folder should not exist
+        self.assertFalse(os.path.exists(dst_folder_path))
+
+        if not dst_parent.endswith("/"):
+            dst_parent += "/"
+        sub_folder.copy(dst_parent)
+        # Destination folder should now exist and contain an empty file
+        self.assertTrue(os.path.exists(dst_folder_path))
+        self.assertTrue(os.path.exists(os.path.join(dst_folder_path, "empty_file")))
+
+        # Delete destination file
+        LocalFolder(dst_parent).delete()
+        self.assertFalse(os.path.exists(dst_parent))
 
     def test_storage_object(self):
         self.assertEqual(self.test_folder.scheme, "file")
@@ -132,11 +147,13 @@ class TestLocalStorage(AriesTest):
         # self.assertEqual(str(type(local_file).__name__), "LocalFile")
         self.assertTrue(local_file.seekable())
         self.assertFalse(local_file.readable())
-        local_file.write(b"abc")
+        self.assertEqual(local_file.write(b"abc"), 3)
         self.assertEqual(local_file.tell(), 3)
+        self.assertEqual(local_file.write(b"def"), 3)
+        self.assertEqual(local_file.tell(), 6)
         local_file.close()
         local_file.open('rb')
-        self.assertEqual(local_file.read(), b"abc")
+        self.assertEqual(local_file.read(), b"abcdef")
         local_file.close()
         local_file.delete()
         self.assertFalse(os.path.exists(file_path))
@@ -150,13 +167,15 @@ class TestLocalStorage(AriesTest):
 
     def test_local_text_write(self):
         # Write a new file
-        temp_file_path = os.path.join(self.test_folder_path, "temp_file")
+        temp_file_path = os.path.join(self.test_folder_path, "temp_file.txt")
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
         with StorageFile(temp_file_path, 'w+') as f:
             self.assertTrue(f.writable())
             self.assertEqual(f.tell(), 0)
+            print(f.buffered_io.buffer)
             self.assertEqual(f.write("abc"), 3)
+            print(f.buffered_io.buffer.tell())
             self.assertEqual(f.tell(), 3)
             f.seek(0)
             self.assertEqual(f.read(), "abc")

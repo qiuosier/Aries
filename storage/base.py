@@ -238,12 +238,34 @@ class StorageIOBase(StorageObject, RawIOBase):
 
 class StorageIOSeekable(StorageIOBase):
     """Base class for seekable Storage
+    Seekable storage sub-class should implement:
+        seek()
+        tell()
+
+    This class has an _offset attribute to help keeping track of the read/write position of the file.
+    A sub-class may not use the _offset attribute if the underlying IO keeps track of the position.
+    However, if the _offset is used, the read() and write() in the sub-class are responsible to update the _offset.
+    Otherwise the _offset will always be 0.
+
+    _seek() provides a simple implementation of seek().
+    
     """
     def __init__(self, uri, mode):
         StorageIOBase.__init__(self, uri, mode)
         self._offset = 0
 
+    def seekable(self):
+        if self.exists():
+            return True
+        return False
+
     def seek(self, pos, whence=SEEK_SET):
+        raise NotImplementedError
+
+    def tell(self):
+        raise NotImplementedError
+
+    def _seek(self, pos, whence=SEEK_SET):
         """Move to new file position.
         Argument offset is a byte count.  Optional argument whence defaults to
         SEEK_SET or 0 (offset from start of file, offset should be >= 0); other values
@@ -265,14 +287,6 @@ class StorageIOSeekable(StorageIOBase):
         else:
             raise ValueError("whence must be 0, 1 or 2.")
         return self._offset
-
-    def tell(self):
-        return self._offset
-
-    def seekable(self):
-        if self.exists():
-            return True
-        return False
 
     @property
     def size(self):

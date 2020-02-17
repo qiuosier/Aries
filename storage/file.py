@@ -1,7 +1,7 @@
 import os
 import shutil
 import logging
-from io import FileIO
+from io import FileIO, SEEK_SET
 from .base import StorageIOSeekable
 from .io import StorageFolder
 logger = logging.getLogger(__name__)
@@ -80,6 +80,7 @@ class LocalFolder(StorageFolder):
         if os.path.isdir(self.path):
             if to.endswith("/"):
                 to += self.basename
+            logger.debug("Copying files from %s to %s" % (self.path, to))
             shutil.copytree(self.path, to)
 
     def delete(self):
@@ -122,13 +123,23 @@ class LocalFile(StorageIOSeekable):
     def isatty(self):
         return self.file_io.isatty()
 
+    def tell(self):
+        return self.file_io.tell()
+
+    def seek(self, pos, whence=SEEK_SET):
+        return self.file_io.seek(pos, whence)
+
+    def seekable(self):
+        return self.file_io.seekable()
+
     def read(self, size=None):
         self._check_readable()
         return self.file_io.read(size)
 
     def write(self, b):
         self._check_writable()
-        return self.file_io.write(b)
+        n = self.file_io.write(b)
+        return n
 
     def truncate(self, size=None):
         return self.file_io.truncate(size)
