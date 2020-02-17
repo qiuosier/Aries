@@ -214,6 +214,12 @@ class StorageFile(StorageObject, BufferedIOBase):
     def write(self, b):
         return self.buffered_io.write(b)
 
+    def truncate(self, pos=None):
+        self.flush()
+        if pos is None:
+            pos = self.tell()
+        return self.buffered_io.truncate(pos)
+
     def flush(self):
         return self.buffered_io.flush()
 

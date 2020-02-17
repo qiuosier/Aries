@@ -130,6 +130,9 @@ class LocalFile(StorageIOSeekable):
         self._check_writable()
         return self.file_io.write(b)
 
+    def truncate(self, size=None):
+        return self.file_io.truncate(size)
+
     def close(self):
         self._closed = True
         return self.file_io.close()
@@ -139,6 +142,7 @@ class LocalFile(StorageIOSeekable):
         """File size in bytes"""
         if self.exists():
             return os.path.getsize(self.path)
+        return None
 
     def exists(self):
         return True if os.path.exists(self.path) else False
