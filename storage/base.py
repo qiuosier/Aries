@@ -61,16 +61,22 @@ class StorageIOBase(StorageObject, RawIOBase):
         1. The underlying RawIO for a BufferedIO.
         2. High level operations like copy() and delete().
 
-    The RawIO implementation is similar to the implementation of FileIO
-    Sub-class should implement:
-        read()
-        write()
-        close()
+    StorageIOBase is an extension of the python RawIOBase
+    See Also: https://docs.python.org/3/library/io.html#class-hierarchy
 
-    For high level operations, subclass should implement:
-        size
-        exists()
-        delete()
+    The RawIO implementation is similar to the implementation of FileIO
+    A sub-class should implement:
+        read(), for reading bytes from the file.
+        write(), for writing bytes into the file.
+        close(), for closing the file.
+        open(), should also be implemented if needed.
+
+    In addition to interface provided by RawIOBase,
+    StorageIOBase also defines some high level APIs.
+    For high level operations, a sub-class should implement:
+        size, the size of the file in bytes .
+        exists(), determine if a file exists.
+        delete(), to delete the file.
 
 
     See Also:
