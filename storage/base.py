@@ -64,8 +64,9 @@ class StorageIOBase(StorageObject, RawIOBase):
     StorageIOBase is an extension of the python RawIOBase
     See Also: https://docs.python.org/3/library/io.html#class-hierarchy
 
-    The RawIO implementation is similar to the implementation of FileIO
-    A sub-class should implement:
+    The RawIO in StorageIOBase implementation is similar to the implementation of FileIO
+    A sub-class of StorageIOBase can be used in place of FileIO
+    Each sub-class should implement:
         read(), for reading bytes from the file.
         write(), for writing bytes into the file.
         close(), for closing the file.
@@ -92,6 +93,7 @@ class StorageIOBase(StorageObject, RawIOBase):
         # Subclasses can use the following attributes
         self._closed = True
         # The following can be set by calling __set_mode(mode)
+        # Raw IO always operates in binary mode
         self._mode = ""
         self._created = False
         self._readable = False

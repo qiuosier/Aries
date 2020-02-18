@@ -174,7 +174,7 @@ class StorageFile(StorageObject, BufferedIOBase):
         # The buffered_io is the main IO stream used in the methods and properties.
         self.buffered_io = self.__init_io(buffering, encoding, errors, newline, closefd, opener)
 
-    def __call__(self, mode='rb'):
+    def __call__(self, mode='r'):
         """Modifies the mode in which the file is open.
         The file will be closed and re-opened in the new mode.
 
@@ -188,30 +188,36 @@ class StorageFile(StorageObject, BufferedIOBase):
         """
         # Create the underlying raw IO base on the scheme
         from . import gs, file
+        # Raw IO always operates in binary mode, t and b will be ignored.
+        mode = [c for c in self.mode if c in "rw+ax"]
         if self.scheme == "file":
             logger.debug("Using local file: %s" % self.uri)
-            return file.LocalFile(self.uri, self.mode, closefd, opener)
+            return file.LocalFile(self.uri, mode, closefd, opener)
         elif self.scheme == "gs":
             logger.debug("Using GS file: %s" % self.uri)
-            return gs.GSFile(self.uri, self.mode)
+            return gs.GSFile(self.uri, mode)
         raise NotImplementedError("No implementation available for scheme: %s" % self.scheme)
 
-    def __init_io(self, buffering=-1, encoding=None, errors=None, newline=None, closefd=True, opener=None):
-        """Initializes the underlying IO
+    def __buffer_size(self):
+        """Determines the buffer size
         """
-        # The following code is modified based on python io.open()
-        modes = set(self.mode)
-        if modes - set("axrwb+t") or len(self.mode) > len(modes):
-            raise ValueError("invalid mode: %r" % self.mode)
+        buffering = DEFAULT_BUFFER_SIZE
+        # For local file only
+        from .file import LocalFile
+        if isinstance(self.raw_io, LocalFile):
+            try:
+                bs = os.fstat(self.raw_io.fileno()).st_blksize
+            except (OSError, AttributeError):
+                pass
+            else:
+                if bs > 1:
+                    buffering = bs
+        if buffering < 0:
+            raise ValueError("Invalid buffering size: %s" % buffering)
+        return buffering
 
-        creating = "x" in modes
-        reading = "r" in modes
-        writing = "w" in modes
-        appending = "a" in modes
-        updating = "+" in modes
-        text = "t" in modes
-        binary = "b" in modes
-
+    @staticmethod
+    def __validate_args(text, binary, creating, reading, writing, appending, encoding, errors, newline, buffering):
         if text and binary:
             raise ValueError("Can't have text and binary mode at once")
         if creating + reading + writing + appending > 1:
@@ -230,48 +236,58 @@ class StorageFile(StorageObject, BufferedIOBase):
                           "mode, the default buffer size will be used",
                           RuntimeWarning, 2)
 
+    def __init_buffer_io(self, buffering, binary, updating, creating, reading, writing, appending):
+        if buffering < 0:
+            buffering = self.__buffer_size()
+        if buffering == 0:
+            if binary:
+                return self.raw_io
+            raise ValueError("can't have unbuffered text I/O")
+        if updating:
+            buffered_io = BufferedRandom(self.raw_io, buffering)
+        elif creating or writing or appending:
+            buffered_io = BufferedWriter(self.raw_io, buffering)
+        elif reading:
+            buffered_io = BufferedReader(self.raw_io, buffering)
+        else:
+            raise ValueError("Unknown mode: %r" % self.mode)
+        return buffered_io
+
+    def __init_io(self, buffering=-1, encoding=None, errors=None, newline=None, closefd=True, opener=None):
+        """Initializes the underlying IO
+        """
+        # The following code is modified based on python io.open()
+        modes = set(self.mode)
+        if modes - set("axrwb+t") or len(self.mode) > len(modes):
+            raise ValueError("invalid mode: %r" % self.mode)
+
+        creating = "x" in modes
+        reading = "r" in modes
+        writing = "w" in modes
+        appending = "a" in modes
+        updating = "+" in modes
+        text = "t" in modes
+        binary = "b" in modes
+
+        self.__validate_args(text, binary, creating, reading, writing, appending, encoding, errors, newline, buffering)
         self.raw_io = self.__init_raw_io(closefd, opener)
+        # Track the opened IO
         opened_io = self.raw_io
         try:
             line_buffering = False
             if buffering == 1 or buffering < 0 and self.raw_io.isatty():
                 buffering = -1
                 line_buffering = True
-            if buffering < 0:
-                buffering = DEFAULT_BUFFER_SIZE
-                # For local file only
-                from .file import LocalFile
-                if isinstance(self.raw_io, LocalFile):
-                    try:
-                        bs = os.fstat(self.raw_io.fileno()).st_blksize
-                    except (OSError, AttributeError):
-                        pass
-                    else:
-                        if bs > 1:
-                            buffering = bs
-            if buffering < 0:
-                raise ValueError("invalid buffering size")
-            if buffering == 0:
-                if binary:
-                    return self.raw_io
-                raise ValueError("can't have unbuffered text I/O")
-            if updating:
-                buffered_io = BufferedRandom(self.raw_io, buffering)
-            elif creating or writing or appending:
-                buffered_io = BufferedWriter(self.raw_io, buffering)
-            elif reading:
-                buffered_io = BufferedReader(self.raw_io, buffering)
-            else:
-                raise ValueError("Unknown mode: %r" % self.mode)
-            opened_io = buffered_io
+            opened_io = self.__init_buffer_io(buffering, binary, updating, creating, reading, writing, appending)
             # Use TextIOWrapper for text mode
             if binary:
-                return buffered_io
-            text_io = TextIOWrapper(buffered_io, encoding, errors, newline, line_buffering)
+                return opened_io
+            text_io = TextIOWrapper(opened_io, encoding, errors, newline, line_buffering)
             opened_io = text_io
             text_io.mode = self.mode
             return opened_io
         except Exception as ex:
+            # Close the opened IO if there is an error
             opened_io.close()
             raise ex
 
@@ -301,6 +317,20 @@ class StorageFile(StorageObject, BufferedIOBase):
         """Size of the file in bytes.
         """
         return self.raw_io.size
+
+    @property
+    def closed(self):
+        if not self.buffered_io:
+            return False
+        return self.buffered_io.closed
+
+    @property
+    def raw(self):
+        return self.raw_io
+
+    @property
+    def mode(self):
+        return self._mode
 
     def exists(self):
         """Checks if the file exists.
@@ -344,7 +374,10 @@ class StorageFile(StorageObject, BufferedIOBase):
 
     # The following methods calls the corresponding method in buffered_io
     def close(self):
-        self.buffered_io.close()
+        results = self.buffered_io.close()
+        if self.raw_io and not self.raw_io.closed:
+            self.raw_io.close()
+        return results
 
     def readable(self):
         return self.buffered_io.readable()
@@ -393,15 +426,3 @@ class StorageFile(StorageObject, BufferedIOBase):
 
     def isatty(self):
         return self.buffered_io.isatty()
-
-    @property
-    def closed(self):
-        return self.buffered_io.closed
-
-    @property
-    def raw(self):
-        return self.raw_io
-
-    @property
-    def mode(self):
-        return self._mode
