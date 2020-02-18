@@ -36,6 +36,9 @@ class StorageObject:
         """
         return self.uri
 
+    def __repr__(self):
+        return self.uri
+
     @property
     def basename(self):
         """The basename of the file/folder, without path or "/".
@@ -54,6 +57,58 @@ class StorageObject:
             str: The basename of the file/folder
         """
         return self.basename
+
+    @staticmethod
+    def get_attributes(storage_objects, attribute):
+        """Gets the attributes of a list of storage objects.
+
+        Args:
+            storage_objects (list): A list of Storage Objects, from which the values of an attribute will be extracted.
+            attribute (str): A attribute of the storage object.
+
+        Returns (list): A list of attribute values.
+
+        """
+        if not storage_objects:
+            return []
+        elif not attribute:
+            return [str(f) for f in storage_objects]
+        else:
+            return [getattr(f, attribute) for f in storage_objects]
+
+
+class StorageFolderBase(StorageObject):
+    def __init__(self, uri):
+        # Make sure uri ends with "/" for folders
+        if uri and uri[-1] != '/':
+            uri += '/'
+        StorageObject.__init__(self, uri)
+
+    @property
+    def files(self):
+        """
+
+        Returns: A list of URIs, each points to a file in the folder.
+
+        """
+        raise NotImplementedError()
+
+    @property
+    def folders(self):
+        """
+
+        Returns: A list of URIs, each points to a folder in the folder.
+
+        """
+        raise NotImplementedError()
+
+    def exists(self):
+        """Checks if the folder exists.
+        """
+        raise NotImplementedError()
+
+    def create(self):
+        raise NotImplementedError()
 
 
 class StorageIOBase(StorageObject, RawIOBase):
