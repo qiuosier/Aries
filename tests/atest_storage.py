@@ -20,10 +20,22 @@ class TestLocalStorage(AriesTest):
     test_folder_path = os.path.join(os.path.dirname(__file__), "fixtures", "test_folder")
     test_new_folder_path = os.path.join(test_folder_path, "new_folder")
 
+    temp_files = [
+        os.path.join(test_folder_path, "temp_file.txt"),
+        os.path.join(test_folder_path, "test.txt")
+    ]
+
     def setUp(self):
         self.test_folder = LocalFolder(self.test_folder_path)
+
+    def tearDown(self):
+        # Remove temp folder
         if os.path.exists(self.test_new_folder_path):
             shutil.rmtree(TestLocalStorage.test_new_folder_path)
+        # Remove temp files
+        for tmp in self.temp_files:
+            if os.path.exists(tmp):
+                os.remove(tmp)
 
     def test_get_names(self):
         """Tests getting the folder names
@@ -74,12 +86,19 @@ class TestLocalStorage(AriesTest):
         LocalFolder(sub_folder_path).create()
         self.assertTrue(os.path.isdir(sub_folder_path))
 
-        # Copy a file
+        # Copy an empty file
         src_file_path = os.path.join(self.test_folder_path, "test_subfolder0", "empty_file")
         dst_file_path = os.path.join(self.test_new_folder_path, "copied_file")
-        f = LocalFile(src_file_path)
+        f = StorageFile(src_file_path)
         f.copy(dst_file_path)
         self.assertTrue(os.path.isfile(dst_file_path))
+        # Copy a file with content and replace the empty file
+        src_file_path = os.path.join(self.test_folder_path, "test_subfolder0", "abc.txt")
+        dst_file_path = os.path.join(self.test_new_folder_path, "copied_file")
+        f = StorageFile(src_file_path)
+        f.copy(dst_file_path)
+        self.assertTrue(os.path.isfile(dst_file_path))
+        self.assertEqual(StorageFile(dst_file_path).read(), "abc\ncba\n")
         
         # Empty the folder. This should delete file and sub folder only
         folder.empty()
