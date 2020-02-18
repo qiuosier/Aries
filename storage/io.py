@@ -3,56 +3,50 @@
 import os
 import json
 import logging
+import binascii
+import inspect
 from io import SEEK_SET, DEFAULT_BUFFER_SIZE
 from io import BufferedIOBase, BufferedRandom, BufferedReader, BufferedWriter, TextIOWrapper
-from .base import StorageObject, StorageIOBase
+from .base import StorageObject, StorageFolderBase
+from . import gs, file
 logger = logging.getLogger(__name__)
 
 
-class StorageFolder(StorageObject):
+class StorageFolder(StorageFolderBase):
     """Represents a storage folder.
     The path of a StorageFolder will always end with "/"
 
     """
 
+    registry = {
+        "file": file.LocalFolder,
+        "gs": gs.GSFolder
+    }
+
+    @classmethod
+    def register(cls, subclass):
+        pass
+
     def __init__(self, uri):
         super(StorageFolder, self).__init__(uri)
-        # Make sure path ends with "/"
-        if self.path and self.path[-1] != '/':
-            self.path += '/'
+        sub_class = self.registry.get(self.scheme)
+        if not sub_class:
+            raise NotImplementedError("Scheme %s is not implemented." % self.scheme)
+        self.raw = sub_class(uri)
 
     @staticmethod
     def init(uri):
-        """Opens a StorageFile as one of the subclass base on the URI.
         """
-        from . import LocalFolder
-        from .gs import GSFolder
-        uri = str(uri)
-        if uri.startswith("/") or uri.startswith("file://"):
-            logger.debug("Using local folder: %s" % uri)
-            return LocalFolder(uri)
-        elif uri.startswith("gs://"):
-            logger.debug("Using GS folder: %s" % uri)
-            return GSFolder(uri)
+        """
         return StorageFolder(uri)
 
-    @staticmethod
-    def _get_attribute(storage_objects, attribute):
-        """Gets the attributes of a list of storage objects.
+    @property
+    def bucket_name(self):
+        return self.__get_raw_attr("bucket_name", raise_error=True)
 
-        Args:
-            storage_objects (list): A list of Storage Objects, from which the values of an attribute will be extracted.
-            attribute (str): A attribute of the storage object.
-
-        Returns (list): A list of attribute values.
-
-        """
-        if not storage_objects:
-            return []
-        elif not attribute:
-            return [str(f) for f in storage_objects]
-        else:
-            return [getattr(f, attribute) for f in storage_objects]
+    @property
+    def blobs(self):
+        return self.__get_raw_attr("blobs", raise_error=True)
 
     @property
     def files(self):
@@ -61,7 +55,7 @@ class StorageFolder(StorageObject):
         Returns: A list of StorageFiles in the folder.
 
         """
-        raise NotImplementedError
+        return [StorageFile(f) for f in self.raw.files]
 
     @property
     def folders(self):
@@ -70,9 +64,26 @@ class StorageFolder(StorageObject):
         Returns: A list of StorageFolders in the folder.
 
         """
-        raise NotImplementedError
+        return [StorageFolder(f) if isinstance(f, str) else f for f in self.raw.folders]
 
-    def get_files(self, attribute=None):
+    def exists(self):
+        """Checks if the folder exists.
+        """
+        return self.raw.exists()
+
+    def create(self):
+        """Creates a new folder.
+        There should be no error if the folder already exists.
+        """
+        return self.raw.create()
+
+    def copy(self, to):
+        return self.raw.copy(to)
+
+    def delete(self):
+        return self.raw.delete()
+
+    def get_file_attributes(self, attribute=None):
         """Gets a list of files (represented by uri or other attribute) in the folder.
 
         Args:
@@ -83,9 +94,9 @@ class StorageFolder(StorageObject):
             If attribute is specified, each object in the returning list will be the attribute value of a StorageFile.
 
         """
-        return self._get_attribute(self.files, attribute)
+        return self.get_attributes(self.files, attribute)
 
-    def get_folders(self, attribute=None):
+    def get_folder_attributes(self, attribute=None):
         """Gets a list of folders (represented by uri or other attribute) in the folder
 
         Args:
@@ -96,37 +107,109 @@ class StorageFolder(StorageObject):
             If attribute is specified, each object in the returning list will be the attribute value of a StorageFolder.
 
         """
-        return self._get_attribute(self.folders, attribute)
+        return self.get_attributes(self.folders, attribute)
+
+    def get_folder(self, folder_name):
+        """Gets a sub folder by name
+
+        Args:
+            folder_name (str): [description]
+
+        Returns:
+            LocalFolder: A LocalFolder instance of the sub folder.
+                None if the sub folder does not exist.
+        """
+        for folder in self.folders:
+            if folder.basename == folder_name:
+                return folder
+        return None
+
+    def get_file(self, filename):
+        for f in self.files:
+            if f.basename == filename:
+                return f
+        return None
+
+    def is_empty(self):
+        if self.files or self.folders:
+            return False
+        else:
+            return True
+
+    def empty(self):
+        for f in self.files:
+            f.delete()
+        for f in self.folders:
+            f.delete()
+
+    # Sub-class of StorageFolderBase can optionally implement the following methods
+    #
+
+    # def raw_if_exists(self, attr):
+    #     from functools import wraps
+    #
+    #     @wraps(attr)
+    #     def wrapper(*args, **kwargs):
+    #         func_name = attr.__name__.rsplit(".", 1)[-1]
+    #         if hasattr(self.raw, func_name):
+    #             raw_attr = getattr(self.raw, func_name)(*args, **kwargs)
+    #             if callable(raw_attr):
+    #                 return raw_attr(*args, **kwargs)
+    #             return raw_attr
+    #         return attr(*args, **kwargs)
+    #     return wrapper
+
+    def __get_raw_attr(self, attr_name, raise_error=False):
+        if hasattr(self.raw, attr_name):
+            return getattr(self.raw, attr_name)
+        if raise_error:
+            raise AttributeError("%s:// does not support attribute %s" % (self.scheme, attr_name))
+        return None
 
     @property
     def file_paths(self):
-        return self.get_files()
+        attr_name = inspect.currentframe().f_code.co_name
+        raw_attr = self.__get_raw_attr(attr_name)
+        if raw_attr:
+            return raw_attr
+        return self.get_file_attributes()
 
     @property
     def folder_paths(self):
-        return self.get_folders()
+        attr_name = inspect.currentframe().f_code.co_name
+        raw_attr = self.__get_raw_attr(attr_name)
+        if raw_attr:
+            return raw_attr
+        return self.get_folder_attributes()
 
     @property
     def file_names(self):
-        return self.get_files("name")
+        attr_name = inspect.currentframe().f_code.co_name
+        raw_attr = self.__get_raw_attr(attr_name)
+        if raw_attr:
+            return raw_attr
+        return self.get_file_attributes("name")
 
     @property
     def folder_names(self):
-        return self.get_folders("name")
-
-    def exists(self):
-        """Checks if the folder exists.
-        """
-        raise NotImplementedError()
-
-    def create(self):
-        """Creates a new folder.
-        There should be no error if the folder already exists.
-        """
-        return self
+        attr_name = inspect.currentframe().f_code.co_name
+        raw_attr = self.__get_raw_attr(attr_name)
+        if raw_attr:
+            return raw_attr
+        return self.get_folder_attributes("name")
 
     def filter_files(self, prefix):
-        raise NotImplementedError
+        attr_name = inspect.currentframe().f_code.co_name
+        raw_attr = self.__get_raw_attr(attr_name)
+        if raw_attr:
+            return raw_attr(prefix)
+
+        files = []
+        for f in self.files:
+            logger.debug(f.name)
+            if f.name.startswith(prefix):
+                files.append(f)
+        return files
 
 
 class StorageFile(StorageObject, BufferedIOBase):
@@ -380,7 +463,7 @@ class StorageFile(StorageObject, BufferedIOBase):
     @property
     def closed(self):
         if not self.buffered_io:
-            return False
+            return True
         return self.buffered_io.closed
 
     @property
@@ -416,13 +499,17 @@ class StorageFile(StorageObject, BufferedIOBase):
         self.close()
         return
 
+    def create(self):
+        return self.raw_io.create()
+
     def delete(self):
         """Deletes the file.
 
         Returns:
 
         """
-        self.buffered_io.close()
+        if self.buffered_io:
+            self.buffered_io.close()
         self.raw_io.delete()
 
     def copy(self, to):
@@ -430,9 +517,33 @@ class StorageFile(StorageObject, BufferedIOBase):
             with StorageFile.init(to, 'w+b') as f_to:
                 return f_to.raw_io.load_from(f)
 
+    def load_from_file(self, file_path):
+        if not self.closed:
+            self.buffered_io.close()
+        with open(file_path, 'rb') as f:
+            return self.raw_io.load_from(f)
+
+    def move(self, to):
+        return self.raw_io.move(to)
+
     def local(self):
         """Creates a temporary local copy of the file to improve the performance."""
         return self
+
+    def is_gz(self):
+        # Reset the offset to the beginning of the file if file is opened.
+        if self.closed:
+            with self.open("rb") as f:
+                b = f.read(2)
+        else:
+            offset = self.tell()
+            self.seek(0)
+            b = self.read(2)
+            # Move offset back
+            self.seek(offset)
+        b = binascii.hexlify(b)
+        logger.debug("File begins with: %s" % b)
+        return b == b'1f8b'
 
     def _check_closed(self):
         if not self.buffered_io or self.buffered_io.closed:
@@ -449,10 +560,10 @@ class StorageFile(StorageObject, BufferedIOBase):
 
     def read(self, size=None):
         # As a shortcut, read() can be called without initializing buffered_io
-        if not self.buffered_io or self.buffered_io.closed:
+        if self.closed:
             # The returned content will always be bytes in this case.
             with self.raw_io.open('rb') as f:
-                return f.read()
+                return f.read(size)
         return self.buffered_io.read(size)
 
     def read1(self, size=None):

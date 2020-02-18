@@ -1,13 +1,14 @@
 import os
 import shutil
 import logging
-from io import FileIO, SEEK_SET, DEFAULT_BUFFER_SIZE
-from .base import StorageIOSeekable
-from .io import StorageFolder
+from io import FileIO, SEEK_SET
+from .base import StorageIOSeekable, StorageFolderBase
 logger = logging.getLogger(__name__)
 
 
-class LocalFolder(StorageFolder):
+class LocalFolder(StorageFolderBase):
+    def exists(self):
+        return True if os.path.exists(self.path) else False
 
     @property
     def files(self):
@@ -37,30 +38,6 @@ class LocalFolder(StorageFolder):
     def folder_names(self):
         return [f for f in os.listdir(self.path) if os.path.isdir(os.path.join(self.path, f))]
 
-    def get_folder(self, folder_name):
-        """Gets a sub folder by name
-
-        Args:
-            folder_name (str): [description]
-
-        Returns:
-            LocalFolder: A LocalFolder instance of the sub folder.
-                None if the sub folder does not exist.
-        """
-        for folder in self.folders:
-            if folder.basename == folder_name:
-                return folder
-        return None
-
-    def get_file(self, filename):
-        for f in self.files:
-            if f.basename == filename:
-                return f
-        return None
-
-    def exists(self):
-        return True if os.path.exists(self.path) else False
-
     def create(self):
         if not os.path.exists(self.path):
             os.makedirs(self.path)
@@ -86,27 +63,6 @@ class LocalFolder(StorageFolder):
     def delete(self):
         if os.path.exists(self.path):
             shutil.rmtree(self.path)
-
-    def empty(self):
-        for f in self.files:
-            f.delete()
-        for f in self.folders:
-            f.delete()
-
-    def is_empty(self):
-        if self.files or self.folders:
-            return False
-        else:
-            return True
-
-    def filter_files(self, prefix):
-        logger.debug("Filtering files by prefix: %s" % prefix)
-        files = []
-        for f in self.files:
-            logger.debug(f.name)
-            if f.name.startswith(prefix):
-                files.append(f)
-        return files
 
 
 class LocalFile(StorageIOSeekable):

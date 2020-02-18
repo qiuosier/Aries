@@ -241,7 +241,7 @@ class StorageIOBase(StorageObject, RawIOBase):
     def readable(self):
         """Returns True if the file exists and readable, otherwise False.
         """
-        if self.exists() and self._readable:
+        if self._readable:
             return True
         return False
 
@@ -327,6 +327,10 @@ class StorageIOBase(StorageObject, RawIOBase):
                 file_size += f.write(b)
         return file_size
 
+    def load_from_file(self, file_path):
+        with open(file_path, 'rb') as f:
+            return self.load_from(f)
+
 
 class StorageIOSeekable(StorageIOBase):
     """Base class for seekable Storage
@@ -347,9 +351,7 @@ class StorageIOSeekable(StorageIOBase):
         self._offset = 0
 
     def seekable(self):
-        if self.exists():
-            return True
-        return False
+        return True
 
     def seek(self, pos, whence=SEEK_SET):
         raise NotImplementedError

@@ -14,15 +14,15 @@ See Also: https://googleapis.github.io/google-cloud-python/latest/core/auth.html
 
 """
 import os
-import binascii
 import logging
 import warnings
+from io import FileIO
 from functools import wraps
 from tempfile import NamedTemporaryFile
 from google.cloud import storage
+from google.cloud.exceptions import ServerError
 from ..tasks import ShellCommand, FunctionTask
-from .base import StorageIOSeekable, StorageObject
-from .io import StorageFolder
+from .base import StorageIOSeekable, StorageObject, StorageFolderBase
 logger = logging.getLogger(__name__)
 
 
@@ -167,10 +167,11 @@ class GSObject(StorageObject):
 
     @api_decorator
     def list_folders(self):
+        from .io import StorageFolder
         iterator = self.bucket.list_blobs(prefix=self.prefix, delimiter='/')
         list(iterator)
         return [
-            GSFolder("gs://%s/%s" % (self.bucket_name, p))
+            StorageFolder("gs://%s/%s" % (self.bucket_name, p))
             for p in iterator.prefixes
         ]
 
@@ -260,6 +261,7 @@ class GSObject(StorageObject):
             return
         with self.client.batch():
             for blob in source_files:
+                logger.debug("Copying %s" % blob.name)
                 new_name = str(blob.name).replace(self.prefix, destination.prefix, 1)
                 if new_name != str(blob.name) or self.bucket_name != destination.bucket_name:
                     self.bucket.copy_blob(blob, destination.bucket, new_name)
@@ -270,30 +272,35 @@ class GSObject(StorageObject):
     def move(self, to):
         """Moves the objects to another location."""
         self.copy(to)
-        self.delete()
+        if GSObject(to).exists():
+            self.delete()
+        else:
+            raise FileNotFoundError("Failed to copy files to %s" % to)
 
 
-class GSFolder(GSObject, StorageFolder):
+class GSFolder(GSObject, StorageFolderBase):
     """Represents a Google Cloud Storage Folder
 
     Method Resolution Order: GSFolder, GSObject, StorageFolder, StorageObject
     """
 
-    def __init__(self, gs_path):
+    def __init__(self, uri):
         """Initializes a Google Cloud Storage Directory.
 
         Args:
-            gs_path: The path of the object, e.g. "gs://bucket_name/path/to/dir/".
+            uri: The path of the object, e.g. "gs://bucket_name/path/to/dir/".
 
         """
         # super() will call the __init__() of StorageObject, StorageFolder and GSObject
-        super(GSFolder, self).__init__(gs_path)
-        if not self.uri.endswith("/"):
-            self.uri += "/"
+        GSObject.__init__(self, uri)
+        StorageFolderBase.__init__(self, uri)
 
         # Make sure prefix ends with "/", otherwise it is not a "folder"
         if self.prefix and not self.prefix.endswith("/"):
             self.prefix += "/"
+
+    def exists(self):
+        return True if self.blob.exists() or self.files or self.folders else False
 
     @property
     def folders(self):
@@ -304,7 +311,7 @@ class GSFolder(GSObject, StorageFolder):
     @api_decorator
     def __files(self):
         return [
-            GSFile("gs://%s/%s" % (self.bucket_name, b.name))
+            "gs://%s/%s" % (self.bucket_name, b.name)
             for b in self.bucket.list_blobs(prefix=self.prefix, delimiter='/')
             if not b.name.endswith("/")
         ]
@@ -342,9 +349,6 @@ class GSFolder(GSObject, StorageFolder):
             "Make sure gsutil is install correctly." % cmd.std_out
         )
 
-    def exists(self):
-        return True if self.blob.exists() or self.files or self.folders else False
-
     @api_decorator
     def filter_files(self, prefix):
         return [
@@ -368,7 +372,7 @@ class GSFile(GSObject, StorageIOSeekable):
         GSObject.__init__(self, gs_path)
         StorageIOSeekable.__init__(self, gs_path)
         self.__temp_file = None
-        self.__gz = None
+        self.__temp_io = None
 
     @property
     def size(self):
@@ -388,29 +392,6 @@ class GSFile(GSObject, StorageIOSeekable):
             api_call(self.blob.upload_from_file, f)
         return True
 
-    def is_gz(self):
-        if self.__gz is None:
-            if self.blob.size < 2:
-                return False
-            offset = self.tell()
-            self.seek(0)
-            b = binascii.hexlify(self.read(2))
-            logger.debug("File begins with: %s" % b)
-            self.seek(offset)
-            self.__gz = b == b'1f8b'
-        return self.__gz
-
-    def __convert_bytes_and_strings(self, s):
-        # Convert string to bytes if needed
-        if 'b' in self._mode and isinstance(s, str):
-            s = s.encode()
-
-        # Convert bytes to string if needed
-        if 'b' not in self._mode and isinstance(s, bytes):
-            s = s.decode()
-
-        return s
-
     # For reading
     def read(self, size=None):
         """Reads the file from the Google Cloud bucket to memory
@@ -418,26 +399,34 @@ class GSFile(GSObject, StorageIOSeekable):
         Returns: Bytes containing the contents of the file.
         """
         start = self.tell()
-        end = None
-        if size:
-            end = start + size - 1
-        logger.debug("Reading from %s to %s" % (start, end))
-        b = api_call(self.blob.download_as_string, start=start, end=end)
+        if self.__temp_io:
+            self.__temp_io.seek(start)
+            b = self.__temp_io.read(size)
+        else:
+            end = None
+            if size:
+                end = start + size - 1
+            logger.debug("Reading from %s to %s" % (start, end))
+            b = api_call(self.blob.download_as_string, start=start, end=end)
+        self._offset += len(b)
         return b
 
     def local(self):
-        if not self.__temp_file:
-            self.__temp_file = NamedTemporaryFile(delete=False)
-            self.__temp_file = self.download()
+        if not self.__temp_io:
+            # Download file if appending or updating
+            if 'a' in self.mode or '+' in self.mode:
+                self.__temp_file = self.download()
+            else:
+                self.__temp_file = NamedTemporaryFile(delete=False)
+            # Close the temp file and open it with FileIO
+            self.__temp_file.close()
+            mode = "".join([c for c in self.mode if c in "rw+ax"])
+            self.__temp_io = FileIO(self.__temp_file.name, mode)
         return self
 
     def download(self, to_file_obj=None):
         if not to_file_obj:
-            if 'b' in self._mode:
-                mode = 'w+b'
-            else:
-                mode = 'w+'
-            to_file_obj = NamedTemporaryFile(mode, delete=False)
+            to_file_obj = NamedTemporaryFile('w+', delete=False)
             logger.debug("Created temp file: %s" % to_file_obj.name)
         # Download the blob to temp file if it exists.
         if self.blob.exists():
@@ -458,38 +447,42 @@ class GSFile(GSObject, StorageIOSeekable):
         if self.closed:
             raise ValueError("write to closed file")
         # Create a temp local file
-        if not self.__temp_file:
-            if 'a' not in self._mode and '+' not in self._mode:
-                # Create an empty new file if mode is not read/write or appending
-                self.__temp_file = NamedTemporaryFile(delete=False)
-            else:
-                self.local()
+        self.local()
         # Write data from buffer to file
-        self.__temp_file.seek(self.tell())
-        size = self.__temp_file.write(b)
+        self.__temp_io.seek(self.tell())
+        size = self.__temp_io.write(b)
+        self._offset += size
         return size
 
     @api_decorator
     def flush(self):
         """Flush write buffers and upload the data to bucket.
         """
-        if self.__temp_file:
-            self.__temp_file.seek(0)
-            self.blob.upload_from_file(self.__temp_file)
+        if self.__temp_io:
+            # self.__temp_io.close()
+            self.blob.upload_from_filename(self.__temp_file.name)
 
     def __rm_temp(self):
-        if not self.__temp_file:
-            return
-        self.__temp_file.close()
-        if os.path.exists(self.__temp_file.name):
-            os.unlink(self.__temp_file.name)
-        logger.debug("Deleted temp file %s" % self.__temp_file)
-        self.__temp_file = None
+        if self.__temp_io:
+            if not self.__temp_io.closed:
+                self.__temp_io.close()
+            self.__temp_io = None
+
+        if self.__temp_file:
+            if self.__temp_file.closed:
+                self.__temp_file.close()
+
+            if os.path.exists(self.__temp_file.name):
+                os.unlink(self.__temp_file.name)
+            logger.debug("Deleted temp file %s" % self.__temp_file)
+            self.__temp_file = None
+        return
 
     def close(self):
         """Flush and close the file.
         This method has no effect if the file is already closed.
         """
+
         if self._closed:
             return
         try:
@@ -508,10 +501,22 @@ class GSFile(GSObject, StorageIOSeekable):
         super().open(mode)
         self._closed = False
         # Reset offset position when open
-        if 'a' in self._mode:
+        self.seek(0)
+        if 'a' in self.mode:
             # Move to the end of the file if open in appending mode.
             self.seek(0, 2)
-        elif 'w' in self._mode:
-            # Delete the file if open in write mode.
-            self.delete()
+        elif 'w' in self.mode:
+            # Create empty local file
+            self.local()
         return self
+
+    def seek(self, pos, whence=0):
+        if self.__temp_io:
+            self._offset = self.__temp_io.seek(pos, whence)
+            return self._offset
+        return self._seek(pos, whence)
+
+    def tell(self):
+        if self.__temp_io:
+            self._offset = self.__temp_io.tell()
+        return self._offset
