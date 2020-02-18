@@ -350,7 +350,7 @@ class GSFolder(GSObject, StorageFolder):
 
 
 class GSFile(GSObject, StorageIOSeekable):
-    def __init__(self, gs_path, mode='r'):
+    def __init__(self, gs_path):
         """Represents a file on Google Cloud Storage as a file-like object implementing the IOBase interface.
 
         Args:
@@ -361,7 +361,7 @@ class GSFile(GSObject, StorageIOSeekable):
         The context manager calls open() when enter.
         """
         GSObject.__init__(self, gs_path)
-        StorageIOSeekable.__init__(self, gs_path, mode)
+        StorageIOSeekable.__init__(self, gs_path)
         self.__temp_file = None
         self.__gz = None
 
@@ -495,7 +495,7 @@ class GSFile(GSObject, StorageIOSeekable):
             # Set _closed attribute
             self._closed = True
 
-    def open(self, mode=None):
+    def open(self, mode='r', *args, **kwargs):
         """Opens the file for writing
         """
         if not self._closed:

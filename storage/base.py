@@ -80,6 +80,14 @@ class StorageIOBase(StorageObject, RawIOBase):
         delete(), to delete the file.
         load_from(), to load/create the file from a stream.
 
+    StorageIOBase and its sub-classes are intended to be the underlying raw IO of StorageFile.
+    In general, they should not be used directly. The StorageFile class should be used instead.
+
+    The file is NOT opened when initializing StorageIOBase with __init__().
+    To open the file, call open() or use StorageIOBase.init().
+    The close() method should be called after writing data into the file.
+    Alternatively, the context manager can be used, e.g. "with StorageIOBase(uri) as f:"
+
 
     See Also:
         https://docs.python.org/3/library/io.html#io.FileIO
@@ -88,20 +96,22 @@ class StorageIOBase(StorageObject, RawIOBase):
 
     """
 
-    def __init__(self, uri, mode='r'):
+    @classmethod
+    def init(cls, uri, mode='r', *args, **kwargs):
+        raw_io = cls(uri)
+        return raw_io.open(mode, *args, **kwargs)
+
+    def __init__(self, uri):
         StorageObject.__init__(self, uri)
         # Subclasses can use the following attributes
         self._closed = True
         # The following can be set by calling __set_mode(mode)
         # Raw IO always operates in binary mode
-        self._mode = ""
+        self._mode = None
         self._created = False
         self._readable = False
         self._writable = False
         self._appending = False
-        # Open the file
-        # This may call open() in subclass
-        self.open(mode)
 
     def __str__(self):
         """The URI of the file.
@@ -144,7 +154,7 @@ class StorageIOBase(StorageObject, RawIOBase):
             self._readable = True
             self._writable = True
 
-    def open(self, mode=None):
+    def open(self, mode='r', *args, **kwargs):
         if not self._is_same_mode(mode):
             self._set_mode(mode)
         self._closed = False
@@ -155,7 +165,7 @@ class StorageIOBase(StorageObject, RawIOBase):
         raise NotImplementedError("close() is not implemented for %s" % self.__class__.__name__)
 
     def __enter__(self):
-        return self.open()
+        return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
@@ -254,7 +264,7 @@ class StorageIOBase(StorageObject, RawIOBase):
         """
         chunk_size = DEFAULT_BUFFER_SIZE
         file_size = 0
-        with self("w+b") as f:
+        with self.open("w+b") as f:
             while True:
                 b = stream.read(chunk_size)
                 if not b:
@@ -277,8 +287,8 @@ class StorageIOSeekable(StorageIOBase):
     _seek() provides a simple implementation of seek().
     
     """
-    def __init__(self, uri, mode):
-        StorageIOBase.__init__(self, uri, mode)
+    def __init__(self, uri):
+        StorageIOBase.__init__(self, uri)
         self._offset = 0
 
     def seekable(self):

@@ -98,7 +98,8 @@ class TestLocalStorage(AriesTest):
         f = StorageFile(src_file_path)
         f.copy(dst_file_path)
         self.assertTrue(os.path.isfile(dst_file_path))
-        self.assertEqual(StorageFile(dst_file_path).read(), "abc\ncba\n")
+        # Use the shortcut to read file, the content will be binary.
+        self.assertEqual(StorageFile(dst_file_path).read(), b"abc\ncba\n")
         
         # Empty the folder. This should delete file and sub folder only
         folder.empty()
@@ -150,18 +151,17 @@ class TestLocalStorage(AriesTest):
 
     def test_gs_read_seek(self):
         # GSFile instance
-        gs_file = StorageFile("gs://aries_test/file_in_root.txt")
-        self.assertEqual(gs_file.scheme, "gs")
-        # self.assertEqual(str(type(gs_file).__name__), "GSFile")
-        self.assertTrue(gs_file.seekable())
-        self.assertTrue(gs_file.readable())
-        with gs_file as f:
-            self.assertEqual(f.size, 34)
+        with StorageFile.init("gs://aries_test/file_in_root.txt") as gs_file:
+            self.assertEqual(gs_file.scheme, "gs")
+            # self.assertEqual(str(type(gs_file).__name__), "GSFile")
+            self.assertTrue(gs_file.seekable())
+            self.assertTrue(gs_file.readable())
+            self.assertEqual(gs_file.size, 34)
 
     def test_local_binary_read_write(self):
         # File does not exist, a new one will be created
         file_path = os.path.join(self.test_folder_path, "test.txt")
-        local_file = StorageFile("file://%s" % file_path, 'wb')
+        local_file = StorageFile("file://%s" % file_path).open("wb")
         self.assertEqual(local_file.scheme, "file")
         # self.assertEqual(str(type(local_file).__name__), "LocalFile")
         self.assertTrue(local_file.seekable())
@@ -178,7 +178,7 @@ class TestLocalStorage(AriesTest):
         self.assertFalse(os.path.exists(file_path))
 
     def test_local_text_read(self):
-        with StorageFile(os.path.join(self.test_folder_path, "file_in_test_folder")) as f:
+        with StorageFile.init(os.path.join(self.test_folder_path, "file_in_test_folder")) as f:
             self.assertEqual(f.size, 0)
             self.assertEqual(f.tell(), 0)
             self.assertEqual(f.seek(0, 2), 0)
@@ -189,7 +189,7 @@ class TestLocalStorage(AriesTest):
         temp_file_path = os.path.join(self.test_folder_path, "temp_file.txt")
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
-        with StorageFile(temp_file_path, 'w+') as f:
+        with StorageFile.init(temp_file_path, 'w+') as f:
             self.assertTrue(f.writable())
             self.assertEqual(f.tell(), 0)
             print(f.buffered_io.buffer)

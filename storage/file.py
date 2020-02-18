@@ -110,11 +110,10 @@ class LocalFolder(StorageFolder):
 
 
 class LocalFile(StorageIOSeekable):
-    def __init__(self, uri, mode='r', closefd=True, opener=None):
+    def __init__(self, uri):
+        # file_io will be initialized by open()
         self.file_io = None
-        self._closefd = closefd
-        self._opener = opener
-        StorageIOSeekable.__init__(self, uri, mode)
+        StorageIOSeekable.__init__(self, uri)
 
     # LocalFile supports low level API: fileno() and isatty()
     def fileno(self):
@@ -146,7 +145,9 @@ class LocalFile(StorageIOSeekable):
 
     def close(self):
         self._closed = True
-        return self.file_io.close()
+        if self.file_io:
+            self.file_io.close()
+        self.file_io = None
 
     @property
     def size(self):
@@ -171,15 +172,14 @@ class LocalFile(StorageIOSeekable):
         if os.path.exists(self.path):
             shutil.copyfile(self.path, to)
 
-    def open(self, mode=None):
+    def open(self, mode='r', closefd=True, opener=None):
         """
         """
         super().open(mode)
         if self.file_io:
-            if not self._is_same_mode(mode):
-                self.file_io.close()
-                self.file_io = None
+            self.file_io.close()
+            self.file_io = None
         if not self.file_io:
             mode = "".join([c for c in self.mode if c in "rw+ax"])
-            self.file_io = FileIO(self.path, mode, closefd=self._closefd, opener=self._opener)
+            self.file_io = FileIO(self.path, mode, closefd=closefd, opener=opener)
         return self
