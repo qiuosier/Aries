@@ -146,17 +146,8 @@ class TestLocalStorage(AriesTest):
     def test_storage_folder(self):
         """Tests methods and properties of StorageFolder.
         """
-        self.assertGreater(len(self.test_folder.get_folders()), 1)
-        self.assertIn("file_in_test_folder", self.test_folder.get_files("name"))
-
-    def test_gs_read_seek(self):
-        # GSFile instance
-        with StorageFile.init("gs://aries_test/file_in_root.txt") as gs_file:
-            self.assertEqual(gs_file.scheme, "gs")
-            # self.assertEqual(str(type(gs_file).__name__), "GSFile")
-            self.assertTrue(gs_file.seekable())
-            self.assertTrue(gs_file.readable())
-            self.assertEqual(gs_file.size, 34)
+        self.assertGreater(len(self.test_folder.get_folder_attributes()), 1)
+        self.assertIn("file_in_test_folder", self.test_folder.get_file_attributes("name"))
 
     def test_local_binary_read_write(self):
         # File does not exist, a new one will be created
