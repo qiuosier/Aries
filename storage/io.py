@@ -388,6 +388,18 @@ class StorageFile(StorageObject, BufferedIOBase):
         return self.raw_io
 
     @property
+    def blob(self):
+        if hasattr(self.raw_io, "blob"):
+            return self.raw_io.blob
+        raise AttributeError("%s:// does not support blob attribute" % self.scheme)
+
+    @property
+    def bucket_name(self):
+        if hasattr(self.raw_io, "bucket_name"):
+            return self.raw_io.bucket_name
+        raise AttributeError("%s:// does not support bucket_name attribute" % self.scheme)
+
+    @property
     def mode(self):
         return self._mode
 
