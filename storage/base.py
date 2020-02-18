@@ -249,7 +249,7 @@ class StorageIOBase(StorageObject, RawIOBase):
         """
         chunk_size = DEFAULT_BUFFER_SIZE
         file_size = 0
-        with self("w+") as f:
+        with self("w+b") as f:
             while True:
                 b = stream.read(chunk_size)
                 if not b:

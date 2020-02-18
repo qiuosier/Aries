@@ -332,7 +332,9 @@ class StorageFile(StorageObject, BufferedIOBase):
         self.raw_io.delete()
 
     def copy(self, to):
-        raise NotImplementedError("copy() is not implemented for %s" % self.__class__.__name__)
+        with self.open("rb") as f:
+            with StorageFile(to, 'w+b') as f_to:
+                return f_to.raw_io.load_from(f)
 
     def local(self):
         """Creates a temporary local copy of the file to improve the performance."""
