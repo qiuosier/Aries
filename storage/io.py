@@ -5,7 +5,7 @@ import json
 import logging
 from io import SEEK_SET, DEFAULT_BUFFER_SIZE
 from io import BufferedIOBase, BufferedRandom, BufferedReader, BufferedWriter, TextIOWrapper
-from .base import StorageObject
+from .base import StorageObject, StorageIOBase
 logger = logging.getLogger(__name__)
 
 
@@ -278,7 +278,9 @@ class StorageFile(StorageObject, BufferedIOBase):
     def _is_same_mode(self, mode):
         """Checks if the mode is the same as the one in which the file is open
         """
-        return sorted(self.mode) == sorted(mode)
+        if mode:
+            return sorted(self.mode) == sorted(mode)
+        return True
 
     @staticmethod
     def init(uri, mode='rb'):

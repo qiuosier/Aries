@@ -142,7 +142,7 @@ class StorageIOBase(StorageObject, RawIOBase):
             self._writable = True
 
     def open(self, mode=None):
-        if mode:
+        if not self._is_same_mode(mode):
             self._set_mode(mode)
         self._closed = False
         return self
@@ -232,7 +232,9 @@ class StorageIOBase(StorageObject, RawIOBase):
         return self._mode
 
     def _is_same_mode(self, mode):
-        return sorted(self.mode) == sorted(mode)
+        if mode:
+            return sorted(self.mode) == sorted(mode)
+        return True
 
     def exists(self):
         """Checks if the file exists.
