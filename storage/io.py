@@ -278,6 +278,8 @@ class StorageFile(StorageObject, BufferedIOBase):
     def _is_same_mode(self, mode):
         """Checks if the mode is the same as the one in which the file is open
         """
+        if not self.mode:
+            return False
         if mode:
             return sorted(self.mode) == sorted(mode)
         return True

@@ -90,9 +90,9 @@ class StorageIOBase(StorageObject, RawIOBase):
     def __init__(self, uri, mode='r'):
         StorageObject.__init__(self, uri)
         # Subclasses can use the following attributes
-        self._mode = str(mode)
         self._closed = True
         # The following can be set by calling __set_mode(mode)
+        self._mode = ""
         self._created = False
         self._readable = False
         self._writable = False
@@ -120,6 +120,7 @@ class StorageIOBase(StorageObject, RawIOBase):
         See Also: https://docs.python.org/3/library/functions.html#open
 
         """
+        self._mode = mode
         # The following code is modified based on the __init__() of python FileIO class
         if not set(mode) <= set('xrwab+'):
             raise ValueError('Invalid mode: %s' % (mode,))
@@ -232,6 +233,8 @@ class StorageIOBase(StorageObject, RawIOBase):
         return self._mode
 
     def _is_same_mode(self, mode):
+        if not self.mode:
+            return False
         if mode:
             return sorted(self.mode) == sorted(mode)
         return True
