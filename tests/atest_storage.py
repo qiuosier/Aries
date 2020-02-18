@@ -10,7 +10,7 @@ aries_parent = os.path.join(os.path.dirname(__file__), "..", "..")
 if aries_parent not in sys.path:
     sys.path.append(aries_parent)
 from Aries.test import AriesTest
-from Aries.storage import StorageFile, StorageFolder, LocalFolder
+from Aries.storage import StorageFile, StorageFolder
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class TestLocalStorage(AriesTest):
     ]
 
     def setUp(self):
-        self.test_folder = LocalFolder(self.test_folder_path)
+        self.test_folder = StorageFolder(self.test_folder_path)
 
     def tearDown(self):
         # Remove temp folder
@@ -53,7 +53,9 @@ class TestLocalStorage(AriesTest):
         self.assertIsNone(self.test_folder.get_folder("not_exist"))
         # Get a sub folder
         sub_folder = self.test_folder.get_folder("test_subfolder1")
-        self.assertTrue(isinstance(sub_folder, LocalFolder), "Failed to get sub folder.")
+        self.assertTrue(
+            isinstance(sub_folder, StorageFolder),
+            "Failed to get sub folder. Received %s: %s" % (sub_folder.__class__, sub_folder))
         # Get the filename
         filenames = sub_folder.file_names
         self.assertEqual(len(filenames), 1)
@@ -78,12 +80,12 @@ class TestLocalStorage(AriesTest):
         self.assertFalse(os.path.exists(self.test_new_folder_path))
         
         # Create a new empty folder
-        folder = LocalFolder(self.test_new_folder_path).create()
+        folder = StorageFolder(self.test_new_folder_path).create()
         self.assertTrue(os.path.isdir(self.test_new_folder_path))
         self.assertTrue(folder.is_empty())
         
         # Create a sub folder inside the new folder
-        LocalFolder(sub_folder_path).create()
+        StorageFolder(sub_folder_path).create()
         self.assertTrue(os.path.isdir(sub_folder_path))
 
         # Copy an empty file
@@ -115,7 +117,7 @@ class TestLocalStorage(AriesTest):
     def test_copy_folder(self):
         # Source folder to be copied
         src_folder_path = os.path.join(self.test_folder_path, "test_subfolder0")
-        sub_folder = LocalFolder(src_folder_path)
+        sub_folder = StorageFolder(src_folder_path)
         # Source folder should exist
         self.assertTrue(sub_folder.exists())
 
@@ -134,12 +136,12 @@ class TestLocalStorage(AriesTest):
         self.assertTrue(os.path.exists(os.path.join(dst_folder_path, "empty_file")))
 
         # Delete destination file
-        LocalFolder(dst_parent).delete()
+        StorageFolder(dst_parent).delete()
         self.assertFalse(os.path.exists(dst_parent))
 
     def test_storage_object(self):
         self.assertEqual(self.test_folder.scheme, "file")
-        self.assertEqual(str(self.test_folder), self.test_folder_path)
+        self.assertEqual(str(self.test_folder).rstrip("/"), self.test_folder_path.rstrip("/"))
         self.assertEqual(self.test_folder.basename, os.path.basename(self.test_folder_path))
         self.assertEqual(self.test_folder.name, os.path.basename(self.test_folder_path))
 

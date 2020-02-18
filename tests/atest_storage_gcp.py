@@ -132,7 +132,7 @@ class TestGCStorage(AriesTest):
         self.assertEqual(len(folders), 1)
         self.assertEqual(folders[0], "gs://aries_test/test_folder/test_subfolder/")
         names = parent.folder_names
-        self.assertEqual(len(folders), 1)
+        self.assertEqual(len(names), 1)
         self.assertEqual(names[0], "test_subfolder")
         # Test listing the files
         files = parent.files
@@ -140,7 +140,7 @@ class TestGCStorage(AriesTest):
         self.assertTrue(isinstance(files[0], StorageFile), "Type: %s" % type(files[0]))
         self.assertEqual(files[0].uri, "gs://aries_test/test_folder/file_in_folder.txt")
         names = parent.file_names
-        self.assertEqual(len(folders), 1)
+        self.assertEqual(len(names), 1)
         self.assertEqual(names[0], "file_in_folder.txt")
 
     def test_gs_read_seek(self):

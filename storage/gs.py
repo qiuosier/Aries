@@ -159,8 +159,9 @@ class GSObject(StorageObject):
 
         Returns (list):
         """
+        from .io import StorageFile
         return [
-            GSFile("gs://%s/%s" % (self.bucket_name, b.name))
+            StorageFile("gs://%s/%s" % (self.bucket_name, b.name))
             for b in self.blobs(delimiter)
             if not b.name.endswith("/")
         ]
@@ -300,27 +301,37 @@ class GSFolder(GSObject, StorageFolderBase):
             self.prefix += "/"
 
     def exists(self):
-        return True if self.blob.exists() or self.files or self.folders else False
+        return True if self.blob.exists() or self.file_paths or self.folder_paths else False
 
     @property
-    def folders(self):
+    def folder_paths(self):
         """Folders(Directories) in the directory.
         """
-        return self.list_folders()
+        return self.__folders_paths()
 
     @api_decorator
-    def __files(self):
+    def __folders_paths(self):
+        iterator = self.bucket.list_blobs(prefix=self.prefix, delimiter='/')
+        list(iterator)
+        return [
+            "gs://%s/%s" % (self.bucket_name, p)
+            for p in iterator.prefixes
+        ]
+
+    @property
+    def file_paths(self):
+        """Files in the directory
+        """
+        paths = self.__file_paths()
+        return paths
+
+    @api_decorator
+    def __file_paths(self):
         return [
             "gs://%s/%s" % (self.bucket_name, b.name)
             for b in self.bucket.list_blobs(prefix=self.prefix, delimiter='/')
             if not b.name.endswith("/")
         ]
-
-    @property
-    def files(self):
-        """Files in the directory
-        """
-        return self.__files()
 
     @property
     def size(self):

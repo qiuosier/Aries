@@ -12,11 +12,11 @@ class LocalFolder(StorageFolderBase):
 
     @property
     def files(self):
-        return [LocalFile(f) for f in self.file_paths]
+        return self.file_paths
 
     @property
     def folders(self):
-        return [LocalFolder(f) for f in self.folder_paths]
+        return self.folder_paths
 
     @property
     def object_paths(self):
@@ -27,16 +27,8 @@ class LocalFolder(StorageFolderBase):
         return list(filter(lambda x: os.path.isfile(x), self.object_paths))
 
     @property
-    def file_names(self):
-        return [f for f in os.listdir(self.path) if os.path.isfile(os.path.join(self.path, f))]
-
-    @property
     def folder_paths(self):
         return list(filter(lambda x: os.path.isdir(x), self.object_paths))
-
-    @property
-    def folder_names(self):
-        return [f for f in os.listdir(self.path) if os.path.isdir(os.path.join(self.path, f))]
 
     def create(self):
         if not os.path.exists(self.path):

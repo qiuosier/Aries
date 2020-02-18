@@ -85,7 +85,7 @@ class StorageFolderBase(StorageObject):
         StorageObject.__init__(self, uri)
 
     @property
-    def files(self):
+    def file_paths(self):
         """
 
         Returns: A list of URIs, each points to a file in the folder.
@@ -94,7 +94,7 @@ class StorageFolderBase(StorageObject):
         raise NotImplementedError()
 
     @property
-    def folders(self):
+    def folder_paths(self):
         """
 
         Returns: A list of URIs, each points to a folder in the folder.

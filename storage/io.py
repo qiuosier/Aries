@@ -55,7 +55,7 @@ class StorageFolder(StorageFolderBase):
         Returns: A list of StorageFiles in the folder.
 
         """
-        return [StorageFile(f) for f in self.raw.files]
+        return [StorageFile(f) for f in self.file_paths]
 
     @property
     def folders(self):
@@ -64,7 +64,23 @@ class StorageFolder(StorageFolderBase):
         Returns: A list of StorageFolders in the folder.
 
         """
-        return [StorageFolder(f) if isinstance(f, str) else f for f in self.raw.folders]
+        return [StorageFolder(f) for f in self.folder_paths]
+
+    @property
+    def file_names(self):
+        return [os.path.basename(f) for f in self.file_paths]
+
+    @property
+    def folder_names(self):
+        return [str(f).rstrip("/").rsplit("/", 1)[-1] for f in self.folder_paths]
+
+    @property
+    def file_paths(self):
+        return self.raw.file_paths
+
+    @property
+    def folder_paths(self):
+        return self.raw.folder_paths
 
     def exists(self):
         """Checks if the folder exists.
@@ -75,7 +91,8 @@ class StorageFolder(StorageFolderBase):
         """Creates a new folder.
         There should be no error if the folder already exists.
         """
-        return self.raw.create()
+        self.raw.create()
+        return self
 
     def copy(self, to):
         return self.raw.copy(to)
@@ -165,38 +182,6 @@ class StorageFolder(StorageFolderBase):
         if raise_error:
             raise AttributeError("%s:// does not support attribute %s" % (self.scheme, attr_name))
         return None
-
-    @property
-    def file_paths(self):
-        attr_name = inspect.currentframe().f_code.co_name
-        raw_attr = self.__get_raw_attr(attr_name)
-        if raw_attr:
-            return raw_attr
-        return self.get_file_attributes()
-
-    @property
-    def folder_paths(self):
-        attr_name = inspect.currentframe().f_code.co_name
-        raw_attr = self.__get_raw_attr(attr_name)
-        if raw_attr:
-            return raw_attr
-        return self.get_folder_attributes()
-
-    @property
-    def file_names(self):
-        attr_name = inspect.currentframe().f_code.co_name
-        raw_attr = self.__get_raw_attr(attr_name)
-        if raw_attr:
-            return raw_attr
-        return self.get_file_attributes("name")
-
-    @property
-    def folder_names(self):
-        attr_name = inspect.currentframe().f_code.co_name
-        raw_attr = self.__get_raw_attr(attr_name)
-        if raw_attr:
-            return raw_attr
-        return self.get_folder_attributes("name")
 
     def filter_files(self, prefix):
         attr_name = inspect.currentframe().f_code.co_name
