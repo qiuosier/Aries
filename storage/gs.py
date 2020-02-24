@@ -89,7 +89,7 @@ class GSObject(StorageObject):
     def is_file(self):
         if self.path.endswith("/"):
             return False
-        if not self.exists:
+        if not self.exists():
             return False
         return True
 
