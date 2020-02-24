@@ -86,6 +86,13 @@ class GSObject(StorageObject):
             self.prefix = self.path
         self.__blob = None
 
+    def is_file(self):
+        if self.path.endswith("/"):
+            return False
+        if not self.exists:
+            return False
+        return True
+
     @property
     def blob(self):
         """Gets or initialize a Google Cloud Storage Blob.
