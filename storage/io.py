@@ -249,7 +249,7 @@ class StorageFile(StorageObject, BufferedIOBase):
         The file will be closed and re-opened in the new mode.
 
         """
-        if not self._is_same_mode(mode):
+        if self.closed or not self._is_same_mode(mode):
             return self.open(mode)
         return self
 
