@@ -315,7 +315,7 @@ class PackageLogFilter(logging.Filter):
         """
         if package_root:
             self.packages = self.get_packages(package_root)
-            # logger.info("Filtering logs except packages: %s" % self.packages)
+            logger.info("Filtering logs except packages: %s" % self.packages)
         else:
             self.packages = []
         if isinstance(packages, list):
