@@ -81,13 +81,13 @@ class PlotlyFigure:
         Returns: True if "pandas" and "DataFrame" are both in the type/class name of x
 
         """
-        data_type = str(type(x))
-        return "pandas" in data_type and "DataFrame" in data_type
+        from pandas import DataFrame
+        return issubclass(x.__class__, DataFrame)
 
     @staticmethod
     def __is_pandas_data_series(x):
-        data_type = str(type(x))
-        return "pandas" in data_type and "Series" in data_type
+        from pandas import Series
+        return issubclass(x.__class__, Series)
 
     @property
     def figure(self):
@@ -163,7 +163,7 @@ class PlotlyFigure:
         self.data.append(trace)
         return self
 
-    def __parse_args(names, array, *args):
+    def __parse_args(self, names, array, *args):
         for arg in args:
             if isinstance(arg, str):
                 names.append(arg)
@@ -197,7 +197,6 @@ class PlotlyFigure:
             y_name.append(series.name)
         else:
             y_name, y_list = self.__parse_args(y_name, y_list, *args)
-
         for i in range(len(y_list)):
             trace = go.Scatter(
                 x=x,
