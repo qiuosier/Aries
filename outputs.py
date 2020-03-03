@@ -86,7 +86,7 @@ class CaptureOutput:
     out_listeners = {}
     err_listeners = {}
 
-    def __init__(self, suppress_exception=False, log_level=logging.DEBUG):
+    def __init__(self, suppress_exception=False, log_level=logging.DEBUG, filters=None):
         """Initializes log handler and attributes to store the outputs.
         """
         self.uuid = uuid.uuid4()
@@ -94,6 +94,11 @@ class CaptureOutput:
 
         self.log_handler = ThreadLogHandler(threading.current_thread().ident)
         self.log_handler.setLevel(log_level)
+        if filters:
+            if not isinstance(filters, list):
+                filters = [filters]
+            for log_filter in filters:
+                self.log_handler.addFilter(log_filter)
 
         self.std_out = ""
         self.std_err = ""
@@ -256,7 +261,7 @@ class StreamHandler(logging.StreamHandler):
             self.setFormatter(MessageFormatter())
 
 
-class ThreadLogHandler(logging.NullHandler):
+class ThreadLogHandler(logging.Handler):
     """Captures the logs of a particular thread.
 
     Attributes:
@@ -271,6 +276,7 @@ class ThreadLogHandler(logging.NullHandler):
     See Also:
         https://docs.python.org/3.5/library/logging.html#handler-objects
         https://docs.python.org/3.5/library/logging.html#logrecord-attributes
+        https://github.com/python/cpython/blob/master/Lib/logging/__init__.py
 
     """
     def __init__(self, thread_id, formatter=None):
@@ -292,13 +298,17 @@ class ThreadLogHandler(logging.NullHandler):
         """Determine whether to emit base on the thread ID.
         """
         if record.thread == self.thread_id:
-            self.emit(record)
+            return super().handle(record)
+        return False
 
     def emit(self, record):
         """Formats and saves the log message.
         """
-        message = self.format(record)
-        self.logs.append(message)
+        try:
+            message = self.format(record)
+            self.logs.append(message)
+        except Exception:
+            self.handleError(record)
 
 
 class PackageLogFilter(logging.Filter):
