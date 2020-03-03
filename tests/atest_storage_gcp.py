@@ -273,3 +273,10 @@ class TestGCStorage(AriesTest):
         dest_file = StorageFile(dest)
         self.assertTrue(dest_file.exists())
         dest_file.delete()
+
+    def copy_from_http(self):
+        storage_obj = StorageFile("https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf")
+        gs_path = "gs://davelab_temp/qq6/test.pdf"
+        storage_obj.copy("gs://davelab_temp/qq6/test.pdf")
+        self.assertTrue(StorageFile(gs_path).exists())
+        StorageFile(gs_path).delete()

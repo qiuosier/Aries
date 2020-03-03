@@ -38,7 +38,4 @@ class TestWebStorage(AriesTest):
         storage_obj.copy(local_file_path)
         self.assertTrue(os.path.exists(local_file_path))
         self.assertGreater(StorageFile(local_file_path).size, 0)
-
-        gs_path = "gs://davelab_temp/qq6/test.pdf"
-        storage_obj.copy("gs://davelab_temp/qq6/test.pdf")
-        self.assertTrue(StorageFile(gs_path).exists())
+        StorageFile(local_file_path).delete()
