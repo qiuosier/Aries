@@ -342,9 +342,9 @@ class PackageLogFilter(logging.Filter):
 
     @staticmethod
     def get_packages(folder_path):
-        from .storage import LocalFolder
+        from .storage import StorageFolder
         project_packages = []
-        project_folder = LocalFolder(folder_path)
+        project_folder = StorageFolder(folder_path)
         sub_folders = project_folder.folders
         for sub_folder in sub_folders:
             if "__init__.py" in sub_folder.file_names:

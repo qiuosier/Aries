@@ -444,7 +444,7 @@ class GSFile(GSObject, StorageIOSeekable):
 
     def download(self, to_file_obj=None):
         if not to_file_obj:
-            to_file_obj = NamedTemporaryFile('w+', delete=False)
+            to_file_obj = NamedTemporaryFile('w+b', delete=False)
             logger.debug("Created temp file: %s" % to_file_obj.name)
         # Download the blob to temp file if it exists.
         if self.blob.exists():
@@ -478,6 +478,7 @@ class GSFile(GSObject, StorageIOSeekable):
         """
         if self.__temp_io:
             # self.__temp_io.close()
+            logger.debug("Uploading file to %s" % self.uri)
             self.blob.upload_from_filename(self.__temp_file.name)
 
     def __rm_temp(self):
