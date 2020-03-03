@@ -147,7 +147,13 @@ class FunctionTask(Task):
         self.args = args
         self.kwargs = kwargs
 
+        self.log_filters = []
+
         self.out = None
+
+    def add_log_filter(self, log_filter):
+        self.log_filters.append(log_filter)
+        return self
 
     def __unpack_outputs(self, out):
         """Sets a list of attributes (self.__output_attributes) by copying values from a dictionary.
@@ -173,7 +179,7 @@ class FunctionTask(Task):
 
     def __run(self):
         try:
-            with CaptureOutput() as out:
+            with CaptureOutput(filters=self.log_filters) as out:
                 self.out = out
                 # Returns may not be serializable.
                 out.returns = self.func(*self.args, **self.kwargs)
