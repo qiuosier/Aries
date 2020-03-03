@@ -8,7 +8,7 @@ import inspect
 from io import SEEK_SET, DEFAULT_BUFFER_SIZE
 from io import BufferedIOBase, BufferedRandom, BufferedReader, BufferedWriter, TextIOWrapper
 from .base import StorageObject, StorageFolderBase
-from . import gs, file
+from . import gs, file, web
 logger = logging.getLogger(__name__)
 
 
@@ -29,10 +29,10 @@ class StorageFolder(StorageFolderBase):
 
     def __init__(self, uri):
         super(StorageFolder, self).__init__(uri)
-        sub_class = self.registry.get(self.scheme)
-        if not sub_class:
-            raise NotImplementedError("Scheme %s is not implemented." % self.scheme)
-        self.raw = sub_class(uri)
+        raw_class = self.registry.get(self.scheme)
+        if not raw_class:
+            raise NotImplementedError("No implementation available for scheme: %s" % self.scheme)
+        self.raw = raw_class(uri)
 
     @staticmethod
     def init(uri):
@@ -225,6 +225,14 @@ class StorageFile(StorageObject, BufferedIOBase):
 
     """
 
+    registry = {
+        "file": file.LocalFile,
+        "gs": gs.GSFile,
+        "http": web.WebFile,
+        "https": web.WebFile,
+        "ftp": web.WebFile
+    }
+
     def __init__(self, uri):
         """Opens a file
 
@@ -257,14 +265,10 @@ class StorageFile(StorageObject, BufferedIOBase):
         """Initializes the underlying raw IO
         """
         # Create the underlying raw IO base on the scheme
-        from . import gs, file
-        if self.scheme == "file":
-            logger.debug("Using local file: %s" % self.uri)
-            return file.LocalFile(self.uri)
-        elif self.scheme == "gs":
-            logger.debug("Using GS file: %s" % self.uri)
-            return gs.GSFile(self.uri)
-        raise NotImplementedError("No implementation available for scheme: %s" % self.scheme)
+        raw_class = self.registry.get(self.scheme)
+        if not raw_class:
+            raise NotImplementedError("No implementation available for scheme: %s" % self.scheme)
+        return raw_class(self.uri)
 
     def __open_raw_io(self, closefd=True, opener=None):
         if not self.raw_io:
@@ -316,10 +320,12 @@ class StorageFile(StorageObject, BufferedIOBase):
                           RuntimeWarning, 2)
 
     def __init_buffer_io(self, buffering, binary, updating, creating, reading, writing, appending):
+        logger.debug("Initializing buffer IO for %s..." % self.uri)
         if buffering < 0:
             buffering = self.__buffer_size()
         if buffering == 0:
             if binary:
+                # logger.debug("Using raw_io as buffer_io for %s ..." % self.uri)
                 return self.raw_io
             raise ValueError("can't have unbuffered text I/O")
         if updating:
@@ -350,6 +356,7 @@ class StorageFile(StorageObject, BufferedIOBase):
 
         self.__validate_args(text, binary, creating, reading, writing, appending, encoding, errors, newline, buffering)
         self.raw_io = self.__open_raw_io(closefd, opener)
+
         # Track the opened IO
         opened_io = self.raw_io
         try:
@@ -358,6 +365,7 @@ class StorageFile(StorageObject, BufferedIOBase):
                 buffering = -1
                 line_buffering = True
             opened_io = self.__init_buffer_io(buffering, binary, updating, creating, reading, writing, appending)
+
             # Use TextIOWrapper for text mode
             if binary:
                 return opened_io
@@ -367,7 +375,9 @@ class StorageFile(StorageObject, BufferedIOBase):
             return opened_io
         except Exception as ex:
             # Close the opened IO if there is an error
-            opened_io.close()
+            if opened_io:
+                logger.debug("Closing opened_io...")
+                opened_io.close()
             raise ex
 
     def _is_same_mode(self, mode):
@@ -400,9 +410,11 @@ class StorageFile(StorageObject, BufferedIOBase):
         """
         # Stores the arguments as protected attributes
         self._mode = str(mode)
+        logger.debug("Opening %s ..." % self.uri)
         # The raw_io will be initialized in __init_io()
         if not self.raw_io.closed:
             self.raw_io.close()
+
         # The buffered_io is the main IO stream used in the methods and properties.
         self.buffered_io = self.__init_io(buffering, encoding, errors, newline, closefd, opener)
         return self
@@ -531,15 +543,27 @@ class StorageFile(StorageObject, BufferedIOBase):
         return b == b'1f8b'
 
     def _check_closed(self):
-        if not self.buffered_io or self.buffered_io.closed:
-            raise ValueError("I/O operation on closed file. Use open() or init() to open the file.")
+        if not self.buffered_io:
+            raise ValueError(
+                "I/O operation on closed file (buffer_io not initialized). "
+                "Use open() or init() to open the file."
+            )
+        if self.buffered_io.closed:
+            raise ValueError(
+                "I/O operation on closed file (buffer_io closed). "
+                "Use open() or init() to open the file."
+            )
 
     # The following methods calls the corresponding method in buffered_io
     def close(self):
+        logger.debug("Closing %s ..." % self.uri)
         results = None
         if self.buffered_io:
+            # buffered_io will close raw_io
             results = self.buffered_io.close()
-        if self.raw_io and not self.raw_io.closed:
+            # Remove the buffered_io reference so that it will close the raw IO
+            self.buffered_io = None
+        elif self.raw_io and not self.raw_io.closed:
             self.raw_io.close()
         return results
 
