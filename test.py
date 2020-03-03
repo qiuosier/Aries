@@ -2,9 +2,10 @@
 """
 import logging
 import time
+import os
 from collections import OrderedDict
 from unittest import TestCase
-from .outputs import StreamHandler
+from .outputs import StreamHandler, PackageLogFilter
 
 
 class AriesTest(TestCase):
@@ -47,6 +48,8 @@ class AriesTest(TestCase):
         """
         def test_case_with_logging(*args, **kwargs):
             stream_handler = StreamHandler()
+            package_filter = PackageLogFilter(packages=os.path.basename(os.path.abspath(os.curdir)))
+            stream_handler.addFilter(package_filter)
             loggers = dict()
             for name in cls.logger_names:
                 logger = logging.getLogger(name)
