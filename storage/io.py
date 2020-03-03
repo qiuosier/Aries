@@ -5,7 +5,7 @@ import json
 import logging
 import binascii
 import inspect
-from io import SEEK_SET, DEFAULT_BUFFER_SIZE
+from io import SEEK_SET, DEFAULT_BUFFER_SIZE, UnsupportedOperation
 from io import BufferedIOBase, BufferedRandom, BufferedReader, BufferedWriter, TextIOWrapper
 from .base import StorageObject, StorageFolderBase
 from . import gs, file, web
@@ -95,7 +95,33 @@ class StorageFolder(StorageFolderBase):
         return self
 
     def copy(self, to):
-        return self.raw.copy(to)
+        dest = StorageObject(to)
+        if dest.scheme == self.scheme:
+            return self.raw.copy(to)
+        raise UnsupportedOperation("Copy from %s to %s is not supported." % (self.scheme, dest.scheme))
+
+    def download(self, local_path):
+        if not os.path.exists(local_path):
+            os.makedirs(local_path)
+        # Download the files using copy()
+        for storage_file in self.files:
+            storage_file.copy(os.path.join(local_path, storage_file.basename))
+        # Recursively download the sub-folders.
+        for storage_folder in self.folders:
+            storage_folder.download(os.path.join(local_path, storage_folder.basename))
+
+    def upload_from(self, local_path):
+        raise NotImplementedError()
+
+    def move(self, to):
+        """Moves the objects to another location."""
+        self.copy(to)
+        dest_folder = StorageFolder(to)
+        if dest_folder.exists():
+            # TODO: Check if the files are actually copied.
+            self.delete()
+        else:
+            raise FileNotFoundError("Failed to copy files to %s" % to)
 
     def delete(self):
         return self.raw.delete()

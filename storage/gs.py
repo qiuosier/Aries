@@ -267,23 +267,16 @@ class GSObject(StorageObject):
         if not source_files:
             logger.debug("No files in %s" % self.uri)
             return
+        counter = 0
         with self.client.batch():
             for blob in source_files:
                 logger.debug("Copying %s" % blob.name)
                 new_name = str(blob.name).replace(self.prefix, destination.prefix, 1)
                 if new_name != str(blob.name) or self.bucket_name != destination.bucket_name:
                     self.bucket.copy_blob(blob, destination.bucket, new_name)
+                    counter += 1
 
-        logger.debug("%d blobs copied" % len(source_files))
-
-    @api_decorator
-    def move(self, to):
-        """Moves the objects to another location."""
-        self.copy(to)
-        if GSObject(to).exists():
-            self.delete()
-        else:
-            raise FileNotFoundError("Failed to copy files to %s" % to)
+        logger.debug("%d files copied." % counter)
 
 
 class GSFolder(GSObject, StorageFolderBase):

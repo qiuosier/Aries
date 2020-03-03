@@ -30,6 +30,8 @@ class StorageObject:
         # Use file as scheme if one is not in the URI
         if not self.scheme:
             self.scheme = 'file'
+            if not str(self.path).startswith("/"):
+                self.path = os.path.abspath(self.path)
 
     def __str__(self):
         """Returns the URI
@@ -108,6 +110,12 @@ class StorageFolderBase(StorageObject):
         raise NotImplementedError()
 
     def create(self):
+        raise NotImplementedError()
+
+    def copy(self, to):
+        raise NotImplementedError()
+
+    def delete(self):
         raise NotImplementedError()
 
 
