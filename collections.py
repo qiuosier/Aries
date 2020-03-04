@@ -33,7 +33,7 @@ def sort_lists(order_list, label_list, reverse=False):
     Example:
         order_list = [2, 1, 3]
         label_list = ['A', 'B', 'C']
-        Aftering sorting,
+        After sorting,
         order_list = [1, 2, 3]
         label_list = ['B', 'A', 'C']
     
@@ -45,6 +45,9 @@ def sort_lists(order_list, label_list, reverse=False):
     Returns:
         [type]: [description]
     """
+    # Do nothing if the order_list if None or empty.
+    if not order_list:
+        return order_list, label_list
     order_list, label_list = (
         list(t) for t in zip(*sorted(zip(order_list, label_list), reverse=reverse))
     )
