@@ -126,14 +126,17 @@ class TestLocalStorage(AriesTest):
         dst_parent = self.test_new_folder_path
 
         # Destination folder should not exist
-        self.assertFalse(os.path.exists(dst_folder_path))
+        if os.path.exists(dst_folder_path):
+            shutil.rmtree(dst_folder_path)
 
         if not dst_parent.endswith("/"):
             dst_parent += "/"
+        logger.debug("Copying from %s into %s" % (sub_folder.uri, dst_parent))
         sub_folder.copy(dst_parent)
         # Destination folder should now exist and contain an empty file
         self.assertTrue(os.path.exists(dst_folder_path))
         self.assertTrue(os.path.exists(os.path.join(dst_folder_path, "empty_file")))
+        self.assertTrue(os.path.exists(os.path.join(dst_folder_path, "abc.txt")))
 
         # Delete destination file
         StorageFolder(dst_parent).delete()
@@ -193,16 +196,3 @@ class TestLocalStorage(AriesTest):
             self.assertEqual(f.read(), "abc")
             self.assertTrue(f.exists())
         f.delete()
-
-    def test_http(self):
-        # Http scheme, no subclass available
-        # http_obj = StorageFile.init("https://abc.com/test.txt")
-        # self.assertEqual(http_obj.scheme, "https")
-        # self.assertEqual(str(type(http_obj).__name__), "StorageFile")
-        #
-        # # Not implemented
-        # for attr in ["exists", "close"]:
-        #     with self.assertRaises(NotImplementedError):
-        #         getattr(http_obj, attr)()
-        with self.assertRaises(NotImplementedError):
-            StorageFile("https://abc.com/test.txt")
