@@ -426,6 +426,8 @@ class GSFile(GSObject, StorageIOSeekable):
 
     @property
     def size(self):
+        if self.__temp_io:
+            return os.fstat(self.__temp_io.fileno).st_size
         return self.blob.size
 
     @property
@@ -451,6 +453,13 @@ class GSFile(GSObject, StorageIOSeekable):
             self.__temp_io.seek(start)
             b = self.__temp_io.read(size)
         else:
+            if not self.exists():
+                raise FileNotFoundError("File %s does not exists." % self.uri)
+            if not self.size:
+                return b""
+            # download_as_string() will raise an error if start is greater than size.
+            if start > self.size:
+                return b""
             end = None
             if size:
                 end = start + size - 1
@@ -508,7 +517,7 @@ class GSFile(GSObject, StorageIOSeekable):
     def __rm_temp(self):
         if self.temp_path and os.path.exists(self.temp_path):
             os.unlink(self.temp_path)
-        logger.debug("Deleted temp file %s" % self.temp_path)
+        logger.debug("Deleted temp file %s of %s" % (self.temp_path, self.uri))
         self.temp_path = None
         return
 
@@ -519,12 +528,13 @@ class GSFile(GSObject, StorageIOSeekable):
 
         if self._closed:
             return
-        try:
-            if self.__temp_io:
-                if not self.__temp_io.closed:
-                    self.__temp_io.close()
-                self.__temp_io = None
-        finally:
+
+        if self.__temp_io:
+            if not self.__temp_io.closed:
+                self.__temp_io.close()
+            self.__temp_io = None
+
+        if self.temp_path:
             logger.debug("Uploading file to %s" % self.uri)
             api_call(self.blob.upload_from_filename, self.temp_path)
             # Remove __temp_file if it exists.
