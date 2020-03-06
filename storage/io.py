@@ -98,9 +98,16 @@ class StorageFolder(StorageFolderBase):
 
     def copy(self, to):
         dest = StorageObject(to)
-        if dest.scheme == self.scheme:
+        if dest.scheme == self.scheme and hasattr(self.raw, "copy"):
             return self.raw.copy(to)
-        raise UnsupportedOperation("Copy from %s to %s is not supported." % (self.scheme, dest.scheme))
+        # Download the files using copy()
+        for storage_file in self.files:
+            storage_file.copy(os.path.join(to, storage_file.basename))
+        # Recursively download the sub-folders.
+        for storage_folder in self.folders:
+            # TODO: Create the folder?
+            storage_folder.copy(os.path.join(to, storage_folder.basename))
+        # raise UnsupportedOperation("Copy from %s to %s is not supported." % (self.scheme, dest.scheme))
 
     def download(self, local_path):
         if not os.path.exists(local_path):
@@ -567,9 +574,13 @@ class StorageFile(StorageObject, BufferedIOBase):
 
     def copy(self, to):
         logger.debug("Copying file to %s" % to)
+        dest_file = StorageFile(to)
+        # Use raw_io copy for same scheme, if possible
+        if self.scheme == dest_file.scheme and hasattr(self.raw_io, "copy"):
+            return self.raw_io.copy(to)
         with self.open("rb") as f:
-            with StorageFile.init(to, 'w+b') as f_to:
-                return f_to.raw_io.load_from(f)
+            with dest_file.open('wb') as f_to:
+                return self.copy_stream(f, f_to)
 
     def load_from_file(self, file_path):
         if not self.closed:

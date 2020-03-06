@@ -47,11 +47,17 @@ class LocalFolder(StorageFolderBase):
             If the path does not end with "/", e.g. "/var/folder_name",
                 the folder will be copied and renamed to "folder_name".
         """
-        if os.path.isdir(self.path):
-            if to.endswith("/"):
-                to += self.basename
-            logger.debug("Copying files from %s to %s" % (self.path, to))
-            shutil.copytree(self.path, to)
+        if to.endswith("/"):
+            to += self.basename
+        logger.debug("Copying files from %s to %s" % (self.path, to))
+        # Copy the files recursively
+        # copytree is not used here as it raises permission denied error in some python version.
+        if not os.path.exists(to):
+            os.makedirs(to)
+        for file_path in self.file_paths:
+            shutil.copy(file_path, to)
+        for folder_path in self.folder_paths:
+            LocalFolder(folder_path).copy(to)
 
     def delete(self):
         if os.path.exists(self.path):
