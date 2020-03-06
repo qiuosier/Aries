@@ -417,7 +417,11 @@ class GSFile(GSObject, StorageIOSeekable):
         """
         GSObject.__init__(self, gs_path)
         StorageIOSeekable.__init__(self, gs_path)
-        self.__temp_file = None
+
+        # Path of the temp local file
+        self.temp_path = None
+
+        # Stores the temp local FileIO object
         self.__temp_io = None
 
     @property
@@ -427,12 +431,6 @@ class GSFile(GSObject, StorageIOSeekable):
     @property
     def updated_time(self):
         return self.blob.updated
-
-    @property
-    def temp_path(self):
-        if self.__temp_file:
-            return self.__temp_file.name
-        return None
 
     def upload_from_file(self, file_path):
         if not os.path.exists(file_path):
@@ -465,13 +463,14 @@ class GSFile(GSObject, StorageIOSeekable):
         if not self.__temp_io:
             # Download file if appending or updating
             if 'a' in self.mode or '+' in self.mode:
-                self.__temp_file = self.download()
+                temp_file = self.download()
             else:
-                self.__temp_file = NamedTemporaryFile(delete=False)
+                temp_file = NamedTemporaryFile(delete=False)
             # Close the temp file and open it with FileIO
-            self.__temp_file.close()
+            temp_file.close()
             mode = "".join([c for c in self.mode if c in "rw+ax"])
-            self.__temp_io = FileIO(self.__temp_file.name, mode)
+            self.__temp_io = FileIO(temp_file.name, mode)
+            self.temp_path = temp_file.name
         return self
 
     def download(self, to_file_obj=None):
@@ -506,29 +505,11 @@ class GSFile(GSObject, StorageIOSeekable):
         self._offset += size
         return size
 
-    @api_decorator
-    def flush(self):
-        """Flush write buffers and upload the data to bucket.
-        """
-        if self.__temp_io:
-            # self.__temp_io.close()
-            logger.debug("Uploading file to %s" % self.uri)
-            self.blob.upload_from_filename(self.__temp_file.name)
-
     def __rm_temp(self):
-        if self.__temp_io:
-            if not self.__temp_io.closed:
-                self.__temp_io.close()
-            self.__temp_io = None
-
-        if self.__temp_file:
-            if self.__temp_file.closed:
-                self.__temp_file.close()
-
-            if os.path.exists(self.__temp_file.name):
-                os.unlink(self.__temp_file.name)
-            logger.debug("Deleted temp file %s" % self.__temp_file)
-            self.__temp_file = None
+        if self.temp_path and os.path.exists(self.temp_path):
+            os.unlink(self.temp_path)
+        logger.debug("Deleted temp file %s" % self.temp_path)
+        self.temp_path = None
         return
 
     def close(self):
@@ -539,8 +520,13 @@ class GSFile(GSObject, StorageIOSeekable):
         if self._closed:
             return
         try:
-            self.flush()
+            if self.__temp_io:
+                if not self.__temp_io.closed:
+                    self.__temp_io.close()
+                self.__temp_io = None
         finally:
+            logger.debug("Uploading file to %s" % self.uri)
+            api_call(self.blob.upload_from_filename, self.temp_path)
             # Remove __temp_file if it exists.
             self.__rm_temp()
             # Set _closed attribute
