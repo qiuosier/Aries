@@ -247,7 +247,7 @@ class FunctionTask(Task):
 
         Args:
             max_retry (int): The number of times to re-try.
-            exceptions (Exception or tuple): An exception class or A tuple of exception classes.
+            exceptions: An exception class or A tuple of exception classes.
             base_interval (int): The interval before the first retry in seconds.
             retry_pattern (str): The pattern of the retry interval. 
                 "exponential": The time between two retries will increase exponentially.

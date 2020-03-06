@@ -173,6 +173,7 @@ class Markdown:
 
 
 class TemporaryFile:
+    # TODO: Inherit from NamedTemporaryFile
     """Represents a temporary file.
 
     Examples:
