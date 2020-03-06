@@ -566,6 +566,7 @@ class StorageFile(StorageObject, BufferedIOBase):
         self.raw_io.delete()
 
     def copy(self, to):
+        logger.debug("Copying file to %s" % to)
         with self.open("rb") as f:
             with StorageFile.init(to, 'w+b') as f_to:
                 return f_to.raw_io.load_from(f)
