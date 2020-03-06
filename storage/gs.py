@@ -75,6 +75,8 @@ class GSObject(StorageObject):
     Attributes:
         prefix: The Google Cloud Storage prefix, which is the path without the beginning "/"
     """
+    MAX_BATCH_SIZE = 900
+
     def __init__(self, gs_path):
         """Initializes a Google Cloud Storage Object.
 
@@ -184,15 +186,51 @@ class GSObject(StorageObject):
         ]
 
     @api_decorator
-    def delete(self):
-        """Deletes all objects with the same prefix."""
-        # This needs to be done before the batch.
-        blobs = self.blobs()
+    def batch_request(self, blobs, method, *args, **kwargs):
+        """Sends a batch request to run method of a batch of blobs.
+        The "method" will be applied to each blob in blobs like method(blob, *args, **kwargs)
+
+        Args:
+            blobs: A list of blobs, to be processed in a SINGLE batch.
+            method: The method for processing each blob.
+            *args: Additional arguments for method.
+            **kwargs: Keyword arguments for method.
+
+        Returns:
+
+        """
         if not blobs:
-            return
+            return 0
+        counter = 0
         with self.client.batch():
             for blob in blobs:
-                blob.delete()
+                method(blob, *args, **kwargs)
+                counter += 1
+        return counter
+
+    def batch_operation(self, method, *args, **kwargs):
+        blobs = self.blobs()
+        batch = []
+        counter = 0
+        for blob in blobs:
+            batch.append(blob)
+            if len(batch) > self.MAX_BATCH_SIZE:
+                counter += self.batch_request(batch, method, *args, **kwargs)
+                batch = []
+        if batch:
+            counter += self.batch_request(batch, method, *args,**kwargs)
+        return counter
+
+    @staticmethod
+    def delete_blob(blob):
+        blob.delete()
+
+    @api_decorator
+    def delete(self):
+        """Deletes all objects with the same prefix."""
+        counter = self.batch_operation(self.delete_blob)
+        logger.debug("%d files deleted." % counter)
+        return counter
 
     @api_decorator
     def exists(self):
@@ -211,6 +249,11 @@ class GSObject(StorageObject):
         if not blob.exists():
             blob.upload_from_string("")
         return blob
+
+    def copy_blob(self, blob, destination):
+        new_name = str(blob.name).replace(self.prefix, destination.prefix, 1)
+        if new_name != str(blob.name) or self.bucket_name != destination.bucket_name:
+            self.bucket.copy_blob(blob, destination.bucket, new_name)
 
     @api_decorator
     def copy(self, to):
@@ -267,15 +310,7 @@ class GSObject(StorageObject):
         if not source_files:
             logger.debug("No files in %s" % self.uri)
             return
-        counter = 0
-        with self.client.batch():
-            for blob in source_files:
-                logger.debug("Copying %s" % blob.name)
-                new_name = str(blob.name).replace(self.prefix, destination.prefix, 1)
-                if new_name != str(blob.name) or self.bucket_name != destination.bucket_name:
-                    self.bucket.copy_blob(blob, destination.bucket, new_name)
-                    counter += 1
-
+        counter = self.batch_operation(self.copy_blob, destination)
         logger.debug("%d files copied." % counter)
 
 
