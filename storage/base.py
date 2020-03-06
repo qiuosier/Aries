@@ -171,7 +171,8 @@ class StorageIOBase(StorageObject, RawIOBase):
         load_from(), to load/create the file from a stream.
 
     Optionally, the following methods can be implemented
-        to speed up high-level operations like upload() and download()
+        to speed up the corresponding high-level operations.
+        copy()
         local()
         upload()
         download()
@@ -368,8 +369,11 @@ class StorageIOBase(StorageObject, RawIOBase):
     def load_from(self, stream):
         """Creates/Loads the file from a stream
         """
-        with self.open("w+b") as f:
-            file_size = self.copy_stream(stream, f)
+        if self.closed:
+            with self.open("wb") as f:
+                file_size = self.copy_stream(stream, f)
+        else:
+            file_size = self.copy_stream(stream, self)
         return file_size
 
     def load_from_file(self, file_path):
