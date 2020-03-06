@@ -5,8 +5,10 @@ import json
 import logging
 import binascii
 import inspect
+import traceback
 from io import SEEK_SET, DEFAULT_BUFFER_SIZE, UnsupportedOperation
 from io import BufferedIOBase, BufferedRandom, BufferedReader, BufferedWriter, TextIOWrapper
+from tempfile import NamedTemporaryFile
 from .base import StorageObject, StorageFolderBase
 from . import gs, file, web
 logger = logging.getLogger(__name__)
@@ -228,11 +230,18 @@ class StorageFile(StorageObject, BufferedIOBase):
 
     Initializing a StorageFile object does not open the file.
     High level operations, e.g. copy(), delete() can be called without opening the file explicitly.
+    read() is also supported without explicitly opening the file.
+        If the file is closed, read() will open the file, read and return bytes, and then close the file.
+        This is intended for one-time reading.
+
+    To open a file for read/write, call open() explicitly.
 
     To initialize AND open a StorageFile, use StorageFile.init() static method.
     StorageFile.init() is designed be used in place of the python open()
     to obtain a file-like object for a file.
     See Also: https://docs.python.org/3/glossary.html#term-file-object
+
+    To properly close the file, use context manager to with open() or init() when possible.
 
     Base on the scheme of the URI, StorageFile uses an sub-class of StorageIOBase as the underlying raw IO
     For binary mode, the raw IO is wrapped by BufferedIO
@@ -260,10 +269,10 @@ class StorageFile(StorageObject, BufferedIOBase):
     }
 
     def __init__(self, uri):
-        """Opens a file
+        """Initialize a StorageFile object.
 
-        The arguments are the same as the one in python build-in open().
-        Except that uri is used instead of file.
+        This will not open the file.
+        However, high-level operations are supported without opening the file.
 
         Args:
             uri (str): The URI of the file, like file:///path/to/file or /path/to/file.
@@ -446,29 +455,21 @@ class StorageFile(StorageObject, BufferedIOBase):
         return self
 
     @staticmethod
-    def init(uri, mode='r', buffering=-1, encoding=None, errors=None, newline=None, closefd=True, opener=None):
+    def init(uri, mode='r'):
         """Initializes the StorageFile and open the underlying IO.
+        This is a simplified version of StorageFile(uri).open(mode)
 
         Args:
             uri (str): The URI of the file, like file:///path/to/file or /path/to/file.
                 If the URI does not contain a scheme, "file://" will be used.
             mode (str): The mode in which the file is opened,
                 must be the combination of r, w, x, a, b, t and +
-            buffering (int): Buffering policy.
-            encoding (str): Name of the encoding.
-            errors (str): The way to handle encoding error, must be:
-                'strict': (Default) Raise a ValueError exception
-                'ignore': Ignore errors.
-            newline (str): New line character, which can be '', '\n', '\r', and '\r\n'.
-            closefd (bool): This option currently has no effect.
-                The underlying file descriptor will always be closed.
-            opener: Custom opener.
 
         Returns: A StorageFile object
 
         """
         storage_file = StorageFile(uri)
-        storage_file.open(mode, buffering, encoding, errors, newline, closefd, opener)
+        storage_file.open(mode)
         return storage_file
 
     @staticmethod
@@ -478,12 +479,6 @@ class StorageFile(StorageObject, BufferedIOBase):
         return json.loads(StorageFile.init(uri).read())
 
     @property
-    def size(self):
-        """Size of the file in bytes.
-        """
-        return self.raw_io.size
-
-    @property
     def closed(self):
         if not self.buffered_io:
             return True
@@ -491,23 +486,58 @@ class StorageFile(StorageObject, BufferedIOBase):
 
     @property
     def raw(self):
+        """The underlying Raw IO
+        """
         return self.raw_io
 
     @property
+    def mode(self):
+        return self._mode
+
+    @property
+    def size(self):
+        """Size of the file in bytes.
+        None will be returned if the size cannot be determined.
+        """
+        if hasattr(self.raw_io, "size"):
+            try:
+                return self.raw_io.size
+            except Exception as ex:
+                traceback.print_exc()
+                print(ex)
+                pass
+        return None
+
+    @property
+    def md5(self):
+        # TODO: This is not implemented.
+        return None
+
+    @property
     def blob(self):
+        """The blob of the raw IO.
+
+        Raises: AttributeError if blob is not supported.
+
+        """
         if hasattr(self.raw_io, "blob"):
             return self.raw_io.blob
         raise AttributeError("%s:// does not support blob attribute" % self.scheme)
 
     @property
     def bucket_name(self):
+        """Bucket name of the raw IO
+
+        Raises: AttributeError if blob is not supported.
+
+        """
         if hasattr(self.raw_io, "bucket_name"):
             return self.raw_io.bucket_name
         raise AttributeError("%s:// does not support bucket_name attribute" % self.scheme)
 
     @property
-    def mode(self):
-        return self._mode
+    def updated_time(self):
+        return self.raw_io.updated_time
 
     def exists(self):
         """Checks if the file exists.
@@ -518,7 +548,7 @@ class StorageFile(StorageObject, BufferedIOBase):
         self._check_closed()
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type, exc_value, trace):
         self.close()
         return
 
@@ -547,13 +577,60 @@ class StorageFile(StorageObject, BufferedIOBase):
             return self.raw_io.load_from(f)
 
     def move(self, to):
-        return self.raw_io.move(to)
+        """Moves the objects to another location."""
+        self.copy(to)
+        dest_file = StorageFile(to)
+        if dest_file.exists():
+            self.delete()
+        else:
+            raise FileNotFoundError("Failed to copy files to %s" % to)
 
     def local(self):
-        """Creates a temporary local copy of the file to improve the performance."""
+        """Creates a temporary local copy of the file to improve the performance.
+        This requires the supports from the underlying raw IO.
+        """
+        try:
+            self.raw_io.local()
+        except (AttributeError, UnsupportedOperation):
+            pass
         return self
 
+    def download(self, to_file_obj=None):
+        """Downloads the file to a file-object.
+
+        Args:
+            to_file_obj: A file-object. A NamedTemporaryFile will be created if this is None
+
+        Returns: The file-object.
+
+        """
+        try:
+            return self.raw_io.download(to_file_obj)
+        except (AttributeError, UnsupportedOperation):
+            pass
+        # Create a new temp file if to_file_obj is None
+        if not to_file_obj:
+            to_file_obj = self.create_temp_file()
+        # Copy the stream
+        with self.open("rb") as f:
+            self.copy_stream(f, to_file_obj)
+        return to_file_obj
+
+    def upload(self, from_file_obj):
+        try:
+            return self.raw_io.upload(from_file_obj)
+        except (AttributeError, UnsupportedOperation):
+            pass
+        with self.open("wb") as f:
+            f.raw_io.load_from(from_file_obj)
+
+    def upload_from_file(self, filename):
+        with open(filename, 'rb') as f:
+            self.upload(f)
+
     def is_gz(self):
+        """Determine if the file is gz compressed.
+        """
         # Reset the offset to the beginning of the file if file is opened.
         if self.closed:
             with self.open("rb") as f:
@@ -569,6 +646,11 @@ class StorageFile(StorageObject, BufferedIOBase):
         return b == b'1f8b'
 
     def _check_closed(self):
+        """Checks if the file is closed.
+
+        Raises: ValueError if the file is closed.
+
+        """
         if not self.buffered_io:
             raise ValueError(
                 "I/O operation on closed file (buffer_io not initialized). "
@@ -580,7 +662,6 @@ class StorageFile(StorageObject, BufferedIOBase):
                 "Use open() or init() to open the file."
             )
 
-    # The following methods calls the corresponding method in buffered_io
     def close(self):
         logger.debug("Closing %s ..." % self.uri)
         results = None
@@ -601,6 +682,7 @@ class StorageFile(StorageObject, BufferedIOBase):
                 return f.read(size)
         return self.buffered_io.read(size)
 
+    # The following methods calls the corresponding method in buffered_io
     def read1(self, size=None):
         self._check_closed()
         return self.buffered_io.read1(size)

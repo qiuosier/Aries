@@ -48,3 +48,7 @@ class WebFile(StorageIOBase):
         except error.URLError:
             pass
         return False
+
+    @property
+    def updated_time(self):
+        return None

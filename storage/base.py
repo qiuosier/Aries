@@ -2,6 +2,7 @@
 """
 import os
 import logging
+from tempfile import NamedTemporaryFile
 from urllib.parse import urlparse
 from io import RawIOBase, UnsupportedOperation, SEEK_SET, DEFAULT_BUFFER_SIZE
 logger = logging.getLogger(__name__)
@@ -78,6 +79,32 @@ class StorageObject:
         else:
             return [getattr(f, attribute) for f in storage_objects]
 
+    @staticmethod
+    def copy_stream(from_file_obj, to_file_obj):
+        """Copies data from one file object to another
+        """
+        chunk_size = DEFAULT_BUFFER_SIZE
+        file_size = 0
+        while True:
+            b = from_file_obj.read(chunk_size)
+            if not b:
+                break
+            file_size += to_file_obj.write(b)
+        to_file_obj.flush()
+        return file_size
+
+    def create_temp_file(self, delete=False):
+        # Determine the file extension
+        # Everything after the first dot is considered as extension
+        arr = self.basename.split(".", 1)
+        if len(arr) > 1:
+            ext = ".%s" % arr[1]
+        else:
+            ext = ""
+        temp_obj = NamedTemporaryFile('w+b', delete=delete, suffix=ext)
+        logger.debug("Created temp file: %s" % temp_obj.name)
+        return temp_obj
+
 
 class StorageFolderBase(StorageObject):
     def __init__(self, uri):
@@ -142,6 +169,12 @@ class StorageIOBase(StorageObject, RawIOBase):
         exists(), determine if a file exists.
         delete(), to delete the file.
         load_from(), to load/create the file from a stream.
+
+    Optionally, the following methods can be implemented
+        to speed up high-level operations like upload() and download()
+        local()
+        upload()
+        download()
 
     StorageIOBase and its sub-classes are intended to be the underlying raw IO of StorageFile.
     In general, they should not be used directly. The StorageFile class should be used instead.
@@ -314,6 +347,16 @@ class StorageIOBase(StorageObject, RawIOBase):
             return sorted(self.mode) == sorted(mode)
         return True
 
+    @property
+    def updated_time(self):
+        """Last updated/modified time of the file as a datetime object.
+        """
+        raise NotImplementedError()
+
+    @property
+    def size(self):
+        return None
+
     def exists(self):
         """Checks if the file exists.
         """
@@ -325,19 +368,19 @@ class StorageIOBase(StorageObject, RawIOBase):
     def load_from(self, stream):
         """Creates/Loads the file from a stream
         """
-        chunk_size = DEFAULT_BUFFER_SIZE
-        file_size = 0
         with self.open("w+b") as f:
-            while True:
-                b = stream.read(chunk_size)
-                if not b:
-                    break
-                file_size += f.write(b)
+            file_size = self.copy_stream(stream, f)
         return file_size
 
     def load_from_file(self, file_path):
         with open(file_path, 'rb') as f:
             return self.load_from(f)
+
+    def download(self, to_file_obj):
+        raise UnsupportedOperation()
+
+    def upload(self, from_file_obj):
+        raise UnsupportedOperation()
 
 
 class StorageIOSeekable(StorageIOBase):

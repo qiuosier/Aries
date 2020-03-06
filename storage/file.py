@@ -1,6 +1,7 @@
 import os
 import shutil
 import logging
+import datetime
 from io import FileIO, SEEK_SET
 from .base import StorageIOSeekable, StorageFolderBase
 logger = logging.getLogger(__name__)
@@ -103,6 +104,10 @@ class LocalFile(StorageIOSeekable):
         if self.exists():
             return os.path.getsize(self.path)
         return None
+
+    @property
+    def updated_time(self):
+        return datetime.datetime.fromtimestamp(os.path.getmtime(self.path))
 
     def exists(self):
         return True if os.path.exists(self.path) else False

@@ -390,6 +390,10 @@ class GSFile(GSObject, StorageIOSeekable):
         return self.blob.size
 
     @property
+    def updated_time(self):
+        return self.blob.updated
+
+    @property
     def temp_path(self):
         if self.__temp_file:
             return self.__temp_file.name
@@ -437,14 +441,16 @@ class GSFile(GSObject, StorageIOSeekable):
 
     def download(self, to_file_obj=None):
         if not to_file_obj:
-            to_file_obj = NamedTemporaryFile('w+b', delete=False)
-            logger.debug("Created temp file: %s" % to_file_obj.name)
+            to_file_obj = self.create_temp_file()
         # Download the blob to temp file if it exists.
         if self.blob.exists():
             logger.debug("Downloading %s ..." % self.uri)
             api_call(self.blob.download_to_file, to_file_obj)
             to_file_obj.flush()
         return to_file_obj
+
+    def upload(self, from_file_obj):
+        api_call(self.blob.upload_from_file, from_file_obj)
 
     def write(self, b):
         """Writes data into the file.
