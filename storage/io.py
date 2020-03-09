@@ -10,7 +10,7 @@ from io import SEEK_SET, DEFAULT_BUFFER_SIZE, UnsupportedOperation
 from io import BufferedIOBase, BufferedRandom, BufferedReader, BufferedWriter, TextIOWrapper
 from tempfile import NamedTemporaryFile
 from .base import StorageObject, StorageFolderBase
-from . import gs, file, web
+from . import gs, file, web, s3
 logger = logging.getLogger(__name__)
 
 
@@ -22,7 +22,8 @@ class StorageFolder(StorageFolderBase):
 
     registry = {
         "file": file.LocalFolder,
-        "gs": gs.GSFolder
+        "gs": gs.GSFolder,
+        "s3": s3.S3Folder
     }
 
     @classmethod
@@ -270,6 +271,7 @@ class StorageFile(StorageObject, BufferedIOBase):
     registry = {
         "file": file.LocalFile,
         "gs": gs.GSFile,
+        "s3": s3.S3File,
         "http": web.WebFile,
         "https": web.WebFile,
         "ftp": web.WebFile
