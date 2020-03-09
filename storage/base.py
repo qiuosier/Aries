@@ -194,12 +194,6 @@ class StorageIOBase(StorageObject, RawIOBase):
         https://github.com/python/cpython/blob/1ed61617a4a6632905ad6a0b440cd2cafb8b6414/Lib/_pyio.py#L1461
 
     """
-
-    @classmethod
-    def init(cls, uri, mode='r', *args, **kwargs):
-        raw_io = cls(uri)
-        return raw_io.open(mode, *args, **kwargs)
-
     def __init__(self, uri):
         StorageObject.__init__(self, uri)
         # Subclasses can use the following attributes
