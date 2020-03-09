@@ -38,14 +38,19 @@ def setUpModule():
 class TestGCStorage(AriesTest):
     """Contains test cases for Google Cloud Platform Storage.
     """
+    # GCP_ACCESS attribute is used to indicate if GCP is accessible
+    # It will be set to True in setUpClass()
+    # All tests will be skipped if GCP_ACCESS is False
     GCP_ACCESS = False
 
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
         try:
+            # Check if GCP is accessible by listing all the buckets
             storage.Client().list_buckets(max_results=1)
             cls.GCP_ACCESS = True
+
             # Removes test folder if it is already there
             StorageFolder.init("gs://aries_test/copy_test/").delete()
             StorageFile("gs://aries_test/abc.txt").delete()
@@ -57,7 +62,7 @@ class TestGCStorage(AriesTest):
             traceback.print_exc()
 
     def setUp(self):
-        # Skip test if "GOOGLE_APPLICATION_CREDENTIALS" is not found.
+        # Skip test if GCP_ACCESS is not True.
         if not self.GCP_ACCESS:
             self.skipTest("GCP Credentials not found.")
         time.sleep(1)
