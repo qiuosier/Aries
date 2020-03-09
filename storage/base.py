@@ -94,8 +94,10 @@ class StorageObject:
         return file_size
 
     def create_temp_file(self, delete=False):
+        """Creates a NamedTemporaryFile on local computer with the same file extension.
+        Everything after the first dot is considered as extension
+        """
         # Determine the file extension
-        # Everything after the first dot is considered as extension
         arr = self.basename.split(".", 1)
         if len(arr) > 1:
             ext = ".%s" % arr[1]

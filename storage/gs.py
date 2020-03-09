@@ -92,7 +92,7 @@ class GSObject(StorageObject):
             self.prefix = self.path[1:]
         else:
             self.prefix = self.path
-        self.__blob = None
+        self._blob = None
 
     def is_file(self):
         if self.path.endswith("/"):
@@ -109,7 +109,7 @@ class GSObject(StorageObject):
             Use blob.exists() to determine whether or not the blob exists.
 
         """
-        if self.__blob is None:
+        if self._blob is None:
             file_blob = api_call(self.bucket.get_blob, self.prefix)
             if file_blob is None:
                 # The following will not make an HTTP request.
@@ -117,8 +117,8 @@ class GSObject(StorageObject):
                 # See https://googleapis.github.io/google-cloud-python/latest/storage/buckets.html
                 # #google.cloud.storage.bucket.Bucket.blob
                 file_blob = self.bucket.blob(self.prefix)
-            self.__blob = file_blob
-        return self.__blob
+            self._blob = file_blob
+        return self._blob
 
     @property
     def bucket_name(self):
@@ -422,12 +422,12 @@ class GSFile(GSObject, StorageIOSeekable):
         self.temp_path = None
 
         # Stores the temp local FileIO object
-        self.__temp_io = None
+        self.__file_io = None
 
     @property
     def size(self):
-        if self.__temp_io:
-            return os.fstat(self.__temp_io.fileno).st_size
+        if self.__file_io:
+            return os.fstat(self.__file_io.fileno).st_size
         return self.blob.size
 
     @property
@@ -449,9 +449,9 @@ class GSFile(GSObject, StorageIOSeekable):
         Returns: Bytes containing the contents of the file.
         """
         start = self.tell()
-        if self.__temp_io:
-            self.__temp_io.seek(start)
-            b = self.__temp_io.read(size)
+        if self.__file_io:
+            self.__file_io.seek(start)
+            b = self.__file_io.read(size)
         else:
             if not self.exists():
                 raise FileNotFoundError("File %s does not exists." % self.uri)
@@ -469,7 +469,7 @@ class GSFile(GSObject, StorageIOSeekable):
         return b
 
     def local(self):
-        if not self.__temp_io:
+        if not self.__file_io:
             # Download file if appending or updating
             if 'a' in self.mode or '+' in self.mode:
                 temp_file = self.download()
@@ -478,7 +478,7 @@ class GSFile(GSObject, StorageIOSeekable):
             # Close the temp file and open it with FileIO
             temp_file.close()
             mode = "".join([c for c in self.mode if c in "rw+ax"])
-            self.__temp_io = FileIO(temp_file.name, mode)
+            self.__file_io = FileIO(temp_file.name, mode)
             self.temp_path = temp_file.name
         return self
 
@@ -509,8 +509,8 @@ class GSFile(GSObject, StorageIOSeekable):
         # Create a temp local file
         self.local()
         # Write data from buffer to file
-        self.__temp_io.seek(self.tell())
-        size = self.__temp_io.write(b)
+        self.__file_io.seek(self.tell())
+        size = self.__file_io.write(b)
         self._offset += size
         return size
 
@@ -529,10 +529,10 @@ class GSFile(GSObject, StorageIOSeekable):
         if self._closed:
             return
 
-        if self.__temp_io:
-            if not self.__temp_io.closed:
-                self.__temp_io.close()
-            self.__temp_io = None
+        if self.__file_io:
+            if not self.__file_io.closed:
+                self.__file_io.close()
+            self.__file_io = None
 
         if self.temp_path:
             logger.debug("Uploading file to %s" % self.uri)
@@ -560,12 +560,12 @@ class GSFile(GSObject, StorageIOSeekable):
         return self
 
     def seek(self, pos, whence=0):
-        if self.__temp_io:
-            self._offset = self.__temp_io.seek(pos, whence)
+        if self.__file_io:
+            self._offset = self.__file_io.seek(pos, whence)
             return self._offset
         return self._seek(pos, whence)
 
     def tell(self):
-        if self.__temp_io:
-            self._offset = self.__temp_io.tell()
+        if self.__file_io:
+            self._offset = self.__file_io.tell()
         return self._offset
