@@ -34,6 +34,7 @@ class StorageObject:
             self.scheme = 'file'
             if not str(self.path).startswith("/"):
                 self.path = os.path.abspath(self.path)
+            self.uri = "file://" + self.uri
 
     def __str__(self):
         """Returns the URI
