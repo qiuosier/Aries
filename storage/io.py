@@ -26,10 +26,6 @@ class StorageFolder(StorageFolderBase):
         "s3": s3.S3Folder
     }
 
-    @classmethod
-    def register(cls, subclass):
-        pass
-
     def __init__(self, uri):
         super(StorageFolder, self).__init__(uri)
         raw_class = self.registry.get(self.scheme)
@@ -600,7 +596,7 @@ class StorageFile(StorageObject, BufferedIOWrapper, BufferedIOBase):
                 return self.raw_io.size
             except Exception as ex:
                 traceback.print_exc()
-                print(ex)
+                logger.debug("Failed to get size: %s" % ex)
                 pass
         return None
 
@@ -637,7 +633,9 @@ class StorageFile(StorageObject, BufferedIOWrapper, BufferedIOBase):
 
     def exists(self):
         """Checks if the file exists.
+        This method may not return True until a new file is closed.
         """
+        # TODO: File may not exist until new file is closed.
         return self.raw_io.exists()
 
     def __enter__(self):
