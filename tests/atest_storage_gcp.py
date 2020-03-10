@@ -269,10 +269,10 @@ class TestGCStorage(AriesTest):
         # Try to upload a file that does not exist.
         local_file_non_exist = os.path.join(os.path.dirname(__file__), "abc.txt")
         with self.assertRaises(FileNotFoundError):
-            gs_file.load_from_file(local_file_non_exist)
+            gs_file.upload_from_file(local_file_non_exist)
         # Upload a file and check the content.
         local_file = os.path.join(os.path.dirname(__file__), "fixtures", "test_file.txt")
-        gs_file.load_from_file(local_file)
+        gs_file.upload_from_file(local_file)
         self.assertEqual(gs_file.read(), b'This is a local test file.\n')
         gs_file.delete()
 
