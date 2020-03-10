@@ -2,6 +2,7 @@ import logging
 import os
 import boto3
 import sys
+import traceback
 import time
 from botocore.exceptions import NoCredentialsError
 try:
@@ -23,6 +24,8 @@ class TestGCStorage(AriesTest):
     """
     AWS_CREDENTIALS = None
 
+    TEST_BUCKET_NAME = "davelab-test"
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -30,8 +33,10 @@ class TestGCStorage(AriesTest):
         try:
             client.list_buckets()
             cls.AWS_CREDENTIALS = True
-        except NoCredentialsError:
-            pass
+        except NoCredentialsError as ex:
+            print("AWS Credentials not found.")
+            print("%s: %s" % (type(ex), str(ex)))
+            traceback.print_exc()
 
     def setUp(self):
         # Skip test if AWS credentials are not found.
@@ -42,14 +47,20 @@ class TestGCStorage(AriesTest):
         """Tests parsing GCS URI
         """
         # File
-        file_obj = StorageFile("s3://davelab-test/test_file.txt")
+        file_obj = StorageFile("s3://%s/test_file.txt" % self.TEST_BUCKET_NAME)
         self.assertEqual(file_obj.scheme, "s3")
         self.assertEqual(file_obj.path, "/test_file.txt")
 
         # Folder
-        folder_obj = StorageFolder("s3://davelab-test/test_folder")
-        self.assertEqual(folder_obj.uri, "s3://davelab-test/test_folder/")
+        folder_obj = StorageFolder("s3://%s/test_folder" % self.TEST_BUCKET_NAME)
+        self.assertEqual(folder_obj.uri, "s3://%s/test_folder/" % self.TEST_BUCKET_NAME)
         self.assertEqual(folder_obj.scheme, "s3")
         self.assertEqual(folder_obj.path, "/test_folder/")
+
+        # Bucket root
+        folder_obj = StorageFolder("s3://%s" % self.TEST_BUCKET_NAME)
+        self.assertEqual(folder_obj.uri, "s3://%s/" % self.TEST_BUCKET_NAME)
+        self.assertEqual(folder_obj.scheme, "s3")
+        self.assertEqual(folder_obj.path, "/")
 
 
