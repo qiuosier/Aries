@@ -697,11 +697,17 @@ class StorageFile(StorageObject, BufferedIOWrapper, BufferedIOBase):
         Returns: The file-object.
 
         """
+        if not self.raw_io.exists():
+            raise FileNotFoundError("File %s not found." % self.uri)
+
         # Create a new temp file if to_file_obj is None
         if not to_file_obj:
             to_file_obj = self.create_temp_file(**kwargs)
         try:
-            return self.raw_io.download(to_file_obj)
+            logger.debug("Downloading %s ..." % self.uri)
+            self.raw_io.download(to_file_obj)
+            to_file_obj.flush()
+            return to_file_obj
         except (AttributeError, UnsupportedOperation):
             pass
         # Copy the stream

@@ -111,6 +111,58 @@ class StorageObject:
         return temp_obj
 
 
+class BucketStorageObject(StorageObject):
+    """Represents a cloud storage object associated with a bucket.
+
+    Attributes:
+        prefix: The path on the bucket without the beginning "/"
+
+    """
+    def __init__(self, uri):
+        StorageObject.__init__(self, uri)
+        self._client = None
+        self._bucket = None
+        # The "prefix" for gcs does not include the beginning "/"
+        if self.path.startswith("/"):
+            self.prefix = self.path[1:]
+        else:
+            self.prefix = self.path
+        self._blob = None
+
+    @property
+    def bucket_name(self):
+        """The name of the Cloud Storage bucket as a string."""
+        return self.hostname
+
+    @property
+    def client(self):
+        if not self._client:
+            self._client = self.init_client()
+        return self._client
+
+    @property
+    def bucket(self):
+        if not self._bucket:
+            self.get_bucket()
+        return self._bucket
+
+    def is_file(self):
+        if self.path.endswith("/"):
+            return False
+        if not self.exists():
+            return False
+        return True
+
+    def init_client(self):
+        raise NotImplementedError()
+
+    def get_bucket(self):
+        raise NotImplementedError()
+
+    def exists(self):
+        raise NotImplementedError()
+
+
 class StorageFolderBase(StorageObject):
     def __init__(self, uri):
         # Make sure uri ends with "/" for folders
@@ -588,10 +640,19 @@ class CloudStorageIO(StorageIOSeekable):
     def delete(self):
         raise NotImplementedError()
 
+    def upload(self, from_file_obj):
+        raise NotImplementedError()
+
     def download(self, to_file_obj):
+        """Downloads the data to a file object
+        Caution: This method does not call flush()
+        """
         raise NotImplementedError()
 
     def read_bytes(self, start, end):
         """Reads bytes from position start to position end, inclusive
         """
         raise NotImplementedError()
+
+
+

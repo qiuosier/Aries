@@ -20,7 +20,7 @@ from functools import wraps
 from google.cloud import storage
 from google.cloud.exceptions import ServerError
 from ..tasks import ShellCommand, FunctionTask
-from .base import StorageObject, StorageFolderBase, CloudStorageIO
+from .base import BucketStorageObject, StorageFolderBase, CloudStorageIO
 logger = logging.getLogger(__name__)
 
 
@@ -67,44 +67,19 @@ def api_decorator(method):
     return wrapper
 
 
-class GSObject(StorageObject):
+class GSObject(BucketStorageObject):
     """The base class for Google Storage Object.
-
-    Attributes:
-        prefix: The Google Cloud Storage prefix, which is the path without the beginning "/"
     """
     MAX_BATCH_SIZE = 900
-
-    def __init__(self, gs_path):
-        """Initializes a Google Cloud Storage Object.
-
-        Args:
-            gs_path: The path of the object, e.g. "gs://bucket_name/path/to/file.txt".
-
-        """
-        StorageObject.__init__(self, gs_path)
-        self._client = None
-        self._bucket = None
-        # The "prefix" for gcs does not include the beginning "/"
-        if self.path.startswith("/"):
-            self.prefix = self.path[1:]
-        else:
-            self.prefix = self.path
-        self._blob = None
-
-    def is_file(self):
-        if self.path.endswith("/"):
-            return False
-        if not self.exists():
-            return False
-        return True
 
     @property
     def blob(self):
         """Gets or initialize a Google Cloud Storage Blob.
 
         Returns: A Google Cloud Storage Blob object.
-            Use blob.exists() to determine whether or not the blob exists.
+
+        This does not check whether the object exists.
+        Use blob.exists() to determine whether or not the blob exists.
 
         """
         if self._blob is None:
@@ -118,26 +93,12 @@ class GSObject(StorageObject):
             self._blob = file_blob
         return self._blob
 
-    @property
-    def bucket_name(self):
-        """The name of the Google Cloud Storage bucket as a string."""
-        return self.hostname
-
-    @property
-    def client(self):
-        if not self._client:
-            self._client = storage.Client()
-        return self._client
+    def init_client(self):
+        return storage.Client()
 
     @api_decorator
-    def _get_bucket(self):
+    def get_bucket(self):
         self._bucket = self.client.get_bucket(self.bucket_name)
-
-    @property
-    def bucket(self):
-        if not self._bucket:
-            self._get_bucket()
-        return self._bucket
 
     @property
     def gs_path(self):
@@ -427,11 +388,7 @@ class GSFile(GSObject, CloudStorageIO):
         return api_call(self.blob.download_as_string, start=start, end=end)
 
     def download(self, to_file_obj):
-        # Download the blob to temp file if it exists.
-        if self.blob.exists():
-            logger.debug("Downloading %s ..." % self.uri)
-            api_call(self.blob.download_to_file, to_file_obj)
-            to_file_obj.flush()
+        api_call(self.blob.download_to_file, to_file_obj)
         return to_file_obj
 
     def upload(self, from_file_obj):
