@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 class LocalFolder(StorageFolderBase):
     def exists(self):
+        logger.debug(self.path)
         return True if os.path.exists(self.path) else False
 
     @property
@@ -52,10 +53,14 @@ class LocalFolder(StorageFolderBase):
         logger.debug("Copying files from %s to %s" % (self.path, to))
         # Copy the files recursively
         # copytree is not used here as it raises permission denied error in some python version.
-        if not os.path.exists(to):
-            os.makedirs(to)
+        local_path = LocalFolder(to).path
+        if not os.path.exists(local_path):
+            logger.debug("Creating new folder: %s" % local_path)
+            os.makedirs(local_path)
         for file_path in self.file_paths:
-            shutil.copy(file_path, to)
+            logger.debug("Copying %s" % file_path)
+            shutil.copy(file_path, local_path)
+
         for folder_path in self.folder_paths:
             LocalFolder(folder_path).copy(to)
 
@@ -127,9 +132,7 @@ class LocalFile(StorageIOSeekable):
     def copy(self, to):
         """Copies the file to another location.
         """
-        # TODO: Copy file across different schema.
-        if os.path.exists(self.path):
-            shutil.copyfile(self.path, to)
+        shutil.copyfile(self.path, LocalFile(to).path)
 
     def open(self, mode='r', closefd=True, opener=None):
         """

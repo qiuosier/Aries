@@ -1,11 +1,11 @@
 """Contains tests for the Google Cloud (gcp) storage module.
 """
 import logging
-import unittest
-
 import os
 import sys
 import time
+import traceback
+from google.cloud import storage
 aries_parent = os.path.join(os.path.dirname(__file__), "..", "..")
 if aries_parent not in sys.path:
     sys.path.append(aries_parent)
@@ -38,21 +38,33 @@ def setUpModule():
 class TestGCStorage(AriesTest):
     """Contains test cases for Google Cloud Platform Storage.
     """
+    # GCP_ACCESS attribute is used to indicate if GCP is accessible
+    # It will be set to True in setUpClass()
+    # All tests will be skipped if GCP_ACCESS is False
+    GCP_ACCESS = False
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        # Removes test folder if it is already there
-        StorageFolder.init("gs://aries_test/copy_test/").delete()
-        time.sleep(1)
-        StorageFile("gs://aries_test/abc.txt").delete()
-        StorageFile("gs://aries_test/new_file.txt").delete()
-        StorageFile("gs://aries_test/moved_file.txt").delete()
-        StorageFile("gs://aries_test/local_upload.txt").delete()
+        try:
+            # Check if GCP is accessible by listing all the buckets
+            storage.Client().list_buckets(max_results=1)
+            cls.GCP_ACCESS = True
+
+            # Removes test folder if it is already there
+            StorageFolder.init("gs://aries_test/copy_test/").delete()
+            StorageFile("gs://aries_test/abc.txt").delete()
+            StorageFile("gs://aries_test/new_file.txt").delete()
+            StorageFile("gs://aries_test/moved_file.txt").delete()
+            StorageFile("gs://aries_test/local_upload.txt").delete()
+        except Exception as ex:
+            print("%s: %s" % (type(ex), str(ex)))
+            traceback.print_exc()
 
     def setUp(self):
-        # Skip test if "GOOGLE_APPLICATION_CREDENTIALS" is not found.
-        # if not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
-        #     self.skipTest("GCP Credentials not found.")
+        # Skip test if GCP_ACCESS is not True.
+        if not self.GCP_ACCESS:
+            self.skipTest("GCP Credentials not found.")
         time.sleep(1)
 
     def test_parse_uri(self):
@@ -257,10 +269,10 @@ class TestGCStorage(AriesTest):
         # Try to upload a file that does not exist.
         local_file_non_exist = os.path.join(os.path.dirname(__file__), "abc.txt")
         with self.assertRaises(FileNotFoundError):
-            gs_file.load_from_file(local_file_non_exist)
+            gs_file.upload_from_file(local_file_non_exist)
         # Upload a file and check the content.
         local_file = os.path.join(os.path.dirname(__file__), "fixtures", "test_file.txt")
-        gs_file.load_from_file(local_file)
+        gs_file.upload_from_file(local_file)
         self.assertEqual(gs_file.read(), b'This is a local test file.\n')
         gs_file.delete()
 

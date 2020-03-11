@@ -2,197 +2,252 @@
 """
 import datetime
 import logging
-
 import os
 import sys
+import time
 import shutil
-aries_parent = os.path.join(os.path.dirname(__file__), "..", "..")
-if aries_parent not in sys.path:
-    sys.path.append(aries_parent)
-from Aries.test import AriesTest
-from Aries.storage import StorageFile, StorageFolder
-
 logger = logging.getLogger(__name__)
 
 
-class TestLocalStorage(AriesTest):
+try:
+    from ..test import AriesTest
+    from ..storage import StorageFolder, StorageFile
+except:
+    aries_parent = os.path.join(os.path.dirname(__file__), "..", "..")
+    if aries_parent not in sys.path:
+        sys.path.append(aries_parent)
+    from Aries.test import AriesTest
+    from Aries.storage import StorageFile, StorageFolder
 
-    test_folder_path = os.path.join(os.path.dirname(__file__), "fixtures", "test_folder")
-    test_new_folder_path = os.path.join(test_folder_path, "new_folder")
 
-    temp_files = [
-        os.path.join(test_folder_path, "temp_file.txt"),
-        os.path.join(test_folder_path, "test.txt")
-    ]
+class TestStorage(AriesTest):
+    SCHEME = "file"
+    HOST = ""
+    TEST_ROOT_PATH = os.path.join(os.path.dirname(__file__), "fixtures", "test_folder")
+    TEST_ROOT = "%s://%s%s" % (SCHEME, HOST, TEST_ROOT_PATH)
+    test_folder = StorageFolder(TEST_ROOT)
+
+    @classmethod
+    def create_folder(cls, relative_path):
+        abs_path = os.path.join(cls.TEST_ROOT, relative_path)
+        StorageFolder(abs_path).create()
+
+    @classmethod
+    def create_file(cls, relative_path, content):
+        abs_path = os.path.join(cls.TEST_ROOT, relative_path)
+        with StorageFile.init(abs_path, "w") as f:
+            f.write(content)
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        StorageFolder(cls.TEST_ROOT).empty()
+        cls.create_folder("test_folder_0")
+        cls.create_folder("test_folder_1")
+        cls.create_file("file_in_test_folder", "")
+        cls.create_file("test_folder_0/empty_file", "")
+        cls.create_file("test_folder_0/abc.txt", "abc\ncba\n")
+        cls.create_file("test_folder_1/.hidden_file", "")
+
+    @classmethod
+    def tearDownClass(cls):
+        StorageFolder(cls.TEST_ROOT).empty()
+        super().tearDownClass()
 
     def setUp(self):
-        self.test_folder = StorageFolder(self.test_folder_path)
+        super().setUp()
 
-    def tearDown(self):
-        # Remove temp folder
-        if os.path.exists(self.test_new_folder_path):
-            shutil.rmtree(TestLocalStorage.test_new_folder_path)
-        # Remove temp files
-        for tmp in self.temp_files:
-            if os.path.exists(tmp):
-                os.remove(tmp)
+    def test_storage_folder(self):
+        # Scheme
+        self.assertEqual(self.test_folder.scheme, self.SCHEME)
+        # Hostname
+        if self.test_folder.hostname or self.HOST:
+            self.assertEqual(self.test_folder.hostname, self.HOST)
+        # Folder URI will always end with "/"
+        self.assertTrue(str(self.test_folder).endswith("/"))
+        # Path
+        self.assertEqual(self.test_folder.path.rstrip("/"), self.TEST_ROOT_PATH.rstrip("/"))
+        # Name
+        self.assertEqual(self.test_folder.basename, os.path.basename(self.TEST_ROOT_PATH))
+        self.assertEqual(self.test_folder.name, os.path.basename(self.TEST_ROOT_PATH))
+        # Folder attributes
+        self.assertGreater(len(self.test_folder.get_folder_attributes()), 1)
+        # File attributes
+        self.assertIn("file_in_test_folder", self.test_folder.get_file_attributes("name"))
 
-    def test_get_names(self):
-        """Tests getting the folder names
-        """
-        folder_names = self.test_folder.folder_names
+    def test_get_folder_names(self):
+        folder = StorageFolder(self.TEST_ROOT)
+        folder_names = folder.folder_names
         # There are two sub-folders
         self.assertEqual(len(folder_names), 2, 'Folders: %s' % folder_names)
-        self.assertIn("test_subfolder0", folder_names)
-        self.assertIn("test_subfolder1", folder_names)
+        self.assertIn("test_folder_0", folder_names)
+        self.assertIn("test_folder_1", folder_names)
         # "/" should not be found in folder names
         self.assertNotIn("/", str(folder_names))
-    
-    def test_get_folder_and_file(self):
-        # Try to get a folder that does not exist. Should return None
-        self.assertIsNone(self.test_folder.get_folder("not_exist"))
-        # Get a sub folder
-        sub_folder = self.test_folder.get_folder("test_subfolder1")
-        self.assertTrue(
-            isinstance(sub_folder, StorageFolder),
-            "Failed to get sub folder. Received %s: %s" % (sub_folder.__class__, sub_folder))
-        # Get the filename
-        filenames = sub_folder.file_names
-        self.assertEqual(len(filenames), 1)
-        self.assertEqual(filenames[0], ".hidden_file")
-        # Get a file
-        f = sub_folder.get_file("not_exist")
-        self.assertIsNone(f)
-        f = sub_folder.get_file(".hidden_file")
-        self.assertTrue(f.exists(), "Failed to get the file.")
-        self.assertEqual(f.basename, ".hidden_file")
-        
+
     def test_get_paths(self):
         sub_folders = self.test_folder.folder_paths
         # There are two sub-folders
-        self.assertEqual(len(sub_folders), 2)
-        self.assertIn(os.path.join(self.test_folder_path, "test_subfolder0"), sub_folders)
-        self.assertIn(os.path.join(self.test_folder_path, "test_subfolder1"), sub_folders)
+        self.assertEqual(len(sub_folders), 2, "Folders: %s" % sub_folders)
+        # TODO: local paths not having scheme?
+        if self.SCHEME == "file":
+            self.assertIn(os.path.join(self.TEST_ROOT_PATH, "test_folder_0"), sub_folders)
+            self.assertIn(os.path.join(self.TEST_ROOT_PATH, "test_folder_1"), sub_folders)
+        else:
+            # TODO: folders ends with "/"??
+            self.assertIn(os.path.join(self.TEST_ROOT, "test_folder_0/"), sub_folders)
+            self.assertIn(os.path.join(self.TEST_ROOT, "test_folder_1/"), sub_folders)
 
-    def test_create_copy_and_delete(self):
-        sub_folder_path = os.path.join(self.test_new_folder_path, "sub_folder")
-        # Folder should not exist
-        self.assertFalse(os.path.exists(self.test_new_folder_path))
-        
-        # Create a new empty folder
-        folder = StorageFolder(self.test_new_folder_path).create()
-        self.assertTrue(os.path.isdir(self.test_new_folder_path))
-        self.assertTrue(folder.is_empty())
-        
-        # Create a sub folder inside the new folder
-        StorageFolder(sub_folder_path).create()
-        self.assertTrue(os.path.isdir(sub_folder_path))
+    def test_get_folder_and_file(self):
+        # Try to get a folder that does not exist. Should return None
+        self.assertIsNone(self.test_folder.get_folder("not_exist"))
 
-        # Copy an empty file
-        src_file_path = os.path.join(self.test_folder_path, "test_subfolder0", "empty_file")
-        dst_file_path = os.path.join(self.test_new_folder_path, "copied_file")
-        f = StorageFile(src_file_path)
-        f.copy(dst_file_path)
-        self.assertTrue(os.path.isfile(dst_file_path))
-        # Copy a file with content and replace the empty file
-        src_file_path = os.path.join(self.test_folder_path, "test_subfolder0", "abc.txt")
-        dst_file_path = os.path.join(self.test_new_folder_path, "copied_file")
-        f = StorageFile(src_file_path)
-        f.copy(dst_file_path)
-        self.assertTrue(os.path.isfile(dst_file_path))
-        # Use the shortcut to read file, the content will be binary.
-        self.assertEqual(StorageFile(dst_file_path).read(), b"abc\ncba\n")
-        
-        # Empty the folder. This should delete file and sub folder only
-        folder.empty()
-        self.assertTrue(os.path.exists(self.test_new_folder_path))
-        self.assertTrue(folder.is_empty())
-        self.assertFalse(os.path.exists(sub_folder_path))
-        self.assertFalse(os.path.exists(dst_file_path))
+        # Get a sub folder
+        sub_folder = self.test_folder.get_folder("test_folder_1")
+        self.assertTrue(
+            isinstance(sub_folder, StorageFolder),
+            "Failed to get sub folder. Received %s: %s" % (sub_folder.__class__, sub_folder))
 
-        # Delete the folder.
-        folder.delete()
-        self.assertFalse(os.path.exists(self.test_new_folder_path))
+        # Get the filename of hidden_file
+        filenames = sub_folder.file_names
+        self.assertEqual(len(filenames), 1)
+        self.assertEqual(filenames[0], ".hidden_file")
 
-    def test_copy_folder(self):
-        # Source folder to be copied
-        src_folder_path = os.path.join(self.test_folder_path, "test_subfolder0")
-        sub_folder = StorageFolder(src_folder_path)
-        # Source folder should exist
-        self.assertTrue(sub_folder.exists())
+        # Get a file that does not exist
+        f = sub_folder.get_file("not_exist")
+        self.assertIsNone(f)
 
-        # Destination folder
-        dst_folder_path = os.path.join(self.test_new_folder_path, "test_subfolder0")
-        dst_parent = self.test_new_folder_path
+        # Get the hidden file
+        f = sub_folder.get_file(".hidden_file")
+        self.assertTrue(f.exists(), "Failed to get the file.")
+        self.assertEqual(f.basename, ".hidden_file")
+        self.assertTrue(
+            isinstance(f, StorageFile),
+            "Failed to get storage file from a folder. Received %s: %s" % (f.__class__, f))
 
-        # Destination folder should not exist
-        if os.path.exists(dst_folder_path):
-            shutil.rmtree(dst_folder_path)
-
-        if not dst_parent.endswith("/"):
-            dst_parent += "/"
-        logger.debug("Copying from %s into %s" % (sub_folder.uri, dst_parent))
-        sub_folder.copy(dst_parent)
-        # Destination folder should now exist and contain an empty file
-        self.assertTrue(os.path.exists(dst_folder_path))
-        self.assertTrue(os.path.exists(os.path.join(dst_folder_path, "empty_file")))
-        self.assertTrue(os.path.exists(os.path.join(dst_folder_path, "abc.txt")))
-
-        # Delete destination file
-        StorageFolder(dst_parent).delete()
-        self.assertFalse(os.path.exists(dst_parent))
-
-    def test_storage_object(self):
-        self.assertEqual(self.test_folder.scheme, "file")
-        self.assertEqual(str(self.test_folder).rstrip("/"), self.test_folder_path.rstrip("/"))
-        self.assertEqual(self.test_folder.basename, os.path.basename(self.test_folder_path))
-        self.assertEqual(self.test_folder.name, os.path.basename(self.test_folder_path))
-
-    def test_storage_folder(self):
-        """Tests methods and properties of StorageFolder.
-        """
-        self.assertGreater(len(self.test_folder.get_folder_attributes()), 1)
-        self.assertIn("file_in_test_folder", self.test_folder.get_file_attributes("name"))
-
-    def test_local_binary_read_write(self):
-        # File does not exist, a new one will be created
-        file_path = os.path.join(self.test_folder_path, "test.txt")
-        local_file = StorageFile("file://%s" % file_path).open("wb")
-        self.assertEqual(local_file.scheme, "file")
-        # self.assertEqual(str(type(local_file).__name__), "LocalFile")
-        self.assertTrue(local_file.seekable())
-        self.assertFalse(local_file.readable())
-        self.assertEqual(local_file.write(b"abc"), 3)
-        self.assertEqual(local_file.tell(), 3)
-        self.assertEqual(local_file.write(b"def"), 3)
-        self.assertEqual(local_file.tell(), 6)
-        local_file.close()
-        local_file.open('rb')
-        self.assertEqual(local_file.read(), b"abcdef")
-        local_file.close()
-        local_file.delete()
-        self.assertFalse(os.path.exists(file_path))
-
-    def test_local_text_read(self):
-        with StorageFile.init(os.path.join(self.test_folder_path, "file_in_test_folder")) as f:
+    def test_text_read(self):
+        with StorageFile.init(os.path.join(self.TEST_ROOT, "file_in_test_folder")) as f:
             self.assertEqual(f.size, 0)
             self.assertEqual(f.tell(), 0)
             self.assertEqual(f.seek(0, 2), 0)
             self.assertEqual(len(f.read()), 0)
 
-    def test_local_text_write(self):
+    def test_text_read_write(self):
         # Write a new file
-        temp_file_path = os.path.join(self.test_folder_path, "temp_file.txt")
-        if os.path.exists(temp_file_path):
-            os.remove(temp_file_path)
+        temp_file_path = os.path.join(self.TEST_ROOT, "temp_file.txt")
         with StorageFile.init(temp_file_path, 'w+') as f:
             self.assertTrue(f.writable())
             self.assertEqual(f.tell(), 0)
-            print(f.buffered_io.buffer)
             self.assertEqual(f.write("abc"), 3)
-            print(f.buffered_io.buffer.tell())
             self.assertEqual(f.tell(), 3)
             f.seek(0)
             self.assertEqual(f.read(), "abc")
-            self.assertTrue(f.exists())
+            # TODO: File may not exist on the cloud until it is closed.
+            # self.assertTrue(f.exists())
         f.delete()
+
+    def test_binary_read_write(self):
+        # File does not exist, a new one will be created
+        file_uri = os.path.join(self.TEST_ROOT, "test.txt")
+        storage_file = StorageFile(file_uri).open("wb")
+        self.assertEqual(storage_file.scheme, self.SCHEME)
+        self.assertTrue(storage_file.seekable())
+        self.assertFalse(storage_file.readable())
+        self.assertEqual(storage_file.write(b"abc"), 3)
+        self.assertEqual(storage_file.tell(), 3)
+        self.assertEqual(storage_file.write(b"def"), 3)
+        self.assertEqual(storage_file.tell(), 6)
+        storage_file.close()
+        self.assertTrue(storage_file.exists())
+        storage_file.open('rb')
+        self.assertEqual(storage_file.read(), b"abcdef")
+        storage_file.close()
+        storage_file.delete()
+        self.assertFalse(storage_file.exists())
+
+    def test_copy_folder(self):
+        # Source folder to be copied
+        src_folder_uri = os.path.join(self.TEST_ROOT, "test_folder_0")
+        sub_folder = StorageFolder(src_folder_uri)
+        # Source folder should exist
+        self.assertTrue(sub_folder.exists())
+
+        # Destination folder
+        dst_folder_uri = os.path.join(self.TEST_ROOT, "new_folder", "test_folder_0")
+        dst_parent = os.path.join(self.TEST_ROOT, "new_folder")
+        self.create_folder("new_folder")
+
+        # Destination folder should not exist
+        dst_folder = StorageFolder(dst_folder_uri)
+        if dst_folder.exists():
+            dst_folder.delete()
+        self.assertFalse(dst_folder.exists())
+
+        # Copy the folder
+        if not dst_parent.endswith("/"):
+            dst_parent += "/"
+        logger.debug("Copying from %s into %s" % (sub_folder.uri, dst_parent))
+        sub_folder.copy(dst_parent)
+
+        # Destination folder should now exist and contain an empty file
+        self.assertTrue(dst_folder.exists())
+        file_paths = [f.uri for f in dst_folder.files]
+        self.assertEqual(len(file_paths), 2)
+        self.assertIn(os.path.join(dst_folder_uri, "empty_file"), file_paths)
+        self.assertIn(os.path.join(dst_folder_uri, "abc.txt"), file_paths)
+
+        # Delete destination file
+        StorageFolder(dst_parent).delete()
+        self.assertFalse(StorageFolder(dst_parent).exists())
+
+    def test_create_copy_and_delete_file(self):
+        new_folder_uri = os.path.join(self.TEST_ROOT, "new_folder")
+        # Create a new empty folder
+        folder = StorageFolder(new_folder_uri).create()
+        self.assertTrue(folder.is_empty())
+
+        # Create a sub folder inside the new folder
+        sub_folder_uri = os.path.join(new_folder_uri, "sub_folder")
+        logger.debug(sub_folder_uri)
+        sub_folder = StorageFolder(sub_folder_uri).create()
+        self.assertTrue(sub_folder.exists())
+
+        # Copy an empty file
+        src_file_path = os.path.join(self.TEST_ROOT, "test_folder_0", "empty_file")
+        dst_file_path = os.path.join(new_folder_uri, "copied_file")
+        f = StorageFile(src_file_path)
+        f.copy(dst_file_path)
+        self.assertTrue(StorageFile(dst_file_path).exists())
+
+        # Copy a file with content and replace the empty file
+        src_file_path = os.path.join(self.TEST_ROOT, "test_folder_0", "abc.txt")
+        dst_file_path = os.path.join(new_folder_uri, "copied_file")
+        f = StorageFile(src_file_path)
+        f.copy(dst_file_path)
+        dst_file = StorageFile(dst_file_path)
+        self.assertTrue(dst_file.exists())
+        # Use the shortcut to read file, the content will be binary.
+        self.assertEqual(dst_file.read(), b"abc\ncba\n")
+
+        # Empty the folder. This should delete file and sub folder only
+        folder.empty()
+        self.assertTrue(folder.exists())
+        self.assertTrue(folder.is_empty())
+        self.assertFalse(sub_folder.exists())
+        self.assertFalse(dst_file.exists())
+
+        # Delete the folder.
+        folder.delete()
+        self.assertFalse(folder.exists())
+
+
+class TestStorageGCP(TestStorage):
+    SCHEME = "gs"
+    HOST = "aries_test"
+    TEST_ROOT_PATH = "/AAA"
+    TEST_ROOT = "%s://%s%s" % (SCHEME, HOST, TEST_ROOT_PATH)
+    test_folder = StorageFolder(TEST_ROOT)
+
+    def setUp(self):
+        super().setUp()
+        time.sleep(0.5)

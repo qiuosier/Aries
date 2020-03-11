@@ -325,13 +325,14 @@ class PackageLogFilter(logging.Filter):
         """
         if package_root:
             self.packages = self.get_packages(package_root)
-            logger.info("Filtering logs except packages: %s" % self.packages)
         else:
             self.packages = []
         if isinstance(packages, list):
             self.packages.extend(packages)
         else:
             self.packages.append(packages)
+
+        logger.info("Filtering logs except packages: %s" % self.packages)
         super().__init__()
 
     def filter(self, record):

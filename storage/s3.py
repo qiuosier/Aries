@@ -1,0 +1,149 @@
+import os
+import shutil
+import logging
+import datetime
+import boto3
+from botocore.exceptions import ClientError
+# from io import FileIO, SEEK_SET
+from .base import BucketStorageObject, CloudStorageIO, StorageFolderBase
+logger = logging.getLogger(__name__)
+
+
+class S3Object(BucketStorageObject):
+    """
+    See Also: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html
+    """
+    @property
+    def key(self):
+        return self.prefix
+
+    @property
+    def blob(self):
+        """Gets or initialize a S3 Storage Object.
+
+        Returns: An S3 storage object.
+
+        This does not check whether the object exists.
+        Use blob.exists() to determine whether or not the blob exists.
+
+        """
+        s3 = boto3.resource('s3')
+        return s3.Object(self.bucket_name, self.prefix)
+
+    @property
+    def blobs(self, delimiter=None):
+        return list(self.bucket.objects.filter(Prefix=self.prefix, Delimiter=delimiter))
+
+    def init_client(self):
+        return boto3.client('s3')
+
+    def get_bucket(self):
+        s3 = boto3.resource('s3')
+        return s3.Bucket(self.bucket_name)
+
+    def exists(self):
+        """
+
+        Returns:
+
+        See Also:
+            https://boto3.amazonaws.com/v1/documentation/api/latest/guide/migrations3.html#accessing-a-bucket
+            https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.head_object
+        """
+        try:
+            self.client.head_object(Bucket=self.bucket_name, Key=self.path)
+            return True
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+            if error_code == '404':
+                return False
+            raise e
+
+    def delete(self):
+        return self.bucket.objects.filter(Prefix=self.prefix).delete()
+
+
+class S3Folder(S3Object, StorageFolderBase):
+    def __init__(self, uri):
+        """Initializes a Google Cloud Storage Directory.
+
+        Args:
+            uri: The path of the object, e.g. "gs://bucket_name/path/to/dir/".
+
+        """
+        # super() will call the __init__() of StorageObject, StorageFolder and GSObject
+        S3Object.__init__(self, uri)
+        StorageFolderBase.__init__(self, uri)
+
+        # Make sure prefix ends with "/", otherwise it is not a "folder"
+        if self.prefix and not self.prefix.endswith("/"):
+            self.prefix += "/"
+
+    def exists(self):
+        return True if self.blob.exists() or self.file_paths or self.folder_paths else False
+
+    @property
+    def folder_paths(self):
+        """Folders(Directories) in the directory.
+        """
+        return self.__folders_paths()
+
+    def __folders_paths(self):
+        # TODO: Get the next page
+        folders = []
+        response = self.bucket.list_objects(Prefix=self.prefix, Delimiter='/')
+        prefixes = response.get("CommonPrefixes", [])
+        folders.extend([p.get('Prefix') for p in prefixes if p.get('Prefix')])
+        return [
+            "s3://%s/%s" % (self.bucket_name, p)
+            for p in folders
+        ]
+
+    @property
+    def file_paths(self):
+        """Files in the directory
+        """
+        paths = self.__file_paths()
+        return paths
+
+    def __file_paths(self):
+        keys = []
+        response = self.bucket.list_objects(Prefix=self.prefix, Delimiter='/')
+        contents = response.get("Contents", [])
+        keys.extend([element.get("Key") for element in contents])
+        return [
+            "s3://%s/%s" % (self.bucket_name, key)
+            for key in keys
+            if not key.endswith("/")
+        ]
+
+    def create(self):
+        raise NotImplementedError()
+
+    def copy(self, to):
+        raise NotImplementedError()
+
+
+class S3File(S3Object, CloudStorageIO):
+    def __init__(self, uri):
+        # file_io will be initialized by open()
+        # self.file_io = None
+        S3Object.__init__(self, uri)
+        CloudStorageIO.__init__(self, uri)
+
+    @property
+    def updated_time(self):
+        return self.blob.last_modified
+
+    def get_size(self):
+        return self.blob.content_length
+
+    def upload(self, from_file_obj):
+        self.blob.upload_fileobj(from_file_obj)
+
+    def download(self, to_file_obj):
+        self.blob.download_fileobj(to_file_obj)
+        return to_file_obj
+
+    def read_bytes(self, start, end):
+        return self.blob.get(Range="%s-%s" % (start, end))

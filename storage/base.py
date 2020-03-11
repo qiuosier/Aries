@@ -2,6 +2,7 @@
 """
 import os
 import logging
+from io import FileIO
 from tempfile import NamedTemporaryFile
 from urllib.parse import urlparse
 from io import RawIOBase, UnsupportedOperation, SEEK_SET, DEFAULT_BUFFER_SIZE
@@ -33,6 +34,7 @@ class StorageObject:
             self.scheme = 'file'
             if not str(self.path).startswith("/"):
                 self.path = os.path.abspath(self.path)
+            self.uri = "file://" + self.uri
 
     def __str__(self):
         """Returns the URI
@@ -93,19 +95,72 @@ class StorageObject:
         to_file_obj.flush()
         return file_size
 
-    def create_temp_file(self, delete=False):
+    def create_temp_file(self, delete=False, **kwargs):
         """Creates a NamedTemporaryFile on local computer with the same file extension.
         Everything after the first dot is considered as extension
         """
         # Determine the file extension
-        arr = self.basename.split(".", 1)
-        if len(arr) > 1:
-            ext = ".%s" % arr[1]
-        else:
-            ext = ""
-        temp_obj = NamedTemporaryFile('w+b', delete=delete, suffix=ext)
+        if "suffix" not in kwargs:
+            arr = self.basename.split(".", 1)
+            if len(arr) > 1:
+                suffix = ".%s" % arr[1]
+                kwargs["suffix"] = suffix
+
+        temp_obj = NamedTemporaryFile('w+b', delete=delete, **kwargs)
         logger.debug("Created temp file: %s" % temp_obj.name)
         return temp_obj
+
+
+class BucketStorageObject(StorageObject):
+    """Represents a cloud storage object associated with a bucket.
+
+    Attributes:
+        prefix: The path on the bucket without the beginning "/"
+
+    """
+    def __init__(self, uri):
+        StorageObject.__init__(self, uri)
+        self._client = None
+        self._bucket = None
+        # The "prefix" for gcs does not include the beginning "/"
+        if self.path.startswith("/"):
+            self.prefix = self.path[1:]
+        else:
+            self.prefix = self.path
+        self._blob = None
+
+    @property
+    def bucket_name(self):
+        """The name of the Cloud Storage bucket as a string."""
+        return self.hostname
+
+    @property
+    def client(self):
+        if not self._client:
+            self._client = self.init_client()
+        return self._client
+
+    @property
+    def bucket(self):
+        if not self._bucket:
+            self.get_bucket()
+        return self._bucket
+
+    def is_file(self):
+        if self.path.endswith("/"):
+            return False
+        if not self.exists():
+            return False
+        return True
+
+    def init_client(self):
+        raise NotImplementedError()
+
+    def get_bucket(self):
+        raise NotImplementedError()
+
+    def exists(self):
+        raise NotImplementedError()
 
 
 class StorageFolderBase(StorageObject):
@@ -194,12 +249,6 @@ class StorageIOBase(StorageObject, RawIOBase):
         https://github.com/python/cpython/blob/1ed61617a4a6632905ad6a0b440cd2cafb8b6414/Lib/_pyio.py#L1461
 
     """
-
-    @classmethod
-    def init(cls, uri, mode='r', *args, **kwargs):
-        raw_io = cls(uri)
-        return raw_io.open(mode, *args, **kwargs)
-
     def __init__(self, uri):
         StorageObject.__init__(self, uri)
         # Subclasses can use the following attributes
@@ -224,6 +273,10 @@ class StorageIOBase(StorageObject, RawIOBase):
     @property
     def closed(self):
         return self._closed
+
+    @property
+    def mode(self):
+        return self._mode
 
     def _set_mode(self, mode):
         """Sets attributes base on the mode.
@@ -253,15 +306,18 @@ class StorageIOBase(StorageObject, RawIOBase):
             self._readable = True
             self._writable = True
 
+    def _is_same_mode(self, mode):
+        if not self.mode:
+            return False
+        if mode:
+            return sorted(self.mode) == sorted(mode)
+        return True
+
     def open(self, mode='r', *args, **kwargs):
         if not self._is_same_mode(mode):
             self._set_mode(mode)
         self._closed = False
         return self
-
-    def close(self):
-        self._closed = True
-        raise NotImplementedError("close() is not implemented for %s" % self.__class__.__name__)
 
     def __enter__(self):
         return self
@@ -281,6 +337,11 @@ class StorageIOBase(StorageObject, RawIOBase):
         """
         if not self.writable():
             raise UnsupportedOperation("File is not opened for write.")
+
+    def writable(self):
+        """Writable if file is writable and not closed.
+        """
+        return True if self._writable and not self._closed else False
 
     def readable(self):
         """Returns True if the file exists and readable, otherwise False.
@@ -312,6 +373,20 @@ class StorageIOBase(StorageObject, RawIOBase):
         m[:n] = data
         return n
 
+    @property
+    def size(self):
+        return None
+
+    @property
+    def updated_time(self):
+        """Last updated/modified time of the file as a datetime object.
+        """
+        raise NotImplementedError()
+
+    def close(self):
+        self._closed = True
+        raise NotImplementedError("close() is not implemented for %s" % self.__class__.__name__)
+
     def read(self, size=None):
         """Reads at most "size" bytes.
 
@@ -325,11 +400,6 @@ class StorageIOBase(StorageObject, RawIOBase):
         self._check_readable()
         raise NotImplementedError()
 
-    def writable(self):
-        """Writable if file is writable and not closed.
-        """
-        return True if self._writable and not self._closed else False
-
     def write(self, b):
         """Writes bytes b to file.
 
@@ -338,27 +408,6 @@ class StorageIOBase(StorageObject, RawIOBase):
         """
         self._check_writable()
         raise NotImplementedError()
-
-    @property
-    def mode(self):
-        return self._mode
-
-    def _is_same_mode(self, mode):
-        if not self.mode:
-            return False
-        if mode:
-            return sorted(self.mode) == sorted(mode)
-        return True
-
-    @property
-    def updated_time(self):
-        """Last updated/modified time of the file as a datetime object.
-        """
-        raise NotImplementedError()
-
-    @property
-    def size(self):
-        return None
 
     def exists(self):
         """Checks if the file exists.
@@ -377,10 +426,6 @@ class StorageIOBase(StorageObject, RawIOBase):
         else:
             file_size = self.copy_stream(stream, self)
         return file_size
-
-    def load_from_file(self, file_path):
-        with open(file_path, 'rb') as f:
-            return self.load_from(f)
 
     def download(self, to_file_obj):
         raise UnsupportedOperation()
@@ -410,12 +455,6 @@ class StorageIOSeekable(StorageIOBase):
     def seekable(self):
         return True
 
-    def seek(self, pos, whence=SEEK_SET):
-        raise NotImplementedError
-
-    def tell(self):
-        raise NotImplementedError
-
     def _seek(self, pos, whence=SEEK_SET):
         """Move to new file position.
         Argument offset is a byte count.  Optional argument whence defaults to
@@ -443,4 +482,177 @@ class StorageIOSeekable(StorageIOBase):
     def size(self):
         """Returns the size in bytes of the file as an integer.
         """
-        raise NotImplementedError("")
+        raise NotImplementedError()
+
+    def seek(self, pos, whence=SEEK_SET):
+        raise NotImplementedError()
+
+    def tell(self):
+        raise NotImplementedError()
+
+
+class CloudStorageIO(StorageIOSeekable):
+    def __init__(self, uri):
+        """
+        """
+        StorageIOSeekable.__init__(self, uri)
+
+        # Path of the temp local file
+        self.temp_path = None
+
+        # Stores the temp local FileIO object
+        self.__file_io = None
+
+    @property
+    def size(self):
+        if self.__file_io:
+            return os.fstat(self.__file_io.fileno).st_size
+        return self.get_size()
+
+    def seek(self, pos, whence=0):
+        if self.__file_io:
+            self._offset = self.__file_io.seek(pos, whence)
+            return self._offset
+        return self._seek(pos, whence)
+
+    def tell(self):
+        if self.__file_io:
+            self._offset = self.__file_io.tell()
+        return self._offset
+
+    def local(self):
+        """Creates a local copy of the file.
+        """
+        if not self.__file_io:
+            file_obj = self.create_temp_file()
+            # Download file if appending or updating
+            if 'a' in self.mode or '+' in self.mode:
+                self.download(file_obj)
+            # Close the temp file and open it with FileIO
+            file_obj.close()
+            mode = "".join([c for c in self.mode if c in "rw+ax"])
+            self.__file_io = FileIO(file_obj.name, mode)
+            self.temp_path = file_obj.name
+        return self
+
+    # For reading
+    def read(self, size=None):
+        """Reads the file from the Google Cloud bucket to memory
+
+        Returns: Bytes containing the contents of the file.
+        """
+        start = self.tell()
+        if self.__file_io:
+            self.__file_io.seek(start)
+            b = self.__file_io.read(size)
+        else:
+            if not self.exists():
+                raise FileNotFoundError("File %s does not exists." % self.uri)
+            file_size = self.size
+            if not file_size:
+                return b""
+            # download_as_string() will raise an error if start is greater than size.
+            if start > file_size:
+                return b""
+            end = file_size - 1
+            if size:
+                end = start + size - 1
+            logger.debug("Reading from %s to %s" % (start, end))
+            b = self.read_bytes(start, end)
+        self._offset += len(b)
+        return b
+
+    def write(self, b):
+        """Writes data into the file.
+
+        Args:
+            b: Bytes data
+
+        Returns: The number of bytes written into the file.
+
+        """
+        if self.closed:
+            raise ValueError("write to closed file %s" % self.uri)
+        # Create a temp local file
+        self.local()
+        # Write data from buffer to file
+        self.__file_io.seek(self.tell())
+        size = self.__file_io.write(b)
+        self._offset += size
+        return size
+
+    def __rm_temp(self):
+        if self.temp_path and os.path.exists(self.temp_path):
+            os.unlink(self.temp_path)
+        logger.debug("Deleted temp file %s of %s" % (self.temp_path, self.uri))
+        self.temp_path = None
+        return
+
+    def open(self, mode='r', *args, **kwargs):
+        """Opens the file for writing
+        """
+        if not self._closed:
+            self.close()
+        super().open(mode)
+        self._closed = False
+        # Reset offset position when open
+        self.seek(0)
+        if 'a' in self.mode:
+            # Move to the end of the file if open in appending mode.
+            self.seek(0, 2)
+        elif 'w' in self.mode:
+            # Create empty local file
+            self.local()
+        return self
+
+    def close(self):
+        """Flush and close the file.
+        This method has no effect if the file is already closed.
+        """
+
+        if self._closed:
+            return
+
+        if self.__file_io:
+            if not self.__file_io.closed:
+                self.__file_io.close()
+            self.__file_io = None
+
+        if self.temp_path:
+            logger.debug("Uploading file to %s" % self.uri)
+            with open(self.temp_path, 'rb') as f:
+                self.upload(f)
+            # Remove __temp_file if it exists.
+            self.__rm_temp()
+            # Set _closed attribute
+            self._closed = True
+
+    @property
+    def updated_time(self):
+        raise NotImplementedError()
+
+    def exists(self):
+        raise NotImplementedError()
+
+    def get_size(self):
+        raise NotImplementedError()
+
+    def delete(self):
+        raise NotImplementedError()
+
+    def upload(self, from_file_obj):
+        raise NotImplementedError()
+
+    def download(self, to_file_obj):
+        """Downloads the data to a file object
+        Caution: This method does not call flush()
+        """
+        raise NotImplementedError()
+
+    def read_bytes(self, start, end):
+        """Reads bytes from position start to position end, inclusive
+        """
+        raise NotImplementedError()
+
+
+

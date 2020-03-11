@@ -10,7 +10,7 @@ from io import SEEK_SET, DEFAULT_BUFFER_SIZE, UnsupportedOperation
 from io import BufferedIOBase, BufferedRandom, BufferedReader, BufferedWriter, TextIOWrapper
 from tempfile import NamedTemporaryFile
 from .base import StorageObject, StorageFolderBase
-from . import gs, file, web
+from . import gs, file, web, s3
 logger = logging.getLogger(__name__)
 
 
@@ -22,12 +22,9 @@ class StorageFolder(StorageFolderBase):
 
     registry = {
         "file": file.LocalFolder,
-        "gs": gs.GSFolder
+        "gs": gs.GSFolder,
+        "s3": s3.S3Folder
     }
-
-    @classmethod
-    def register(cls, subclass):
-        pass
 
     def __init__(self, uri):
         super(StorageFolder, self).__init__(uri)
@@ -232,7 +229,91 @@ class StorageFolder(StorageFolderBase):
         return files
 
 
-class StorageFile(StorageObject, BufferedIOBase):
+class BufferedIOWrapper:
+    """Delegates methods to buffered_io attribute.
+    """
+    def __init__(self):
+        # Sub-class must define method to initialize buffered_io
+        self.buffered_io = None
+
+    def _check_closed(self):
+        """Checks if the file is closed.
+
+        Raises: ValueError if the file is closed.
+
+        """
+        if not self.buffered_io:
+            raise ValueError(
+                "I/O operation on closed file (buffer_io not initialized). "
+                "Use open() or init() to open the file."
+            )
+        if self.buffered_io.closed:
+            raise ValueError(
+                "I/O operation on closed file (buffer_io closed). "
+                "Use open() or init() to open the file."
+            )
+
+    def read1(self, size=None):
+        self._check_closed()
+        return self.buffered_io.read1(size)
+
+    def readable(self):
+        self._check_closed()
+        return self.buffered_io.readable()
+
+    def readinto(self, b):
+        self._check_closed()
+        return self.buffered_io.readinto(b)
+
+    def readinto1(self, b):
+        self._check_closed()
+        return self.buffered_io.readinto1(b)
+
+    def writable(self):
+        self._check_closed()
+        return self.buffered_io.writable()
+
+    def write(self, b):
+        self._check_closed()
+        return self.buffered_io.write(b)
+
+    def truncate(self, pos=None):
+        self._check_closed()
+        self.flush()
+        if pos is None:
+            pos = self.tell()
+        return self.buffered_io.truncate(pos)
+
+    def flush(self):
+        self._check_closed()
+        return self.buffered_io.flush()
+
+    def detach(self):
+        self._check_closed()
+        return self.buffered_io.detach()
+
+    def seekable(self):
+        self._check_closed()
+        return self.buffered_io.seekable()
+
+    def seek(self, pos, whence=SEEK_SET):
+        self._check_closed()
+        return self.buffered_io.seek(pos, whence)
+
+    def tell(self):
+        self._check_closed()
+        return self.buffered_io.tell()
+
+    def fileno(self):
+        self._check_closed()
+        return self.buffered_io.fileno()
+
+    def isatty(self):
+        self._check_closed()
+        return self.buffered_io.isatty()
+
+
+class StorageFile(StorageObject, BufferedIOWrapper, BufferedIOBase):
     """Represents a storage file.
 
     Initializing a StorageFile object does not open the file.
@@ -264,12 +345,16 @@ class StorageFile(StorageObject, BufferedIOBase):
         with StorageFile.init("/path/to/file") as f:
             content = f.read()
 
+    Remarks:
+        The order of the parent classes determines the method resolution order.
+        See https://www.python.org/download/releases/2.3/mro/
 
     """
 
     registry = {
         "file": file.LocalFile,
         "gs": gs.GSFile,
+        "s3": s3.S3File,
         "http": web.WebFile,
         "https": web.WebFile,
         "ftp": web.WebFile
@@ -511,7 +596,7 @@ class StorageFile(StorageObject, BufferedIOBase):
                 return self.raw_io.size
             except Exception as ex:
                 traceback.print_exc()
-                print(ex)
+                logger.debug("Failed to get size: %s" % ex)
                 pass
         return None
 
@@ -548,7 +633,9 @@ class StorageFile(StorageObject, BufferedIOBase):
 
     def exists(self):
         """Checks if the file exists.
+        This method may not return True until a new file is closed.
         """
+        # TODO: File may not exist until new file is closed.
         return self.raw_io.exists()
 
     def __enter__(self):
@@ -582,12 +669,6 @@ class StorageFile(StorageObject, BufferedIOBase):
             with dest_file.open('wb') as f_to:
                 return self.copy_stream(f, f_to)
 
-    def load_from_file(self, file_path):
-        if not self.closed:
-            self.buffered_io.close()
-        with open(file_path, 'rb') as f:
-            return self.raw_io.load_from(f)
-
     def move(self, to):
         """Moves the objects to another location."""
         self.copy(to)
@@ -607,7 +688,7 @@ class StorageFile(StorageObject, BufferedIOBase):
             pass
         return self
 
-    def download(self, to_file_obj=None):
+    def download(self, to_file_obj=None, **kwargs):
         """Downloads the file to a file-object.
 
         Args:
@@ -616,13 +697,19 @@ class StorageFile(StorageObject, BufferedIOBase):
         Returns: The file-object.
 
         """
-        try:
-            return self.raw_io.download(to_file_obj)
-        except (AttributeError, UnsupportedOperation):
-            pass
+        if not self.raw_io.exists():
+            raise FileNotFoundError("File %s not found." % self.uri)
+
         # Create a new temp file if to_file_obj is None
         if not to_file_obj:
-            to_file_obj = self.create_temp_file()
+            to_file_obj = self.create_temp_file(**kwargs)
+        try:
+            logger.debug("Downloading %s ..." % self.uri)
+            self.raw_io.download(to_file_obj)
+            to_file_obj.flush()
+            return to_file_obj
+        except (AttributeError, UnsupportedOperation):
+            pass
         # Copy the stream
         with self.open("rb") as f:
             self.copy_stream(f, to_file_obj)
@@ -633,11 +720,13 @@ class StorageFile(StorageObject, BufferedIOBase):
             return self.raw_io.upload(from_file_obj)
         except (AttributeError, UnsupportedOperation):
             pass
+        if not self.closed:
+            self.buffered_io.close()
         with self.open("wb") as f:
             f.raw_io.load_from(from_file_obj)
 
-    def upload_from_file(self, filename):
-        with open(filename, 'rb') as f:
+    def upload_from_file(self, file_path):
+        with open(file_path, 'rb') as f:
             self.upload(f)
 
     def is_gz(self):
@@ -656,23 +745,6 @@ class StorageFile(StorageObject, BufferedIOBase):
         b = binascii.hexlify(b)
         logger.debug("File begins with: %s" % b)
         return b == b'1f8b'
-
-    def _check_closed(self):
-        """Checks if the file is closed.
-
-        Raises: ValueError if the file is closed.
-
-        """
-        if not self.buffered_io:
-            raise ValueError(
-                "I/O operation on closed file (buffer_io not initialized). "
-                "Use open() or init() to open the file."
-            )
-        if self.buffered_io.closed:
-            raise ValueError(
-                "I/O operation on closed file (buffer_io closed). "
-                "Use open() or init() to open the file."
-            )
 
     def close(self):
         logger.debug("Closing %s ..." % self.uri)
@@ -693,63 +765,3 @@ class StorageFile(StorageObject, BufferedIOBase):
             with self.raw_io.open('rb') as f:
                 return f.read(size)
         return self.buffered_io.read(size)
-
-    # The following methods calls the corresponding method in buffered_io
-    def read1(self, size=None):
-        self._check_closed()
-        return self.buffered_io.read1(size)
-
-    def readable(self):
-        self._check_closed()
-        return self.buffered_io.readable()
-
-    def readinto(self, b):
-        self._check_closed()
-        return self.buffered_io.readinto(b)
-
-    def readinto1(self, b):
-        self._check_closed()
-        return self.buffered_io.readinto1(b)
-
-    def writable(self):
-        self._check_closed()
-        return self.buffered_io.writable()
-
-    def write(self, b):
-        self._check_closed()
-        return self.buffered_io.write(b)
-
-    def truncate(self, pos=None):
-        self._check_closed()
-        self.flush()
-        if pos is None:
-            pos = self.tell()
-        return self.buffered_io.truncate(pos)
-
-    def flush(self):
-        self._check_closed()
-        return self.buffered_io.flush()
-
-    def detach(self):
-        self._check_closed()
-        return self.buffered_io.detach()
-
-    def seekable(self):
-        self._check_closed()
-        return self.buffered_io.seekable()
-
-    def seek(self, pos, whence=SEEK_SET):
-        self._check_closed()
-        return self.buffered_io.seek(pos, whence)
-
-    def tell(self):
-        self._check_closed()
-        return self.buffered_io.tell()
-
-    def fileno(self):
-        self._check_closed()
-        return self.buffered_io.fileno()
-
-    def isatty(self):
-        self._check_closed()
-        return self.buffered_io.isatty()

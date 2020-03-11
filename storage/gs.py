@@ -16,13 +16,11 @@ See Also: https://googleapis.github.io/google-cloud-python/latest/core/auth.html
 import os
 import logging
 import warnings
-from io import FileIO
 from functools import wraps
-from tempfile import NamedTemporaryFile
 from google.cloud import storage
 from google.cloud.exceptions import ServerError
 from ..tasks import ShellCommand, FunctionTask
-from .base import StorageIOSeekable, StorageObject, StorageFolderBase
+from .base import BucketStorageObject, StorageFolderBase, CloudStorageIO
 logger = logging.getLogger(__name__)
 
 
@@ -69,44 +67,19 @@ def api_decorator(method):
     return wrapper
 
 
-class GSObject(StorageObject):
+class GSObject(BucketStorageObject):
     """The base class for Google Storage Object.
-
-    Attributes:
-        prefix: The Google Cloud Storage prefix, which is the path without the beginning "/"
     """
     MAX_BATCH_SIZE = 900
-
-    def __init__(self, gs_path):
-        """Initializes a Google Cloud Storage Object.
-
-        Args:
-            gs_path: The path of the object, e.g. "gs://bucket_name/path/to/file.txt".
-
-        """
-        StorageObject.__init__(self, gs_path)
-        self._client = None
-        self._bucket = None
-        # The "prefix" for gcs does not include the beginning "/"
-        if self.path.startswith("/"):
-            self.prefix = self.path[1:]
-        else:
-            self.prefix = self.path
-        self._blob = None
-
-    def is_file(self):
-        if self.path.endswith("/"):
-            return False
-        if not self.exists():
-            return False
-        return True
 
     @property
     def blob(self):
         """Gets or initialize a Google Cloud Storage Blob.
 
         Returns: A Google Cloud Storage Blob object.
-            Use blob.exists() to determine whether or not the blob exists.
+
+        This does not check whether the object exists.
+        Use blob.exists() to determine whether or not the blob exists.
 
         """
         if self._blob is None:
@@ -120,26 +93,12 @@ class GSObject(StorageObject):
             self._blob = file_blob
         return self._blob
 
-    @property
-    def bucket_name(self):
-        """The name of the Google Cloud Storage bucket as a string."""
-        return self.hostname
-
-    @property
-    def client(self):
-        if not self._client:
-            self._client = storage.Client()
-        return self._client
+    def init_client(self):
+        return storage.Client()
 
     @api_decorator
-    def _get_bucket(self):
+    def get_bucket(self):
         self._bucket = self.client.get_bucket(self.bucket_name)
-
-    @property
-    def bucket(self):
-        if not self._bucket:
-            self._get_bucket()
-        return self._bucket
 
     @property
     def gs_path(self):
@@ -404,168 +363,33 @@ class GSFolder(GSObject, StorageFolderBase):
         ]
 
 
-class GSFile(GSObject, StorageIOSeekable):
-    def __init__(self, gs_path):
+class GSFile(GSObject, CloudStorageIO):
+    def __init__(self, uri):
         """Represents a file on Google Cloud Storage as a file-like object implementing the IOBase interface.
 
         Args:
-            gs_path:
+            uri:
 
         GSFile allows seek and read without opening the file.
         However, position/offset will be reset when open() is called.
         The context manager calls open() when enter.
         """
-        GSObject.__init__(self, gs_path)
-        StorageIOSeekable.__init__(self, gs_path)
-
-        # Path of the temp local file
-        self.temp_path = None
-
-        # Stores the temp local FileIO object
-        self.__file_io = None
-
-    @property
-    def size(self):
-        if self.__file_io:
-            return os.fstat(self.__file_io.fileno).st_size
-        return self.blob.size
+        GSObject.__init__(self, uri)
+        CloudStorageIO.__init__(self, uri)
 
     @property
     def updated_time(self):
         return self.blob.updated
 
-    def upload_from_file(self, file_path):
-        if not os.path.exists(file_path):
-            raise FileNotFoundError("File not found: %s" % file_path)
+    def get_size(self):
+        return self.blob.size
 
-        with open(file_path, 'rb') as f:
-            api_call(self.blob.upload_from_file, f)
-        return True
+    def read_bytes(self, start, end):
+        return api_call(self.blob.download_as_string, start=start, end=end)
 
-    # For reading
-    def read(self, size=None):
-        """Reads the file from the Google Cloud bucket to memory
-
-        Returns: Bytes containing the contents of the file.
-        """
-        start = self.tell()
-        if self.__file_io:
-            self.__file_io.seek(start)
-            b = self.__file_io.read(size)
-        else:
-            if not self.exists():
-                raise FileNotFoundError("File %s does not exists." % self.uri)
-            if not self.size:
-                return b""
-            # download_as_string() will raise an error if start is greater than size.
-            if start > self.size:
-                return b""
-            end = None
-            if size:
-                end = start + size - 1
-            logger.debug("Reading from %s to %s" % (start, end))
-            b = api_call(self.blob.download_as_string, start=start, end=end)
-        self._offset += len(b)
-        return b
-
-    def local(self):
-        if not self.__file_io:
-            # Download file if appending or updating
-            if 'a' in self.mode or '+' in self.mode:
-                temp_file = self.download()
-            else:
-                temp_file = NamedTemporaryFile(delete=False)
-            # Close the temp file and open it with FileIO
-            temp_file.close()
-            mode = "".join([c for c in self.mode if c in "rw+ax"])
-            self.__file_io = FileIO(temp_file.name, mode)
-            self.temp_path = temp_file.name
-        return self
-
-    def download(self, to_file_obj=None):
-        if not to_file_obj:
-            to_file_obj = self.create_temp_file()
-        # Download the blob to temp file if it exists.
-        if self.blob.exists():
-            logger.debug("Downloading %s ..." % self.uri)
-            api_call(self.blob.download_to_file, to_file_obj)
-            to_file_obj.flush()
+    def download(self, to_file_obj):
+        api_call(self.blob.download_to_file, to_file_obj)
         return to_file_obj
 
     def upload(self, from_file_obj):
         api_call(self.blob.upload_from_file, from_file_obj)
-
-    def write(self, b):
-        """Writes data into the file.
-
-        Args:
-            b: Bytes or str data
-
-        Returns: The number of bytes written into the file.
-
-        """
-        if self.closed:
-            raise ValueError("write to closed file")
-        # Create a temp local file
-        self.local()
-        # Write data from buffer to file
-        self.__file_io.seek(self.tell())
-        size = self.__file_io.write(b)
-        self._offset += size
-        return size
-
-    def __rm_temp(self):
-        if self.temp_path and os.path.exists(self.temp_path):
-            os.unlink(self.temp_path)
-        logger.debug("Deleted temp file %s of %s" % (self.temp_path, self.uri))
-        self.temp_path = None
-        return
-
-    def close(self):
-        """Flush and close the file.
-        This method has no effect if the file is already closed.
-        """
-
-        if self._closed:
-            return
-
-        if self.__file_io:
-            if not self.__file_io.closed:
-                self.__file_io.close()
-            self.__file_io = None
-
-        if self.temp_path:
-            logger.debug("Uploading file to %s" % self.uri)
-            api_call(self.blob.upload_from_filename, self.temp_path)
-            # Remove __temp_file if it exists.
-            self.__rm_temp()
-            # Set _closed attribute
-            self._closed = True
-
-    def open(self, mode='r', *args, **kwargs):
-        """Opens the file for writing
-        """
-        if not self._closed:
-            self.close()
-        super().open(mode)
-        self._closed = False
-        # Reset offset position when open
-        self.seek(0)
-        if 'a' in self.mode:
-            # Move to the end of the file if open in appending mode.
-            self.seek(0, 2)
-        elif 'w' in self.mode:
-            # Create empty local file
-            self.local()
-        return self
-
-    def seek(self, pos, whence=0):
-        if self.__file_io:
-            self._offset = self.__file_io.seek(pos, whence)
-            return self._offset
-        return self._seek(pos, whence)
-
-    def tell(self):
-        if self.__file_io:
-            self._offset = self.__file_io.tell()
-        return self._offset
