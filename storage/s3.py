@@ -2,6 +2,7 @@ import os
 import shutil
 import logging
 import datetime
+import traceback
 import boto3
 from botocore.exceptions import ClientError
 # from io import FileIO, SEEK_SET
@@ -51,9 +52,10 @@ class S3Object(BucketStorageObject):
             https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.head_object
         """
         try:
-            self.client.head_object(Bucket=self.bucket_name, Key=self.path)
+            self.client.head_object(Bucket=self.bucket_name, Key=self.prefix)
             return True
         except ClientError as e:
+            traceback.print_exc()
             error_code = e.response['Error']['Code']
             if error_code == '404':
                 return False
@@ -146,4 +148,8 @@ class S3File(S3Object, CloudStorageIO):
         return to_file_obj
 
     def read_bytes(self, start, end):
-        return self.blob.get(Range="%s-%s" % (start, end))
+        response = self.blob.get(Range="%s-%s" % (start, end))
+        content = response.get("Body")
+        if content:
+            return content.read()
+        return ""
