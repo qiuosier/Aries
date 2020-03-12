@@ -526,7 +526,7 @@ class CloudStorageIO(StorageIOSeekable):
         if not self.__file_io:
             file_obj = self.create_temp_file()
             # Download file if appending or updating
-            if 'a' in self.mode or '+' in self.mode:
+            if self.exists() and ('a' in self.mode or '+' in self.mode):
                 self.download(file_obj)
             # Close the temp file and open it with FileIO
             file_obj.close()

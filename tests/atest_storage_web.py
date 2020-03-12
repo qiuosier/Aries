@@ -9,7 +9,6 @@ if aries_parent not in sys.path:
     sys.path.append(aries_parent)
 from Aries.test import AriesTest
 from Aries.storage import StorageFolder, StorageFile
-from Aries.strings import Base64String
 logger = logging.getLogger(__name__)
 
 
@@ -18,6 +17,13 @@ class TestWebStorage(AriesTest):
     """
 
     test_folder_path = os.path.join(os.path.dirname(__file__), "fixtures", "test_folder")
+    test_folder = StorageFolder(test_folder_path)
+    
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        if not cls.test_folder.exists():
+            cls.test_folder.create()
 
     def test_http(self):
         """

@@ -41,7 +41,9 @@ class TestStorage(AriesTest):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        StorageFolder(cls.TEST_ROOT).empty()
+        if not cls.test_folder.exists():
+            cls.test_folder.create()
+        cls.test_folder.empty()
         cls.create_folder("test_folder_0")
         cls.create_folder("test_folder_1")
         cls.create_file("file_in_test_folder", "")
@@ -52,6 +54,7 @@ class TestStorage(AriesTest):
     @classmethod
     def tearDownClass(cls):
         StorageFolder(cls.TEST_ROOT).empty()
+        StorageFolder(cls.TEST_ROOT).delete()
         super().tearDownClass()
 
     def setUp(self):
@@ -244,7 +247,7 @@ class TestStorage(AriesTest):
 class TestStorageGCP(TestStorage):
     SCHEME = "gs"
     HOST = "aries_test"
-    TEST_ROOT_PATH = "/AAA"
+    TEST_ROOT_PATH = "/storage_test"
     TEST_ROOT = "%s://%s%s" % (SCHEME, HOST, TEST_ROOT_PATH)
     test_folder = StorageFolder(TEST_ROOT)
 
