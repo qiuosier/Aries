@@ -6,33 +6,16 @@ import sys
 import time
 import traceback
 from google.cloud import storage
-aries_parent = os.path.join(os.path.dirname(__file__), "..", "..")
-if aries_parent not in sys.path:
-    sys.path.append(aries_parent)
-from Aries.test import AriesTest
-from Aries.storage import StorageFolder, StorageFile
-from Aries.storage.gs import GSObject
-from Aries.strings import Base64String
 logger = logging.getLogger(__name__)
-
-
-def setUpModule():
-    """Configures the Google Application Credentials
-
-    The test environment may store the content of the JSON key-file in "GOOGLE_CREDENTIALS".
-    This function decodes and saves the JSON key-file into the local file system.
-
-    """
-    test_dir = os.path.dirname(__file__)
-    json_file = os.path.join(test_dir, "..", "private", "gcp.json")
-    # Use the b64 encoded content as credentials if "GOOGLE_CREDENTIALS" is set.
-    credentials = os.environ.get("GOOGLE_CREDENTIALS")
-    if credentials and credentials.startswith("ew"):
-        if not os.path.exists(json_file):
-            Base64String(credentials).decode_to_file(json_file)
-    # Set "GOOGLE_APPLICATION_CREDENTIALS" if json file exists.
-    if os.path.exists(json_file):
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = json_file
+try:
+    from ..test import AriesTest
+    from ..storage import StorageFolder, StorageFile, gs
+except:
+    aries_parent = os.path.join(os.path.dirname(__file__), "..", "..")
+    if aries_parent not in sys.path:
+        sys.path.append(aries_parent)
+    from Aries.test import AriesTest
+    from Aries.storage import StorageFolder, StorageFile, gs
 
 
 class TestGCStorage(AriesTest):
@@ -46,6 +29,7 @@ class TestGCStorage(AriesTest):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        gs.setup_credentials("GOOGLE_CREDENTIALS")
         try:
             # Check if GCP is accessible by listing all the buckets
             storage.Client().list_buckets(max_results=1)
@@ -71,19 +55,19 @@ class TestGCStorage(AriesTest):
         """Tests parsing GCS URI
         """
         # Bucket root without "/"
-        gs_obj = GSObject("gs://aries_test")
+        gs_obj = gs.GSObject("gs://aries_test")
         self.assertEqual(gs_obj.bucket_name, "aries_test")
         self.assertEqual(gs_obj.prefix, "")
         # Bucket root with "/"
-        gs_obj = GSObject("gs://aries_test/")
+        gs_obj = gs.GSObject("gs://aries_test/")
         self.assertEqual(gs_obj.bucket_name, "aries_test")
         self.assertEqual(gs_obj.prefix, "")
         # Object without "/"
-        gs_obj = GSObject("gs://aries_test/test_folder")
+        gs_obj = gs.GSObject("gs://aries_test/test_folder")
         self.assertEqual(gs_obj.bucket_name, "aries_test")
         self.assertEqual(gs_obj.prefix, "test_folder")
         # Object with "/"
-        gs_obj = GSObject("gs://aries_test/test_folder/")
+        gs_obj = gs.GSObject("gs://aries_test/test_folder/")
         self.assertEqual(gs_obj.bucket_name, "aries_test")
         self.assertEqual(gs_obj.prefix, "test_folder/")
         # Folder without "/"
