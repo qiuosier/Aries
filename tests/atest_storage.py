@@ -5,8 +5,7 @@ import logging
 import os
 import sys
 import time
-import tempfile
-import shutil
+import traceback
 logger = logging.getLogger(__name__)
 
 
@@ -256,9 +255,18 @@ class TestStorageGCP(TestStorage):
 
     @classmethod
     def setUpClass(cls):
-        super().setUpClass()
+        # Google credentials are required for setting up the class.
         gs.setup_credentials("GOOGLE_CREDENTIALS", os.path.join(os.path.dirname(__file__), "gcp.json"))
+        try:
+            super().setUpClass()
+            cls.GCP_ACCESS = True
+        except Exception as ex:
+            print("%s: %s" % (type(ex), str(ex)))
+            traceback.print_exc()
 
     def setUp(self):
+        # Skip test if GCP_ACCESS is not True.
+        if not self.GCP_ACCESS:
+            self.skipTest("GCP Credentials not found.")
         super().setUp()
         time.sleep(0.5)
