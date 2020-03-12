@@ -257,7 +257,7 @@ class TestStorageGCP(TestStorage):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        gs.setup_credentials("GOOGLE_CREDENTIALS")
+        gs.setup_credentials("GOOGLE_CREDENTIALS", os.path.join(os.path.dirname(__file__), "gcp.json"))
 
     def setUp(self):
         super().setUp()

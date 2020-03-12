@@ -29,7 +29,7 @@ class TestGCStorage(AriesTest):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        gs.setup_credentials("GOOGLE_CREDENTIALS")
+        gs.setup_credentials("GOOGLE_CREDENTIALS", os.path.join(os.path.dirname(__file__), "gcp.json"))
         try:
             # Check if GCP is accessible by listing all the buckets
             storage.Client().list_buckets(max_results=1)
@@ -211,7 +211,7 @@ class TestGCStorage(AriesTest):
         # Copy a set of objects using the prefix
         source_path = "gs://aries_test/test_folder"
         dest_path = "gs://aries_test/copy_test/"
-        objects = GSObject(source_path)
+        objects = gs.GSObject(source_path)
         objects.copy(dest_path)
         copied = StorageFolder(dest_path)
         self.assertEqual(len(copied.files), 1)

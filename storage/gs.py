@@ -37,8 +37,7 @@ def setup_credentials(env_name, to_json_file=None):
             temp_file = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
             temp_file.close()
             to_json_file = temp_file.name
-        if not os.path.exists(to_json_file):
-            Base64String(credentials).decode_to_file(to_json_file)
+        Base64String(credentials).decode_to_file(to_json_file)
     # Set "GOOGLE_APPLICATION_CREDENTIALS" if json file exists.
     if os.path.exists(to_json_file):
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = to_json_file
