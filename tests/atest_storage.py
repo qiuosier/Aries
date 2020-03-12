@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import time
+import tempfile
 import shutil
 logger = logging.getLogger(__name__)
 
@@ -12,10 +13,12 @@ logger = logging.getLogger(__name__)
 try:
     from ..test import AriesTest
     from ..storage import StorageFolder, StorageFile
+    from ..storage import gs
 except:
     aries_parent = os.path.join(os.path.dirname(__file__), "..", "..")
     if aries_parent not in sys.path:
         sys.path.append(aries_parent)
+    from Aries.storage import gs
     from Aries.test import AriesTest
     from Aries.storage import StorageFile, StorageFolder
 
@@ -250,6 +253,11 @@ class TestStorageGCP(TestStorage):
     TEST_ROOT_PATH = "/storage_test"
     TEST_ROOT = "%s://%s%s" % (SCHEME, HOST, TEST_ROOT_PATH)
     test_folder = StorageFolder(TEST_ROOT)
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        gs.setup_credentials("GOOGLE_CREDENTIALS")
 
     def setUp(self):
         super().setUp()

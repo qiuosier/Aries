@@ -16,12 +16,32 @@ See Also: https://googleapis.github.io/google-cloud-python/latest/core/auth.html
 import os
 import logging
 import warnings
+import tempfile
 from functools import wraps
 from google.cloud import storage
 from google.cloud.exceptions import ServerError
+from ..strings import Base64String
 from ..tasks import ShellCommand, FunctionTask
 from .base import BucketStorageObject, StorageFolderBase, CloudStorageIO
 logger = logging.getLogger(__name__)
+
+
+def setup_credentials(env_name, to_json_file=None):
+    """Configures the GOOGLE_APPLICATION_CREDENTIALS
+    by saving the value of an environment variable to a JSON file.
+    """
+    # Use the b64 encoded content as credentials if "GOOGLE_CREDENTIALS" is set.
+    credentials = os.environ.get(env_name)
+    if credentials and credentials.startswith("ew"):
+        if not to_json_file:
+            temp_file = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
+            temp_file.close()
+            to_json_file = temp_file.name
+        if not os.path.exists(to_json_file):
+            Base64String(credentials).decode_to_file(to_json_file)
+    # Set "GOOGLE_APPLICATION_CREDENTIALS" if json file exists.
+    if os.path.exists(to_json_file):
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = to_json_file
 
 
 def api_call(func=None, *args, **kwargs):
@@ -93,6 +113,7 @@ class GSObject(BucketStorageObject):
             self._blob = file_blob
         return self._blob
 
+    @api_decorator
     def init_client(self):
         return storage.Client()
 
