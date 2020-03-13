@@ -242,7 +242,7 @@ class MessageFormatter(logging.Formatter):
 
 class StreamHandler(logging.StreamHandler):
     """Stream Handler with customized formats to output module name and line number.
-
+    Logs are sent to sys.stdout
     """
 
     def __init__(self, stream=sys.stdout, formatter=None):
@@ -336,6 +336,9 @@ class PackageLogFilter(logging.Filter):
         super().__init__()
 
     def filter(self, record):
+        # Do not filter logs that are not in a package.
+        if "." not in record.name:
+            return True
         logger_name = record.name.split(".", 1)[0]
         if logger_name in self.packages:
             return True

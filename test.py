@@ -3,6 +3,7 @@
 import logging
 import time
 import os
+import sys
 from collections import OrderedDict
 from unittest import TestCase
 from .outputs import StreamHandler, PackageLogFilter
@@ -34,6 +35,8 @@ class AriesTest(TestCase):
     # Override logger_names in subclasses to avoid enabling debug logging for root logger.
     logger_names = [""]
 
+    decorated = False
+
     @classmethod
     def __decorate_test_case(cls, func):
         """A decorator for test case.
@@ -47,8 +50,13 @@ class AriesTest(TestCase):
 
         """
         def test_case_with_logging(*args, **kwargs):
-            stream_handler = StreamHandler()
-            package_filter = PackageLogFilter(packages=os.path.basename(os.path.abspath(os.curdir)))
+            """Wraps the test cases and add a stream handler for logging
+            """
+            # At this point, unittest already replaced the sys.stdout
+            # The sys.stdout passing into the StreamHandler is NOT the original system standard output
+            # The default value (sys.stdout) for StreamHanlder() will send the logs to the system standard output
+            stream_handler = StreamHandler(sys.stdout)
+            package_filter = PackageLogFilter(packages=[os.path.basename(os.path.abspath(os.curdir))])
             stream_handler.addFilter(package_filter)
             loggers = dict()
             for name in cls.logger_names:
@@ -75,13 +83,15 @@ class AriesTest(TestCase):
 
         """
         super().setUpClass()
-        
-        # Find all test cases
-        attrs = dir(cls)
-        for attr in attrs:
-            if attr.startswith("test") and callable(getattr(cls, attr)):
-                test_case = getattr(cls, attr)
-                setattr(cls, attr, cls.__decorate_test_case(test_case))
+        if not cls.decorated:
+            # Find all test cases
+            attrs = dir(cls)
+            for attr in attrs:
+                if attr.startswith("test") and callable(getattr(cls, attr)):
+                    test_case = getattr(cls, attr)
+                    setattr(cls, attr, cls.__decorate_test_case(test_case))
+
+            cls.decorated = True
 
     def run(self, result=None):
         """Runs the test case with standard output buffered.
@@ -108,3 +118,4 @@ class AriesTest(TestCase):
         elapsed = end - start
         self.times[self._testMethodName] = elapsed
         return returns
+
