@@ -468,7 +468,6 @@ class StorageFile(StorageObject, BufferedIOWrapper, BufferedIOBase):
                           RuntimeWarning, 2)
 
     def __init_buffer_io(self, buffering, binary, updating, creating, reading, writing, appending):
-        logger.debug("Initializing buffer IO for %s..." % self.uri)
         if buffering < 0:
             buffering = self.__buffer_size()
         if buffering == 0:
@@ -484,6 +483,7 @@ class StorageFile(StorageObject, BufferedIOWrapper, BufferedIOBase):
             buffered_io = BufferedReader(self.raw_io, buffering)
         else:
             raise ValueError("Unknown mode: %r" % self.mode)
+        logger.debug("Initialized buffer IO for %s" % self.uri)
         return buffered_io
 
     def __init_io(self, buffering=-1, encoding=None, errors=None, newline=None, closefd=True, opener=None):

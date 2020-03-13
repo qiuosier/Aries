@@ -56,7 +56,6 @@ class S3Object(BucketStorageObject):
             self.client.head_object(Bucket=self.bucket_name, Key=self.prefix)
             return True
         except ClientError as e:
-            traceback.print_exc()
             error_code = e.response['Error']['Code']
             if error_code == '404':
                 return False
