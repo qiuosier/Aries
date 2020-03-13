@@ -40,6 +40,7 @@ class S3Object(BucketStorageObject):
 
     def get_bucket(self):
         s3 = boto3.resource('s3')
+        logger.debug("Getting bucket %s" % self.bucket_name)
         return s3.Bucket(self.bucket_name)
 
     def exists(self):
@@ -60,6 +61,9 @@ class S3Object(BucketStorageObject):
             if error_code == '404':
                 return False
             raise e
+
+    def create(self):
+        return self.client.put_object(Bucket=self.bucket_name, Key=self.prefix)
 
     def delete(self):
         return self.bucket.objects.filter(Prefix=self.prefix).delete()
@@ -82,7 +86,11 @@ class S3Folder(S3Object, StorageFolderBase):
             self.prefix += "/"
 
     def exists(self):
-        return True if self.blob.exists() or self.file_paths or self.folder_paths else False
+        response = self.client.list_objects(Bucket=self.bucket_name, Prefix=self.prefix)
+        contents = response.get("Contents", [])
+        if contents:
+            return True
+        return False
 
     @property
     def folder_paths(self):
@@ -93,7 +101,7 @@ class S3Folder(S3Object, StorageFolderBase):
     def __folders_paths(self):
         # TODO: Get the next page
         folders = []
-        response = self.bucket.list_objects(Prefix=self.prefix, Delimiter='/')
+        response = self.client.list_objects(Bucket=self.bucket_name, Prefix=self.prefix, Delimiter='/')
         prefixes = response.get("CommonPrefixes", [])
         folders.extend([p.get('Prefix') for p in prefixes if p.get('Prefix')])
         return [
@@ -110,7 +118,7 @@ class S3Folder(S3Object, StorageFolderBase):
 
     def __file_paths(self):
         keys = []
-        response = self.bucket.list_objects(Prefix=self.prefix, Delimiter='/')
+        response = self.client.list_objects(Bucket=self.bucket_name, Prefix=self.prefix, Delimiter='/')
         contents = response.get("Contents", [])
         keys.extend([element.get("Key") for element in contents])
         return [
@@ -118,12 +126,6 @@ class S3Folder(S3Object, StorageFolderBase):
             for key in keys
             if not key.endswith("/")
         ]
-
-    def create(self):
-        raise NotImplementedError()
-
-    def copy(self, to):
-        raise NotImplementedError()
 
 
 class S3File(S3Object, CloudStorageIO):
@@ -153,3 +155,8 @@ class S3File(S3Object, CloudStorageIO):
         if content:
             return content.read()
         return ""
+
+    def copy(self, to):
+        dest = S3File(to)
+        logger.debug("Creating file %s" % to)
+        return dest.blob.copy(dict(Bucket=self.bucket_name, Key=self.prefix))

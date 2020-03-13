@@ -143,7 +143,7 @@ class BucketStorageObject(StorageObject):
     @property
     def bucket(self):
         if not self._bucket:
-            self.get_bucket()
+            self._bucket = self.get_bucket()
         return self._bucket
 
     def is_file(self):
@@ -197,7 +197,7 @@ class StorageFolderBase(StorageObject):
         raise NotImplementedError()
 
     def copy(self, to):
-        raise NotImplementedError()
+        raise UnsupportedOperation()
 
     def delete(self):
         raise NotImplementedError()

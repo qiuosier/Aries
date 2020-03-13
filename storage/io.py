@@ -94,12 +94,33 @@ class StorageFolder(StorageFolderBase):
         return self
 
     def copy(self, to):
+        """Copies the folder.
+
+        A trailing slash on the destination(to) changes the copy behavior.
+        With a tailing slash, an additional directory level at the destination will be created.
+        Without a tailing slash, only the contents of the folder are copied.
+
+        Args:
+            to: The destination location
+
+        Returns:
+
+        """
+        logger.debug(to)
         dest = StorageObject(to)
-        if dest.scheme == self.scheme and hasattr(self.raw, "copy"):
-            return self.raw.copy(to)
+        if dest.scheme == self.scheme:
+            try:
+                # TODO: raw.copy must follow the same behavior
+                return self.raw.copy(to)
+            except (AttributeError, UnsupportedOperation):
+                pass
         # Download the files using copy()
+        if to.endswith("/"):
+            to += self.name
+        # logger.debug(self.file_paths)
         for storage_file in self.files:
             storage_file.copy(os.path.join(to, storage_file.basename))
+        # logger.debug(self.folder_paths)
         # Recursively download the sub-folders.
         for storage_folder in self.folders:
             # TODO: Create the folder?
