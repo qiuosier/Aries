@@ -22,6 +22,22 @@ except:
     from Aries.storage import StorageFile, StorageFolder
 
 
+class TempFolder:
+    def __init__(self, folder_uri):
+        self.folder_uri = folder_uri
+
+    def __enter__(self):
+        folder = StorageFolder(self.folder_uri)
+        if not folder.exists():
+            folder.create()
+        return folder
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        folder = StorageFolder(self.folder_uri)
+        if folder.exists():
+            folder.delete()
+
+
 class TestStorage(AriesTest):
     SCHEME = "file"
     HOST = ""
@@ -179,71 +195,62 @@ class TestStorage(AriesTest):
 
         # Destination folder
         dst_folder_uri = os.path.join(self.TEST_ROOT, "new_folder", "test_folder_0")
+
         dst_parent = os.path.join(self.TEST_ROOT, "new_folder")
-        self.create_folder("new_folder")
+        with TempFolder(dst_parent):
+            # Destination folder should not exist
+            dst_folder = StorageFolder(dst_folder_uri)
+            if dst_folder.exists():
+                dst_folder.delete()
+            self.assertFalse(dst_folder.exists())
 
-        # Destination folder should not exist
-        dst_folder = StorageFolder(dst_folder_uri)
-        if dst_folder.exists():
-            dst_folder.delete()
-        self.assertFalse(dst_folder.exists())
+            # Copy the folder
+            if not dst_parent.endswith("/"):
+                dst_parent += "/"
+            logger.debug("Copying from %s into %s" % (sub_folder.uri, dst_parent))
+            sub_folder.copy(dst_parent)
 
-        # Copy the folder
-        if not dst_parent.endswith("/"):
-            dst_parent += "/"
-        logger.debug("Copying from %s into %s" % (sub_folder.uri, dst_parent))
-        sub_folder.copy(dst_parent)
-
-        # Destination folder should now exist and contain an empty file
-        self.assertTrue(dst_folder.exists())
-        file_paths = [f.uri for f in dst_folder.files]
-        self.assertEqual(len(file_paths), 2)
-        self.assertIn(os.path.join(dst_folder_uri, "empty_file"), file_paths)
-        self.assertIn(os.path.join(dst_folder_uri, "abc.txt"), file_paths)
-
-        # Delete destination file
-        StorageFolder(dst_parent).delete()
-        self.assertFalse(StorageFolder(dst_parent).exists())
+            # Destination folder should now exist and contain an empty file
+            self.assertTrue(dst_folder.exists())
+            file_paths = [f.uri for f in dst_folder.files]
+            self.assertEqual(len(file_paths), 2)
+            self.assertIn(os.path.join(dst_folder_uri, "empty_file"), file_paths)
+            self.assertIn(os.path.join(dst_folder_uri, "abc.txt"), file_paths)
 
     def test_create_copy_and_delete_file(self):
         new_folder_uri = os.path.join(self.TEST_ROOT, "new_folder")
-        # Create a new empty folder
-        folder = StorageFolder(new_folder_uri).create()
-        self.assertTrue(folder.is_empty())
+        with TempFolder(new_folder_uri) as folder:
+            self.assertTrue(folder.is_empty())
 
-        # Create a sub folder inside the new folder
-        sub_folder_uri = os.path.join(new_folder_uri, "sub_folder")
-        logger.debug(sub_folder_uri)
-        sub_folder = StorageFolder(sub_folder_uri).create()
-        self.assertTrue(sub_folder.exists())
+            # Create a sub folder inside the new folder
+            sub_folder_uri = os.path.join(new_folder_uri, "sub_folder")
+            logger.debug(sub_folder_uri)
+            sub_folder = StorageFolder(sub_folder_uri).create()
+            self.assertTrue(sub_folder.exists())
 
-        # Copy an empty file
-        src_file_path = os.path.join(self.TEST_ROOT, "test_folder_0", "empty_file")
-        dst_file_path = os.path.join(new_folder_uri, "copied_file")
-        f = StorageFile(src_file_path)
-        f.copy(dst_file_path)
-        self.assertTrue(StorageFile(dst_file_path).exists())
+            # Copy an empty file
+            src_file_path = os.path.join(self.TEST_ROOT, "test_folder_0", "empty_file")
+            dst_file_path = os.path.join(new_folder_uri, "copied_file")
+            f = StorageFile(src_file_path)
+            f.copy(dst_file_path)
+            self.assertTrue(StorageFile(dst_file_path).exists())
 
-        # Copy a file with content and replace the empty file
-        src_file_path = os.path.join(self.TEST_ROOT, "test_folder_0", "abc.txt")
-        dst_file_path = os.path.join(new_folder_uri, "copied_file")
-        f = StorageFile(src_file_path)
-        f.copy(dst_file_path)
-        dst_file = StorageFile(dst_file_path)
-        self.assertTrue(dst_file.exists())
-        # Use the shortcut to read file, the content will be binary.
-        self.assertEqual(dst_file.read(), b"abc\ncba\n")
+            # Copy a file with content and replace the empty file
+            src_file_path = os.path.join(self.TEST_ROOT, "test_folder_0", "abc.txt")
+            dst_file_path = os.path.join(new_folder_uri, "copied_file")
+            f = StorageFile(src_file_path)
+            f.copy(dst_file_path)
+            dst_file = StorageFile(dst_file_path)
+            self.assertTrue(dst_file.exists())
+            # Use the shortcut to read file, the content will be binary.
+            self.assertEqual(dst_file.read(), b"abc\ncba\n")
 
-        # Empty the folder. This should delete file and sub folder only
-        folder.empty()
-        self.assertTrue(folder.exists())
-        self.assertTrue(folder.is_empty())
-        self.assertFalse(sub_folder.exists())
-        self.assertFalse(dst_file.exists())
-
-        # Delete the folder.
-        folder.delete()
-        self.assertFalse(folder.exists())
+            # Empty the folder. This should delete file and sub folder only
+            folder.empty()
+            self.assertTrue(folder.exists())
+            self.assertTrue(folder.is_empty())
+            self.assertFalse(sub_folder.exists())
+            self.assertFalse(dst_file.exists())
 
 
 class TestStorageGCP(TestStorage):
@@ -255,18 +262,46 @@ class TestStorageGCP(TestStorage):
 
     @classmethod
     def setUpClass(cls):
+        cls.CREDENTIALS = False
         # Google credentials are required for setting up the class.
         gs.setup_credentials("GOOGLE_CREDENTIALS", os.path.join(os.path.dirname(__file__), "gcp.json"))
         try:
             super().setUpClass()
-            cls.GCP_ACCESS = True
+            cls.CREDENTIALS = True
         except Exception as ex:
             print("%s: %s" % (type(ex), str(ex)))
             traceback.print_exc()
 
     def setUp(self):
         # Skip test if GCP_ACCESS is not True.
-        if not self.GCP_ACCESS:
+        if not self.CREDENTIALS:
             self.skipTest("GCP Credentials not found.")
+        super().setUp()
+        time.sleep(0.5)
+
+
+class TestStorageAWS(TestStorage):
+    SCHEME = "s3"
+    HOST = "davelab-test"
+    TEST_ROOT_PATH = "/storage_test"
+    TEST_ROOT = "%s://%s%s" % (SCHEME, HOST, TEST_ROOT_PATH)
+    test_folder = StorageFolder(TEST_ROOT)
+
+    @classmethod
+    def setUpClass(cls):
+        cls.CREDENTIALS = False
+        # AWS credentials are loaded from environment variable directly.
+        try:
+            super().setUpClass()
+            cls.CREDENTIALS = True
+        except Exception as ex:
+            print("%s: %s" % (type(ex), str(ex)))
+            traceback.print_exc()
+            raise ex
+
+    def setUp(self):
+        # Skip test if self.CREDENTIALS is not True.
+        if not self.CREDENTIALS:
+            self.skipTest("Credentials for %s not found." % self.__class__.__name__)
         super().setUp()
         time.sleep(0.5)
