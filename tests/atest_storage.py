@@ -1,4 +1,4 @@
-"""Contains tests for the storage module.
+"""Contains tests for the storage package.
 """
 import datetime
 import logging

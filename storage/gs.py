@@ -118,7 +118,7 @@ class GSObject(BucketStorageObject):
 
     @api_decorator
     def get_bucket(self):
-        self._bucket = self.client.get_bucket(self.bucket_name)
+        return self.client.get_bucket(self.bucket_name)
 
     @property
     def gs_path(self):
