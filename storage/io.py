@@ -568,7 +568,7 @@ class StorageFile(StorageObject, BufferedIOWrapper, BufferedIOBase):
         return self
 
     @staticmethod
-    def init(uri, mode='r'):
+    def init(uri, mode='r', **kwargs):
         """Initializes the StorageFile and open the underlying IO.
         This is a simplified version of StorageFile(uri).open(mode)
 
@@ -582,7 +582,7 @@ class StorageFile(StorageObject, BufferedIOWrapper, BufferedIOBase):
 
         """
         storage_file = StorageFile(uri)
-        storage_file.open(mode)
+        storage_file.open(mode, **kwargs)
         return storage_file
 
     @staticmethod
