@@ -1,9 +1,14 @@
 # Aries.storage: A Unified Storage Interface
-The Aries storage sub-package is intended to provide a unified interface for accessing files and folders. This enables us to read and write cloud storage (e.g. Google Cloud Bucket) like reading and writing local disks. It also includes object-oriented shortcuts for listing, copying, deleting files/folder.
 
-As cloud platforms getting closer to our daily lives, file storage means more than just the hard drive on local computer. However, there is no standard cloud storage interface for reading and writing file on the cloud. The methods depends on the APIs provided by different providers. Also, reading and writing files on the cloud are so different from reading and writing files on the local computer. We have to treat them differently in the code. This package enables us to access the files on the cloud using the same way we access the files on local computer. 
+_Read and write files on Google Cloud Storage and Amazon S3 as if they are on local computer_
 
-File access is achieved by implementing the `BufferedIOBase` interface for cloud storage. The `StorageFile.init(uri, mode)` method is designed to replace the built-in `open()` method. It returns a file-like object implementing the `BufferedIOBase` or `TextIOBase`, depending on the `mode`.
+The Aries storage sub-package provides a unified interface for accessing files and folders on local and cloud storage systems. The `StorageFile` class transform a file on cloud storage (e.g. Google Cloud Bucket) into a file-like object (stream). This enables us to read and write files on cloud storage like reading and writing on local disks. In addition, this package also includes high level APIs like copy, move and delete files and folders.
+
+## Motivation
+As cloud platforms getting closer to our daily lives, file storage means more than just the hard drive on local computer. However, there is no standard cloud storage interface for reading and writing file on the cloud. The methods depends on the APIs provided by different providers. Also, reading and writing files on the cloud are so different from reading and writing files on the local computer. We have to treat them differently in the code. This package solves the problem by providing a unified way to access local and cloud storage. The IO interface is also designed to be the same as the way we access files on local computer. With this package, the modification on existing code to support cloud storage can be reduced significantly.
+
+## Implementation
+Data access is provided through two classes: `Aries.storage.StorageFile` and `Aries.storage.StorageFolder`. Each of them wraps an underlying "raw (or raw_io)" class, which contains platform dependent implementation. The [Uniform Resource Identifier (URI))](https://en.wikipedia.org/wiki/Uniform_Resource_Identifier), e.g. `file:///var/text.txt` or `gs://bucket_name/text.txt`, is used to locate a file or folder. `StorageFile` and `StorageFolder` determine the underlying "raw" class automatically based on the scheme from the URI.
 
 Currently, the following schemes are implemented:
 * Local computer (`file://`)
@@ -11,9 +16,9 @@ Currently, the following schemes are implemented:
 * Amazon S3 Storage (`s3://`)
 
 ## The StorageFile Class
-StorageFile is a file-like object implementing the I/O stream interface with [BufferedIOBase and TextIOBase](https://docs.python.org/3/library/io.html#class-hierarchy). 
+StorageFile is a file-like object implementing the I/O stream interface with [BufferedIOBase and TextIOBase](https://docs.python.org/3/library/io.html#class-hierarchy). The static `StorageFile.init(uri, mode)` method is designed to replace the built-in `open()` method. It returns a file-like object implementing the `BufferedIOBase` or `TextIOBase`, depending on the `mode` for opening the file.
 
-Instead of using a file path to locate the file, the files are represented by [Uniform Resource Identifier (URI))](https://en.wikipedia.org/wiki/Uniform_Resource_Identifier), e.g. `file://var/text.txt` or `gs://bucket_name/text.txt`. A `StorageFile` subclass object can be initialized by
+A `StorageFile` subclass object can be initialized by
 ```
 from Aries.storage import StorageFile
 
@@ -24,8 +29,8 @@ f = StorageFile(uri)
 ```
 `StorageFile()` automatically determines the storage type by the scheme in the URI. For local file, URI can also be `/var/text.txt` without the scheme.
 
-Initializing the `StorageFile` does NOT open the file.
-The instance will have:
+However, initializing the `StorageFile` does NOT open the file.
+The `StorageFile` object will have:
 * `open()` and `close()` for opening and closing the file for read/write
 * `exists()` for determining whether the file exists.
 
@@ -59,9 +64,15 @@ The `init()` and `open()` methods supports the same arguments as the Python buil
 
 ## High-Level APIs
 The `StorageFile` class also supports high-level operations, including:
-* copy(), for copying the file to another location, e.g. `StorageFile('/path/to/file.txt').copy('gs://bucket_name/path/to/file.txt')`
-* move(), for moving the file, e.g. `StorageFile('/path/to/file.txt').move('gs://bucket_name/path/to/file.txt')`
-* delete(), for deleting the file, e.g. `StorageFile('/path/to/file.txt').delete()`.
+* `copy()`, for copying the file to another location, e.g. `StorageFile('/path/to/file.txt').copy('gs://bucket_name/path/to/file.txt')`
+* `move()`, for moving the file, e.g. `StorageFile('/path/to/file.txt').move('s3://bucket_name/path/to/file.txt')`
+* `delete()`, for deleting the file, e.g. `StorageFile('/path/to/file.txt').delete()`.
+
+The `copy()` and `move()` methods also support cross-platform operations. For example: 
+```
+# Move a file from local computer to Google cloud storage.
+StorageFile('/path/to/file.txt').move('gs://bucket_name/path/to/file.txt')
+```
 
 ## The StorageFolder Class
 The `StorageFolder` class provides the same high level APIs as the `StorageFile` class, as well as shortcuts for listing the files in a folder.

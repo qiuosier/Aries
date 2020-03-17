@@ -1,4 +1,4 @@
-"""Provides unified high level IO interface for accessing folders and files.
+"""Provides unified IO and high level API for accessing folders and files.
 """
 import os
 import json
@@ -8,7 +8,6 @@ import inspect
 import traceback
 from io import SEEK_SET, DEFAULT_BUFFER_SIZE, UnsupportedOperation
 from io import BufferedIOBase, BufferedRandom, BufferedReader, BufferedWriter, TextIOWrapper
-from tempfile import NamedTemporaryFile
 from .base import StorageObject, StorageFolderBase
 from . import gs, file, web, s3
 logger = logging.getLogger(__name__)
@@ -16,10 +15,11 @@ logger = logging.getLogger(__name__)
 
 class StorageFolder(StorageFolderBase):
     """Represents a storage folder.
+    The StorageFolder class wraps an underlying raw class, which contains platform dependent implementation.
     The path of a StorageFolder will always end with "/"
 
     """
-
+    # Maps the scheme to the underlying raw class.
     registry = {
         "file": file.LocalFolder,
         "gs": gs.GSFolder,
@@ -27,6 +27,22 @@ class StorageFolder(StorageFolderBase):
     }
 
     def __init__(self, uri):
+        """Initializes a StorageFolder.
+
+        Args:
+            uri: URI of the folder.
+                The "file://" scheme will be used for local paths.
+                A tailing slash "/" will be added to the path automatically.
+
+        Examples:
+            StorageFolder("gs://bucket_name/path/to/folder")
+            StorageFolder("gs://bucket_name/path/to/folder/")
+            StorageFolder("/path/to/local/folder")
+
+        Raises:
+            NotImplementedError: If there is no implementation for the scheme.
+
+        """
         super(StorageFolder, self).__init__(uri)
         raw_class = self.registry.get(self.scheme)
         if not raw_class:
@@ -35,7 +51,7 @@ class StorageFolder(StorageFolderBase):
 
     @staticmethod
     def init(uri):
-        """
+        """Static method for initializing StorageFolder.
         """
         return StorageFolder(uri)
 
@@ -88,7 +104,7 @@ class StorageFolder(StorageFolderBase):
 
     def create(self):
         """Creates a new folder.
-        There should be no error if the folder already exists.
+        There will be no error if the folder already exists.
         """
         self.raw.create()
         return self
