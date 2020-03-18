@@ -4,6 +4,8 @@ import os
 import json
 import tempfile
 import logging
+import re
+from urllib.parse import urlparse
 from shutil import copyfile, copyfileobj
 from .strings import FileName
 
@@ -151,15 +153,38 @@ class File:
 class Markdown:
     """Represents a Markdown file.
     """
-    def __init__(self, file_path):
+
+    # A list of regex patterns for links,
+    # If there is a match, group(1) must be the url
+    link_patterns = [
+        # Inline link
+        r"\[.+\]\((\S+)( [\"\'\(].+[\"\'\)])?\)",
+        # HTML link
+        r"<a .*?[\n]?.*?href=[\"\'](.+?)[\"\'].*?[\n]?.*?>.*?[\n]?.*?</a>",
+        # Reference link with title in a new line
+        r"\[.+\]:[ \t]*(\S+)\s*([\"\'\(].+[\"\'\)])",
+        # Reference link
+        r"\[.+\]:[ \t]*(\S+)[ \t]*([\"\'\(].+[\"\'\)])?",
+    ]
+
+    def __init__(self, file_path=None):
         """Initialize a Markdown object
         
         Args:
             file_path (str): File path of a Markdown(.md) file.
         """
         self.file_path = file_path
+        if not self.file_path:
+            self.text = None
+            return
         with open(self.file_path) as f:
             self.text = f.read()
+
+    @staticmethod
+    def from_text(s):
+        md = Markdown()
+        md.text = s
+        return md
 
     @property
     def title(self):
@@ -170,6 +195,46 @@ class Markdown:
             if line.startswith("#"):
                 return line.strip("#").strip("\n").strip()
         return ""
+
+    def find_links(self):
+        """Finds all links in the markdown.
+
+        Returns: A list of 2-tuples. In each tuple,
+            The first element is the string matching a link pattern
+            The second element is the link URL
+
+        """
+        patterns = "|".join(["(%s)" % pattern for pattern in self.link_patterns])
+        match_iter = re.finditer(patterns, self.text)
+        matches = list(match_iter)
+        match_list = []
+        for match in matches:
+            groups = [element for element in match.groups() if element is not None]
+            logger.debug(groups)
+            if len(groups) > 1:
+                match_list.append((groups[0], groups[1]))
+            else:
+                match_list.append((groups[0], None))
+        return match_list
+
+    def make_links_absolute(self, base_url):
+        """Converts all links in the file to absolute links.
+
+        Returns:
+
+        """
+        replace_dict = {}
+        links = self.find_links()
+        for link in links:
+            text = link[0]
+            url = link[1]
+            result = urlparse(url)
+            if not result.scheme:
+                abs_url = os.path.normpath(os.path.join(base_url, url))
+                replace_dict[text] = text.replace(url, abs_url)
+        for key, val in replace_dict.items():
+            self.text = re.sub(re.escape(key), re.escape(val), self.text, 1)
+        return self.text
 
 
 class TemporaryFile:
