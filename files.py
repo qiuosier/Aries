@@ -5,7 +5,7 @@ import json
 import tempfile
 import logging
 import re
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 from shutil import copyfile, copyfileobj
 from .strings import FileName
 
@@ -230,10 +230,10 @@ class Markdown:
             url = link[1]
             result = urlparse(url)
             if not result.scheme:
-                abs_url = os.path.normpath(os.path.join(base_url, url))
+                abs_url = urljoin(base_url, url)
                 replace_dict[text] = text.replace(url, abs_url)
         for key, val in replace_dict.items():
-            self.text = re.sub(re.escape(key), re.escape(val), self.text, 1)
+            self.text = re.sub(re.escape(key), val, self.text, 1)
         return self.text
 
 
