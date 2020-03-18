@@ -1,3 +1,9 @@
+"""Build Script for setuptools
+
+This build script must be executed outside of the Aries directory.
+
+See Also: https://packaging.python.org/tutorials/packaging-projects/
+"""
 import setuptools
 import os
 from Aries.files import Markdown
@@ -6,11 +12,12 @@ with open("Aries/README.md", "r") as fh:
     long_description = fh.read()
     long_description = Markdown.from_text(long_description).make_links_absolute("https://github.com/qiuosier/Aries/blob/master/")
 
-version = os.popen('cd Aries && git rev-list --count master').read()
+release_version = os.popen('cd Aries && git tag | tail -1').read()
+commit_version = os.popen('cd Aries && git rev-list --count master').read()
 
 setuptools.setup(
     name="Astrology-Aries",
-    version="0.0.1.dev%s" % version,
+    version="%s%s" % (release_version, commit_version),
     author="Qiu Qin",
     author_email="qiuosier@gmail.com",
     description="Python package providing shortcuts to tasks like "
@@ -24,5 +31,5 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.6',
+    python_requires='>=3.7',
 )
