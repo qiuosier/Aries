@@ -4,9 +4,9 @@
 name: Upload Python Package
 
 on:
-  push:
-      branches:
-        - github-action
+  release:
+      types:
+        - created
 
 jobs:
   deploy:
@@ -28,6 +28,8 @@ jobs:
       env:
         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
         TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+      # Move setup.py out of Aries
+      # Build and publish the package outside of Aries.
       run: |
         mv setup.py ../
         cd ..
