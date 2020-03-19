@@ -60,10 +60,6 @@ class StorageFolder(StorageFolderBase):
         return self.__get_raw_attr("bucket_name", raise_error=True)
 
     @property
-    def blobs(self):
-        return self.__get_raw_attr("blobs", raise_error=True)
-
-    @property
     def files(self):
         """
 
@@ -80,6 +76,25 @@ class StorageFolder(StorageFolderBase):
 
         """
         return [StorageFolder(f) for f in self.folder_paths]
+
+    @property
+    def objects(self):
+        """The objects in the folders
+
+        Warnings:
+            This property is likely to be modified in the future.
+            At this moment, the return type depends on the implementation of the underlying raw class.
+        """
+        # TODO: Return StorageFile and/or StorageFolder?
+        try:
+            return self.raw.objects
+        except (AttributeError, UnsupportedOperation):
+            pass
+
+        object_list = self.files
+        for folder in self.folders:
+            object_list.extend(folder.objects)
+        return object_list
 
     @property
     def file_names(self):
@@ -125,7 +140,7 @@ class StorageFolder(StorageFolderBase):
         dest = StorageObject(to)
         if dest.scheme == self.scheme:
             try:
-                return self.raw.copy(to)
+                return self.raw.copy(to, contents_only=contents_only)
             except (AttributeError, UnsupportedOperation):
                 pass
         # Download the files using copy()

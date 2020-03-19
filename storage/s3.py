@@ -32,6 +32,9 @@ class S3Object(BucketStorageObject):
         return s3.Object(self.bucket_name, self.prefix)
 
     @property
+    def objects(self):
+        return self.blobs()
+
     def blobs(self, delimiter=None):
         return list(self.bucket.objects.filter(Prefix=self.prefix, Delimiter=delimiter))
 

@@ -142,6 +142,10 @@ class GSObject(BucketStorageObject):
         """
         return list(self.bucket.list_blobs(prefix=self.prefix, delimiter=delimiter))
 
+    @property
+    def objects(self):
+        return self.blobs()
+
     def list_files(self, delimiter=None):
         """Gets all files with the prefix as GSFile objects
 
@@ -332,7 +336,7 @@ class GSObject(BucketStorageObject):
                 # If the destination does not end with "/",
                 # simply replace the prefix.
                 pass
-
+        logger.debug("Copying files to %s" % to)
         source_files = self.blobs()
         if not source_files:
             logger.debug("No files in %s" % self.uri)

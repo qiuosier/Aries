@@ -36,7 +36,8 @@ class TestGCStorage(AriesTest):
             cls.GCP_ACCESS = True
 
             # Removes test folder if it is already there
-            StorageFolder.init("gs://aries_test/copy_test/").delete()
+            StorageFolder("gs://aries_test/copy_test/").delete()
+            StorageFile("gs://aries_test/copy_test").delete()
             StorageFile("gs://aries_test/abc.txt").delete()
             StorageFile("gs://aries_test/new_file.txt").delete()
             StorageFile("gs://aries_test/moved_file.txt").delete()
@@ -97,7 +98,7 @@ class TestGCStorage(AriesTest):
         self.assertEqual(folders[0].uri, "gs://aries_test/test_folder/")
         # Test listing the files
         files = parent.files
-        self.assertEqual(len(files), 2)
+        self.assertEqual(len(files), 2, files)
         for file in files:
             self.assertTrue(isinstance(file, StorageFile), "Type: %s" % type(file))
             self.assertIn(file.uri, [
@@ -179,6 +180,11 @@ class TestGCStorage(AriesTest):
         self.assertEqual(gs_file_null.read(), b"abc")
         gs_file_null.delete()
 
+    def assert_object_counts(self, storage_folder, file_count, folder_count, object_count):
+        self.assertEqual(len(storage_folder.files), file_count, storage_folder.files)
+        self.assertEqual(len(storage_folder.folders), folder_count, storage_folder.folders)
+        self.assertEqual(len(storage_folder.objects), object_count, [b.name for b in storage_folder.objects])
+
     def test_copy_and_delete_folder(self):
         source_path = "gs://aries_test/test_folder/"
         # Destination path ends with "/", the original folder name will be preserved.
@@ -186,9 +192,7 @@ class TestGCStorage(AriesTest):
         folder = StorageFolder(source_path)
         folder.copy(dest_path)
         copied = StorageFolder(dest_path)
-        self.assertEqual(len(copied.files), 0)
-        self.assertEqual(len(copied.folders), 1)
-        self.assertEqual(len(copied.blobs()), 4, [b.name for b in copied.blobs()])
+        self.assert_object_counts(copied, 0, 1, 4)
         self.assertEqual(copied.folder_names[0], "test_folder")
         # Delete the copied files
         copied.delete()
@@ -197,56 +201,56 @@ class TestGCStorage(AriesTest):
 
         # Copy contents only.
         dest_path = "gs://aries_test/copy_test/new_name"
-        folder = StorageFolder(source_path)
-        folder.copy(dest_path, contents_only=True)
         copied = StorageFolder(dest_path)
-        self.assertEqual(len(copied.files), 1)
-        self.assertEqual(len(copied.folders), 1)
-        self.assertEqual(len(copied.blobs()), 4, [b.name for b in copied.blobs()])
-        self.assertEqual(copied.folder_names[0], "test_subfolder")
-        # Delete the copied files
-        StorageFolder("gs://aries_test/copy_test/").delete()
+        try:
+            folder = StorageFolder(source_path)
+            folder.copy(dest_path, contents_only=True)
+            logger.debug(copied.objects)
+            self.assert_object_counts(copied, 1, 1, 4)
+            self.assertEqual(copied.folder_names[0], "test_subfolder")
+        finally:
+            # Delete the copied files
+            StorageFolder("gs://aries_test/copy_test/").delete()
 
     def test_copy_and_delete_prefix(self):
         # Copy a set of objects using the prefix
         source_path = "gs://aries_test/test_folder"
-        dest_path = "gs://aries_test/copy_test"
+        dest_path = "gs://aries_test/copy_test/"
         objects = gs.GSObject(source_path)
-        objects.copy(dest_path)
-        copied = StorageFolder(dest_path)
-        self.assertEqual(len(copied.files), 1)
-        self.assertEqual(len(copied.folders), 1)
-        self.assertEqual(len(copied.blobs()), 5, [b.name for b in copied.blobs()])
-        self.assertEqual(copied.folder_names[0], "test_folder")
-        # Delete the copied files
-        StorageFolder("gs://aries_test/copy_test/").delete()
+        try:
+            objects.copy(dest_path)
+            copied = StorageFolder(dest_path)
+            self.assert_object_counts(copied, 1, 1, 5)
+            self.assertEqual(copied.folder_names[0], "test_folder")
+        finally:
+            # Delete the copied files
+            StorageFolder("gs://aries_test/copy_test/").delete()
 
     def test_copy_to_root_and_delete(self):
         # Source without "/"
         source_path = "gs://aries_test/test_folder/test_subfolder"
         # Destination is the bucket root, whether it ends with "/" does not matter.
         dest_path = "gs://aries_test"
-        folder = StorageFolder(source_path)
-        folder.copy(dest_path)
-        copied = StorageFolder("gs://aries_test/test_subfolder/")
-        self.assertEqual(len(copied.files), 1)
-        self.assertEqual(len(copied.folders), 0)
-        self.assertEqual(len(copied.blobs()), 2, [b.name for b in copied.blobs()])
-        self.assertEqual(copied.file_names[0], "file_in_subfolder.txt")
-        # Delete the copied files
-        StorageFolder("gs://aries_test/test_subfolder/").delete()
-        # With "/"
-        source_path = "gs://aries_test/test_folder/test_subfolder"
-        dest_path = "gs://aries_test/"
-        folder = StorageFolder(source_path)
-        folder.copy(dest_path)
-        copied = StorageFolder("gs://aries_test/test_subfolder/")
-        self.assertEqual(len(copied.files), 1)
-        self.assertEqual(len(copied.folders), 0)
-        self.assertEqual(len(copied.blobs()), 2, [b.name for b in copied.blobs()])
-        self.assertEqual(copied.file_names[0], "file_in_subfolder.txt")
-        # Delete the copied files
-        StorageFolder("gs://aries_test/test_subfolder/").delete()
+
+        try:
+            folder = StorageFolder(source_path)
+            folder.copy(dest_path)
+            copied = StorageFolder("gs://aries_test/test_subfolder/")
+            self.assert_object_counts(copied, 1, 0, 2)
+            self.assertEqual(copied.file_names[0], "file_in_subfolder.txt")
+            # Delete the copied files
+            StorageFolder("gs://aries_test/test_subfolder/").delete()
+            # With "/"
+            source_path = "gs://aries_test/test_folder/test_subfolder"
+            dest_path = "gs://aries_test/"
+            folder = StorageFolder(source_path)
+            folder.copy(dest_path)
+            copied = StorageFolder("gs://aries_test/test_subfolder/")
+            self.assert_object_counts(copied, 1, 0, 2)
+            self.assertEqual(copied.file_names[0], "file_in_subfolder.txt")
+        finally:
+            # Delete the copied files
+            StorageFolder("gs://aries_test/test_subfolder/").delete()
 
     def test_upload_from_file(self):
         gs_file = StorageFile("gs://aries_test/local_upload.txt")

@@ -194,11 +194,15 @@ class StorageFolderBase(StorageObject):
     def create(self):
         raise NotImplementedError()
 
-    def copy(self, to, contents_only=False):
-        raise UnsupportedOperation()
-
     def delete(self):
         raise NotImplementedError()
+
+    @property
+    def objects(self):
+        raise UnsupportedOperation()
+
+    def copy(self, to, contents_only=False):
+        raise UnsupportedOperation()
 
 
 class StorageIOBase(StorageObject, RawIOBase):
