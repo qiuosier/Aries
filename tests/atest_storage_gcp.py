@@ -195,10 +195,10 @@ class TestGCStorage(AriesTest):
         self.assertEqual(len(copied.files), 0)
         self.assertEqual(len(copied.folders), 0)
 
-        # Destination path does not end with "/", the original folder will be renamed.
+        # Copy contents only.
         dest_path = "gs://aries_test/copy_test/new_name"
         folder = StorageFolder(source_path)
-        folder.copy(dest_path)
+        folder.copy(dest_path, contents_only=True)
         copied = StorageFolder(dest_path)
         self.assertEqual(len(copied.files), 1)
         self.assertEqual(len(copied.folders), 1)
@@ -210,7 +210,7 @@ class TestGCStorage(AriesTest):
     def test_copy_and_delete_prefix(self):
         # Copy a set of objects using the prefix
         source_path = "gs://aries_test/test_folder"
-        dest_path = "gs://aries_test/copy_test/"
+        dest_path = "gs://aries_test/copy_test"
         objects = gs.GSObject(source_path)
         objects.copy(dest_path)
         copied = StorageFolder(dest_path)
