@@ -29,6 +29,13 @@ class StorageObject:
         self.hostname = parse_result.hostname
         self.path = parse_result.path
         self.scheme = parse_result.scheme
+
+        # The "prefix" for does not include the beginning "/"
+        if self.path.startswith("/"):
+            self.prefix = self.path[1:]
+        else:
+            self.prefix = self.path
+
         # Use file as scheme if one is not in the URI
         if not self.scheme:
             self.scheme = 'file'
@@ -113,20 +120,11 @@ class StorageObject:
 
 class BucketStorageObject(StorageObject):
     """Represents a cloud storage object associated with a bucket.
-
-    Attributes:
-        prefix: The path on the bucket without the beginning "/"
-
     """
     def __init__(self, uri):
         StorageObject.__init__(self, uri)
         self._client = None
         self._bucket = None
-        # The "prefix" for gcs does not include the beginning "/"
-        if self.path.startswith("/"):
-            self.prefix = self.path[1:]
-        else:
-            self.prefix = self.path
         self._blob = None
 
     @property
@@ -196,7 +194,7 @@ class StorageFolderBase(StorageObject):
     def create(self):
         raise NotImplementedError()
 
-    def copy(self, to):
+    def copy(self, to, contents_only=False):
         raise UnsupportedOperation()
 
     def delete(self):
@@ -229,7 +227,7 @@ class StorageIOBase(StorageObject, RawIOBase):
 
     Optionally, the following methods can be implemented
         to speed up the corresponding high-level operations.
-        copy()
+        copy(), if a sub-class implements copy(), it should create the destination folder automatically when needed.
         local()
         upload()
         download()
@@ -653,6 +651,3 @@ class CloudStorageIO(StorageIOSeekable):
         """Reads bytes from position start to position end, inclusive
         """
         raise NotImplementedError()
-
-
-

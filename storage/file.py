@@ -37,28 +37,28 @@ class LocalFolder(StorageFolderBase):
             os.makedirs(self.path)
         return self
 
-    def copy(self, to):
+    def copy(self, to, contents_only=False):
         """Copies a folder and the files/folders in it.
 
         Args:
             to (str): The destination path.
-            If the path ends with "/", e.g. "/var/folder_name/",
-                the folder will be copied UNDER the destination folder with the original name.
-                e.g. "/var/folder_name/ORIGINAL_NAME"
-            If the path does not end with "/", e.g. "/var/folder_name",
-                the folder will be copied and renamed to "folder_name".
+            contents_only: Copies only the content of the folder.
+                Defaults to False, i.e. a folder (with the same name as this folder)
+                will be created at the destination to contain the files.
         """
-        if to.endswith("/"):
+        if not contents_only:
             to += self.basename
         logger.debug("Copying files from %s to %s" % (self.path, to))
         # Copy the files recursively
-        # copytree is not used here as it raises permission denied error in some python version.
+        # copytree is not used here as it raises permission denied error in some python versions.
         local_path = LocalFolder(to).path
+        # Create the folder if it does not exist
         if not os.path.exists(local_path):
             logger.debug("Creating new folder: %s" % local_path)
             os.makedirs(local_path)
         for file_path in self.file_paths:
             logger.debug("Copying %s" % file_path)
+            # Copy the file into the directory
             shutil.copy(file_path, local_path)
 
         for folder_path in self.folder_paths:

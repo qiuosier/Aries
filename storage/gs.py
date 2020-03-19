@@ -229,31 +229,84 @@ class GSObject(BucketStorageObject):
             blob.upload_from_string("")
         return blob
 
-    def copy_blob(self, blob, destination):
+    def copy_blob(self, blob, to):
+        """Copies a blob object in the bucket to a new location.
+
+        Args:
+            blob: A Google Cloud Storage Blob object in the bucket.
+            to: URI of the new blob (gs://...).
+
+        Returns: True if the blob is copied. Otherwise False.
+
+        """
+        destination = GSObject(to)
         new_name = str(blob.name).replace(self.prefix, destination.prefix, 1)
         if new_name != str(blob.name) or self.bucket_name != destination.bucket_name:
             self.bucket.copy_blob(blob, destination.bucket, new_name)
+            return True
+        return False
 
     @api_decorator
-    def copy(self, to):
+    def copy(self, to, contents_only=False):
         """Copies folder/file in a Google Cloud storage directory to another one.
 
         Args:
             to (str): Destination Google Cloud Storage path.
-            If the path ends with "/", e.g. "gs://bucket_name/folder_name/",
-                the folder/file will be copied under the destination folder with the original name.
-            If the path does not end with "/", e.g. "gs://bucket_name/new_name",
-                the folder/file will be copied and renamed to the "new_name".
+            contents_only: Copies only the content of the folder. This applies only if the GSObject is a folder.
+                Defaults to False, i.e. a folder (with the same name as this folder)
+                will be created at the destination to contain the files.
 
-        Returns: None
+        Returns: The number of files copied.
+
+        Warnings:
+            When the URI of GSObject ends with "/", i.e. it is a folder,
+                use "contents_only" to indicate if a new folder should be created to contain all files copied.
+            When the GSObject is a file or a set of filtered files with the same prefix:
+                If to ends with slash ("/"), all files will be copied under the "to" folder.
+                    folders partially in the prefix will be kept.
+                If to does NOT end with slash, the prefix of all files will simply be replaced with the prefix in "to".
+                See the following examples for more details.
 
         Example:
-            GSFolder("gs://bucket_a/a/b/c/").copy("gs://bucket_b/x/y/z") will copy the following files
-                gs://bucket_a/a/b/c/d/example.txt
-                gs://bucket_a/a/b/c/example.txt
+            Either
+                GSFolder("gs://bucket_a/alpha/beta/").copy("gs://bucket_b/x/y")
+            or
+                GSFolder("gs://bucket_a/alpha/beta/").copy("gs://bucket_b/x/y/")
+            will copy the following files:
+                gs://bucket_a/alpha/beta/gamma/example.txt
+                gs://bucket_a/alpha/beta/example.txt
             to
-                gs://bucket_b/x/y/z/d/example.txt
-                gs://bucket_b/x/y/z/example.txt
+                gs://bucket_b/x/y/beta/gamma/example.txt
+                gs://bucket_b/x/y/beta/example.txt
+
+            Either
+                GSFolder("gs://bucket_a/alpha/beta/").copy("gs://bucket_b/x/y", contents_only=True)
+            or
+                GSFolder("gs://bucket_a/alpha/beta/").copy("gs://bucket_b/x/y/", contents_only=True)
+            will copy the following files:
+                gs://bucket_a/alpha/beta/gamma/example.txt
+                gs://bucket_a/alpha/beta/example.txt
+            to
+                gs://bucket_b/x/y/gamma/example.txt
+                gs://bucket_b/x/y/example.txt
+
+            Also
+                GSFolder("gs://bucket_a/alpha/be").copy("gs://bucket_b/x/y/")
+            will copy the following files:
+                gs://bucket_a/alpha/beta/gamma/example.txt
+                gs://bucket_a/alpha/beta/example.txt
+            to
+                gs://bucket_b/x/y/beta/gamma/example.txt
+                gs://bucket_b/x/y/beta/example.txt
+
+            However
+                GSFolder("gs://bucket_a/alpha/be").copy("gs://bucket_b/x/y")
+            will copy the following files:
+                gs://bucket_a/alpha/beta/gamma/example.txt
+                gs://bucket_a/alpha/beta/example.txt
+            to
+                gs://bucket_b/x/yta/gamma/example.txt
+                gs://bucket_b/x/yta/example.txt
 
         """
         # Check if the destination is a bucket root.
@@ -264,16 +317,13 @@ class GSObject(BucketStorageObject):
 
         if self.prefix.endswith("/"):
             # The source is a folder if its prefix ends with "/"
-            if to.endswith("/"):
-                # If the destination ends with "/",
-                # copy the folder under the destination
-                to += self.name + "/"
-            else:
-                # If the destination does not end with "/",
-                # rename the folder.
+            if contents_only:
                 to += "/"
+            else:
+                # Copy the contents into a folder with the same name.
+                to = os.path.join(to, self.name) + "/"
         else:
-            # Otherwise, it can be a file or an object or a set of filtered objects.
+            # Otherwise, it can be a file or an object or a set of filtered objects or a folder.
             if to.endswith("/"):
                 # If the destination ends with "/",
                 # copy all objects under the destination
@@ -283,14 +333,13 @@ class GSObject(BucketStorageObject):
                 # simply replace the prefix.
                 pass
 
-        destination = GSObject(to)
-
         source_files = self.blobs()
         if not source_files:
             logger.debug("No files in %s" % self.uri)
-            return
-        counter = self.batch_operation(self.copy_blob, destination)
+            return 0
+        counter = self.batch_operation(self.copy_blob, to)
         logger.debug("%d files copied." % counter)
+        return counter
 
 
 class GSFolder(GSObject, StorageFolderBase):
