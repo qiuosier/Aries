@@ -143,9 +143,9 @@ class S3File(S3Object, CloudStorageIO):
 
     @property
     def md5_hex(self):
-        e_tag = self.blob.e_tag
+        e_tag = str(self.blob.e_tag)
         if len(e_tag) > 2:
-            return e_tag[1:-1]
+            return e_tag.strip("\"")
         return None
 
     def get_size(self):
