@@ -17,6 +17,8 @@ import os
 import logging
 import warnings
 import tempfile
+import base64
+import binascii
 from functools import wraps
 from google.cloud import storage
 from google.cloud.exceptions import ServerError
@@ -453,6 +455,10 @@ class GSFile(GSObject, CloudStorageIO):
     @property
     def updated_time(self):
         return self.blob.updated
+
+    @property
+    def md5_hex(self):
+        return binascii.hexlify(base64.urlsafe_b64decode(self.blob.md5_hash)).decode()
 
     def get_size(self):
         return self.blob.size

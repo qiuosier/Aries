@@ -380,6 +380,10 @@ class StorageIOBase(StorageObject, RawIOBase):
         return None
 
     @property
+    def md5_hex(self):
+        return None
+
+    @property
     def updated_time(self):
         """Last updated/modified time of the file as a datetime object.
         """

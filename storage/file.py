@@ -2,6 +2,7 @@ import os
 import shutil
 import logging
 import datetime
+import hashlib
 from io import FileIO, SEEK_SET
 from .base import StorageIOSeekable, StorageFolderBase
 logger = logging.getLogger(__name__)
@@ -115,6 +116,14 @@ class LocalFile(StorageIOSeekable):
         if self.exists():
             return os.path.getsize(self.path)
         return None
+
+    @property
+    def md5_hex(self):
+        hash_md5 = hashlib.md5()
+        with open(self.path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_md5.update(chunk)
+        return hash_md5.hexdigest()
 
     @property
     def updated_time(self):

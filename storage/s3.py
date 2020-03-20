@@ -141,6 +141,13 @@ class S3File(S3Object, CloudStorageIO):
     def updated_time(self):
         return self.blob.last_modified
 
+    @property
+    def md5_hex(self):
+        e_tag = self.blob.e_tag
+        if len(e_tag) > 2:
+            return e_tag[1:-1]
+        return None
+
     def get_size(self):
         return self.blob.content_length
 

@@ -649,9 +649,11 @@ class StorageFile(StorageObject, BufferedIOWrapper, BufferedIOBase):
         return None
 
     @property
-    def md5(self):
-        # TODO: This is not implemented.
-        return None
+    def md5_hex(self):
+        """MD5 hex of the file content
+        None will be returned if MD5 is not available.
+        """
+        return self.raw.md5_hex
 
     @property
     def blob(self):
