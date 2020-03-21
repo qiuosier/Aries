@@ -170,7 +170,7 @@ class GSObject(BucketStorageObject):
             for p in iterator.prefixes
         ]
 
-    @api_decorator
+    # @api_decorator
     def batch_request(self, blobs, method, *args, **kwargs):
         """Sends a batch request to run method of a batch of blobs.
         The "method" will be applied to each blob in blobs like method(blob, *args, **kwargs)
@@ -193,6 +193,7 @@ class GSObject(BucketStorageObject):
                 counter += 1
         return counter
 
+    # @api_decorator
     def batch_operation(self, method, *args, **kwargs):
         blobs = self.blobs()
         batch = []
@@ -338,7 +339,7 @@ class GSObject(BucketStorageObject):
                 # If the destination does not end with "/",
                 # simply replace the prefix.
                 pass
-        logger.debug("Copying files to %s" % to)
+        # logger.debug("Copying files to %s" % to)
         source_files = self.blobs()
         if not source_files:
             logger.debug("No files in %s" % self.uri)

@@ -136,7 +136,7 @@ class StorageFolder(StorageFolderBase):
         Returns:
 
         """
-        logger.debug("Copying files from %s to %s" % (self.path, to))
+        logger.debug("Copying files from %s to %s" % (self.uri, to))
         dest = StorageObject(to)
         if dest.scheme == self.scheme:
             try:
