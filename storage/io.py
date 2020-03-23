@@ -66,6 +66,10 @@ class StorageFolder(StorageFolderBase):
         Returns: A list of StorageFiles in the folder.
 
         """
+        try:
+            return self.raw.files
+        except AttributeError:
+            pass
         return [StorageFile(f) for f in self.file_paths]
 
     @property

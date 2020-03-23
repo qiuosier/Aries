@@ -14,14 +14,6 @@ class LocalFolder(StorageFolderBase):
         return True if os.path.exists(self.path) else False
 
     @property
-    def files(self):
-        return self.file_paths
-
-    @property
-    def folders(self):
-        return self.folder_paths
-
-    @property
     def object_paths(self):
         return [os.path.join(self.path, f) for f in os.listdir(self.path)]
 

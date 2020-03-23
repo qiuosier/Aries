@@ -66,7 +66,7 @@ def api_call(func=None, *args, **kwargs):
         return FunctionTask(func, *args, **kwargs).run_and_retry(
             max_retry=3,
             exceptions=ServerError,
-            base_interval=20,
+            base_interval=60,
             retry_pattern='linear'
         )
 
@@ -373,6 +373,18 @@ class GSFolder(GSObject, StorageFolderBase):
 
     def exists(self):
         return True if self.blob.exists() or self.file_paths or self.folder_paths else False
+
+    @property
+    def files(self):
+        from .io import StorageFile
+        storage_files = []
+        for b in self.blobs("/"):
+            if b.name.endswith("/"):
+                continue
+            storage_file = StorageFile("gs://%s/%s" % (self.bucket_name, b.name))
+            storage_file.raw_io._blob = b
+            storage_files.append(storage_file)
+        return storage_files
 
     @property
     def folder_paths(self):
