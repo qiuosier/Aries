@@ -395,11 +395,10 @@ class GSFolder(GSObject, StorageFolderBase):
         paths = self.__file_paths()
         return paths
 
-    @api_decorator
     def __file_paths(self):
         return [
             "gs://%s/%s" % (self.bucket_name, b.name)
-            for b in self.bucket.list_blobs(prefix=self.prefix, delimiter='/')
+            for b in self.blobs("/")
             if not b.name.endswith("/")
         ]
 
