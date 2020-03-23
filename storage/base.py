@@ -2,6 +2,7 @@
 """
 import os
 import logging
+import datetime
 from io import FileIO
 from tempfile import NamedTemporaryFile
 from urllib.parse import urlparse
@@ -121,11 +122,43 @@ class StorageObject:
 class BucketStorageObject(StorageObject):
     """Represents a cloud storage object associated with a bucket.
     """
+    # Caches clients for each scheme
+    cache_dict = dict()
+    # Expiration time for each client
+    cache_expire = dict()
+
+    # The number of seconds before the client expires.
+    CACHE_EXPIRE_SEC = 1200
+
     def __init__(self, uri):
         StorageObject.__init__(self, uri)
         self._client = None
         self._bucket = None
         self._blob = None
+
+    @classmethod
+    def get_cached(cls, obj_id, init_method):
+        """Gets an unexpired object by obj_id from cache, creates one using init_method() if needed.
+        """
+        cached_obj = cls.cache_dict.get(obj_id)
+        now = datetime.datetime.now()
+        if cached_obj:
+            client_expire = cls.cache_expire.get(obj_id)
+            # Use the cached client if it is not expired.
+            if client_expire and client_expire > now:
+                return cached_obj
+        obj = init_method()
+        cls.cache_dict[obj_id] = obj
+        cls.cache_expire[obj_id] = now + datetime.timedelta(seconds=cls.CACHE_EXPIRE_SEC)
+        return obj
+
+    def get_client(self):
+        obj_id = self.scheme
+        return self.get_cached(obj_id, self.init_client)
+
+    def get_bucket(self):
+        obj_id = "%s://%s" % (self.scheme, self.bucket_name)
+        return self.get_cached(obj_id, self.init_bucket)
 
     @property
     def bucket_name(self):
@@ -135,7 +168,7 @@ class BucketStorageObject(StorageObject):
     @property
     def client(self):
         if not self._client:
-            self._client = self.init_client()
+            self._client = self.get_client()
         return self._client
 
     @property
@@ -143,6 +176,9 @@ class BucketStorageObject(StorageObject):
         if not self._bucket:
             self._bucket = self.get_bucket()
         return self._bucket
+
+    # def init_blob(self, blob=None):
+    #     self._blob = blob
 
     def is_file(self):
         if self.path.endswith("/"):
@@ -154,7 +190,7 @@ class BucketStorageObject(StorageObject):
     def init_client(self):
         raise NotImplementedError()
 
-    def get_bucket(self):
+    def init_bucket(self):
         raise NotImplementedError()
 
     def exists(self):

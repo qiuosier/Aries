@@ -14,6 +14,7 @@ class S3Object(BucketStorageObject):
     """
     See Also: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html
     """
+
     @property
     def key(self):
         return self.prefix
@@ -41,7 +42,7 @@ class S3Object(BucketStorageObject):
     def init_client(self):
         return boto3.client('s3')
 
-    def get_bucket(self):
+    def init_bucket(self):
         s3 = boto3.resource('s3')
         logger.debug("Getting bucket %s" % self.bucket_name)
         return s3.Bucket(self.bucket_name)

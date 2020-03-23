@@ -104,6 +104,7 @@ class GSObject(BucketStorageObject):
 
         """
         if self._blob is None:
+            logger.debug("Getting blob: %s" % self.uri)
             file_blob = api_call(self.bucket.get_blob, self.prefix)
             if file_blob is None:
                 # The following will not make an HTTP request.
@@ -119,7 +120,7 @@ class GSObject(BucketStorageObject):
         return storage.Client()
 
     @api_decorator
-    def get_bucket(self):
+    def init_bucket(self):
         return self.client.get_bucket(self.bucket_name)
 
     @property
