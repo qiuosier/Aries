@@ -15,6 +15,8 @@ class StorageObject:
     This is the base class for storage folder and storage file.
 
     """
+    # Use a large buffer to improve performance of cloud storage access.
+    BUFFER_SIZE = DEFAULT_BUFFER_SIZE * 128
 
     def __init__(self, uri):
         """Initializes a storage object.
@@ -93,7 +95,8 @@ class StorageObject:
     def copy_stream(from_file_obj, to_file_obj):
         """Copies data from one file object to another
         """
-        chunk_size = DEFAULT_BUFFER_SIZE
+        # TODO: there could be a problem if the file_obj has a different buffer size.
+        chunk_size = StorageObject.BUFFER_SIZE
         file_size = 0
         while True:
             b = from_file_obj.read(chunk_size)
@@ -577,7 +580,6 @@ class CloudStorageIO(StorageIOSeekable):
             self.temp_path = file_obj.name
         return self
 
-    # For reading
     def read(self, size=None):
         """Reads the file from the Google Cloud bucket to memory
 
@@ -591,15 +593,17 @@ class CloudStorageIO(StorageIOSeekable):
             if not self.exists():
                 raise FileNotFoundError("File %s does not exists." % self.uri)
             file_size = self.size
+            # TODO: size unknown?
             if not file_size:
                 return b""
-            # download_as_string() will raise an error if start is greater than size.
-            if start > file_size:
+            if start >= file_size:
                 return b""
             end = file_size - 1
             if size:
                 end = start + size - 1
-            logger.debug("Reading from %s to %s" % (start, end))
+            if end > file_size - 1:
+                end = file_size - 1
+            # logger.debug("Reading from %s to %s" % (start, end))
             b = self.read_bytes(start, end)
         self._offset += len(b)
         return b

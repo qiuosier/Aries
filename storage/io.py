@@ -6,7 +6,7 @@ import logging
 import binascii
 import inspect
 import traceback
-from io import SEEK_SET, DEFAULT_BUFFER_SIZE, UnsupportedOperation
+from io import SEEK_SET, UnsupportedOperation
 from io import BufferedIOBase, BufferedRandom, BufferedReader, BufferedWriter, TextIOWrapper
 from .base import StorageObject, StorageFolderBase
 from . import gs, file, web, s3
@@ -463,7 +463,8 @@ class StorageFile(StorageObject, BufferedIOWrapper, BufferedIOBase):
     def __buffer_size(self):
         """Determines the buffer size
         """
-        buffering = DEFAULT_BUFFER_SIZE
+
+        buffering = self.BUFFER_SIZE
         # For local file only
         from .file import LocalFile
         if isinstance(self.raw_io, LocalFile):
@@ -514,7 +515,7 @@ class StorageFile(StorageObject, BufferedIOWrapper, BufferedIOBase):
             buffered_io = BufferedReader(self.raw_io, buffering)
         else:
             raise ValueError("Unknown mode: %r" % self.mode)
-        logger.debug("Initialized buffer IO for %s" % self.uri)
+        # logger.debug("Initialized buffer IO for %s" % self.uri)
         return buffered_io
 
     def __init_io(self, buffering=-1, encoding=None, errors=None, newline=None, closefd=True, opener=None):
@@ -589,7 +590,7 @@ class StorageFile(StorageObject, BufferedIOWrapper, BufferedIOBase):
         """
         # Stores the arguments as protected attributes
         self._mode = str(mode)
-        logger.debug("Opening %s ..." % self.uri)
+        # logger.debug("Opening %s ..." % self.uri)
         # The raw_io will be initialized in __init_io()
         if not self.raw_io.closed:
             self.raw_io.close()
@@ -801,7 +802,7 @@ class StorageFile(StorageObject, BufferedIOWrapper, BufferedIOBase):
         return b == b'1f8b'
 
     def close(self):
-        logger.debug("Closing %s ..." % self.uri)
+        # logger.debug("Closing %s ..." % self.uri)
         results = None
         if self.buffered_io:
             # buffered_io will close raw_io

@@ -10,7 +10,10 @@ In command line:
 In python:
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/path/to/keyfile.json"
 
-See Also: https://googleapis.github.io/google-cloud-python/latest/core/auth.html
+See Also:
+    https://googleapis.github.io/google-cloud-python/latest/core/auth.html
+    https://googleapis.dev/python/storage/latest/
+    https://github.com/googleapis/python-storage
 
 """
 import os
