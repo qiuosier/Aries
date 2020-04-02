@@ -37,6 +37,10 @@ class GoogleDriveFile:
 
 
 class GoogleSheet(GoogleDriveFile):
+    @property
+    def sheets(self):
+        return self.get().get("sheets")
+
     def get(self, **kwargs):
         """Returns properties of the spreadsheet along with properties and merges of sheets in the spreadsheet.
         By default, data within grids will not be returned. You can include grid data one of two ways:
@@ -104,6 +108,12 @@ class GoogleSheet(GoogleDriveFile):
         values = [v[0] if len(v) > 0 else "" for v in values]
         return values
 
-    @property
-    def sheets(self):
-        return self.get().get("sheets")
+    def append(self, data_range, rows):
+        url = "https://sheets.googleapis.com/v4/spreadsheets/%s/values/%s:append?" \
+              "valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS" % (self.file_id, data_range)
+        data = {
+            "range": data_range,
+            "majorDimension": "ROWS",
+            "values": rows
+        }
+        self.api.post_json(url, data)

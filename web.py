@@ -47,6 +47,8 @@ class WebAPI:
         logger.debug("Requesting data from %s" % url)
         response = requests.get(url, headers=self.headers)
         logger.debug("Response code: %s" % response.status_code)
+        if response.status_code != 200:
+            logger.debug(response.content)
         return response
 
     def get_json(self, url, **kwargs):
@@ -57,6 +59,8 @@ class WebAPI:
         logger.debug("Posting data to %s" % url)
         response = requests.post(url, json=data, headers=self.headers)
         logger.debug("Response code: %s" % response.status_code)
+        if response.status_code != 200:
+            logger.debug(response.content)
         return response
 
     def post_json(self, url, data, **kwargs):
