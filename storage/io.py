@@ -171,13 +171,16 @@ class StorageFolder(StorageFolderBase):
     def upload_from(self, local_path):
         raise NotImplementedError()
 
-    def move(self, to):
+    def move(self, to, contents_only=False):
         """Moves the objects to another location."""
-        self.copy(to)
+        self.copy(to, contents_only=contents_only)
         dest_folder = StorageFolder(to)
         if dest_folder.exists():
             # TODO: Check if the files are actually copied.
-            self.delete()
+            if contents_only:
+                self.empty()
+            else:
+                self.delete()
         else:
             raise FileNotFoundError("Failed to copy files to %s" % to)
 
