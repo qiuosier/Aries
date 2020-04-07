@@ -148,10 +148,6 @@ class GSObject(BucketStorageObject):
         """
         return list(self.bucket.list_blobs(prefix=self.prefix, delimiter=delimiter))
 
-    @property
-    def objects(self):
-        return self.blobs()
-
     def list_files(self, delimiter=None):
         """Gets all files with the prefix as GSFile objects
 
@@ -417,33 +413,6 @@ class GSFolder(GSObject, StorageFolderBase):
             for b in self.blobs("/")
             if not b.name.endswith("/")
         ]
-
-    @property
-    def size(self):
-        """The size in bytes of all files in the folder.
-
-        Returns (int): Size in bytes.
-
-        """
-        # size_bytes = 0
-        # # Total size of files and folders
-        # for c in [self.files, self.folders]:
-        #     for f in c:
-        #         s = f.size
-        #         if not s:
-        #             continue
-        #         size_bytes += s
-        # TODO: This command requires gsutil installed
-        cmd = ShellCommand("gsutil du -s %s" % self.uri).run()
-        arr = cmd.std_out.strip().split()
-        if arr and str(arr[0]).isdigit():
-            s = int(arr[0])
-            logger.debug("%s %s Bytes." % (self.path, s))
-            return s
-        raise ValueError(
-            "Failed to get the folder size:\n%s "
-            "Make sure gsutil is install correctly." % cmd.std_out
-        )
 
     @api_decorator
     def filter_files(self, prefix):

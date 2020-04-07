@@ -32,11 +32,7 @@ class S3Object(BucketStorageObject):
         s3 = boto3.resource('s3')
         return s3.Object(self.bucket_name, self.prefix)
 
-    @property
-    def objects(self):
-        return self.blobs()
-
-    def blobs(self, delimiter=None):
+    def blobs(self, delimiter=""):
         return list(self.bucket.objects.filter(Prefix=self.prefix, Delimiter=delimiter))
 
     def init_client(self):

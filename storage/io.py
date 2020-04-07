@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class StorageFolder(StorageFolderBase):
     """Represents a storage folder.
     The StorageFolder class wraps an underlying raw class, which contains platform dependent implementation.
-    The path of a StorageFolder will always end with "/"
+    The path attribute of a StorageFolder will always end with "/"
 
     """
     # Maps the scheme to the underlying raw class.
@@ -99,6 +99,21 @@ class StorageFolder(StorageFolderBase):
         for folder in self.folders:
             object_list.extend(folder.objects)
         return object_list
+
+    @property
+    def size(self):
+        try:
+            return self.raw.size
+        except (AttributeError, UnsupportedOperation):
+            pass
+        total = 0
+        for f in self.files:
+            s = f.size
+            total += s if s else 0
+        for folder in self.folders:
+            s = folder.size
+            total += s if s else 0
+        return total
 
     @property
     def file_names(self):

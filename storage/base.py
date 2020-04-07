@@ -124,6 +124,7 @@ class StorageObject:
 
 class BucketStorageObject(StorageObject):
     """Represents a cloud storage object associated with a bucket.
+    This object may not correspond to an actual object in the bucket, e.g. a folder in Google or S3 bucket.
     """
     # Caches clients for each scheme
     cache_dict = dict()
@@ -180,8 +181,30 @@ class BucketStorageObject(StorageObject):
             self._bucket = self.get_bucket()
         return self._bucket
 
-    # def init_blob(self, blob=None):
-    #     self._blob = blob
+    @property
+    def objects(self):
+        """All objects under this object, e.g. all files in the folder and sub-folders
+        """
+        return self.blobs()
+
+    @property
+    def size(self):
+        """The size in bytes of all objects with the same prefix.
+
+        Returns:
+
+        This method requires the "object" to have a size attribute,
+            sub-class should overwrite this if the size attribute is not available.
+
+        AWS CLI: aws s3 ls --summarize --human-readable --recursive s3://bucket_name/path/to/folder | grep 'Total'
+        GCP CLI: gsutil du -s gs://bucket_name/path/to/folder
+
+        """
+        total = 0
+        for obj in self.objects:
+            s = obj.size
+            total += s if s else 0
+        return total
 
     def is_file(self):
         if self.path.endswith("/"):
@@ -199,8 +222,35 @@ class BucketStorageObject(StorageObject):
     def exists(self):
         raise NotImplementedError()
 
+    def blobs(self, delimiter=""):
+        """All blobs with the same prefix as this object
+        The delimiter causes a list operation to roll up all the keys that share a common prefix into a single result.
+        See Also: https://docs.aws.amazon.com/AmazonS3/latest/dev/ListingKeysHierarchy.html
+        """
+        raise NotImplementedError()
+
 
 class StorageFolderBase(StorageObject):
+    """Represents a folder/container of storage objects.
+    This is the base class for folders or folder-like objects.
+    It is used by
+        Raw platform dependent classes, e.g. GSFolder, S3Folder, and
+        IO interface class, i.e. StorageFolder
+    When implementing raw, platform dependent sub-class:
+        All the abstract methods should be implemented, otherwise a NotImplementedError will be raised:
+            file_paths
+            folder_paths
+            exists()
+            create()
+            delete()
+        Other methods (raising UnsupportedOperation error) can be implemented optionally to improve the performance:
+            objects()
+            copy()
+
+    The io.StorageFolder class contains default implementations for methods like objects() and copy().
+    In io.StorageFolder, when these methods are not implemented in the raw class,
+        the UnsupportedOperation error will be caught and the default implementations will be used.
+    """
     def __init__(self, uri):
         # Make sure uri ends with "/" for folders
         if uri and uri[-1] != '/':
@@ -241,6 +291,8 @@ class StorageFolderBase(StorageObject):
         raise UnsupportedOperation()
 
     def copy(self, to, contents_only=False):
+        """Copies the folder to another location within the same scheme
+        """
         raise UnsupportedOperation()
 
 
