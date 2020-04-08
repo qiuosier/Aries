@@ -107,7 +107,7 @@ class GSObject(BucketStorageObject):
 
         """
         if self._blob is None:
-            logger.debug("Getting blob: %s" % self.uri)
+            # logger.debug("Getting blob: %s" % self.uri)
             file_blob = api_call(self.bucket.get_blob, self.prefix)
             if file_blob is None:
                 # The following will not make an HTTP request.
