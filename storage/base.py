@@ -463,7 +463,12 @@ class StorageIOBase(StorageObject, RawIOBase):
         m = memoryview(b).cast('B')
         data = self.read(len(m))
         n = len(data)
-        m[:n] = data
+        try:
+            m[:n] = data
+        except Exception as e:
+            logger.debug(n)
+            logger.debug(len(m))
+            raise e
         return n
 
     @property

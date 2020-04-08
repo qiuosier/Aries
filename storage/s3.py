@@ -30,6 +30,7 @@ class S3Object(BucketStorageObject):
 
         """
         s3 = boto3.resource('s3')
+        # logger.debug("Getting blob: %s" % self.uri)
         return s3.Object(self.bucket_name, self.prefix)
 
     def blobs(self, delimiter=""):
@@ -156,10 +157,11 @@ class S3File(S3Object, CloudStorageIO):
         return to_file_obj
 
     def read_bytes(self, start, end):
-        response = self.blob.get(Range="%s-%s" % (start, end))
+        response = self.blob.get(Range="bytes=%s-%s" % (start, end))
         content = response.get("Body")
         if content:
-            return content.read()
+            data = content.read()
+            return data
         return ""
 
     def copy(self, to):
