@@ -6,7 +6,7 @@ import base64
 import os
 import json
 import copy
-import collections
+from collections import abc
 
 
 class AString(str):
@@ -338,7 +338,7 @@ def stringify(obj):
     Returns: If the input is dictionary or list, the return value will also be a list or dictionary.
 
     """
-    if isinstance(obj, collections.Mapping):
+    if isinstance(obj, abc.Mapping):
         obj = copy.deepcopy(obj)
         obj_dict = {}
         for key, value in obj.items():
