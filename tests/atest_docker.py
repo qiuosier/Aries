@@ -33,4 +33,3 @@ class TestDocker(AriesTest):
         self.assertEqual(image.path, "davelab-gcloud/cancer")
         self.assertEqual(image.tag, "0.1-alpha")
         self.assertEqual(image.get_size(), 460399799)
-        self.fail()
