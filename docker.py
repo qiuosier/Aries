@@ -13,7 +13,7 @@ class DockerImage:
         https://docs.docker.com/engine/reference/commandline/pull/
     """
 
-    DOCKER_IO_INDEX = "registry-1.docker.io"
+    DOCKER_IO_REGISTRY = "registry-1.docker.io"
 
     def __init__(self, name):
         self.name = name
@@ -35,7 +35,7 @@ class DockerImage:
         """
         hostname, path = DockerImage.match_host(name)
         if not hostname:
-            hostname = DockerImage.DOCKER_IO_INDEX
+            hostname = DockerImage.DOCKER_IO_REGISTRY
 
         # Try to match the digest followed by the image name.
         path, digest = DockerImage.match_digest(path)
@@ -46,7 +46,8 @@ class DockerImage:
         else:
             path, tag = DockerImage.match_tag(path)
 
-        if "/" not in path and hostname == DockerImage.DOCKER_IO_INDEX:
+        # Official images are identified with library/IMAGE_NAME
+        if "/" not in path and hostname == DockerImage.DOCKER_IO_REGISTRY:
             path = "library/" + path
 
         return hostname, path, tag, digest
@@ -109,7 +110,9 @@ class DockerImage:
     def send_get_request(self, url, headers=None):
         if headers is None:
             headers = {}
-        if self.hostname == self.DOCKER_IO_INDEX and "Authorization" not in headers:
+        # docker.io requires a token to access the API
+        # Even though the token can be obtained without authorization
+        if self.hostname == self.DOCKER_IO_REGISTRY and "Authorization" not in headers:
             headers["Authorization"] = "Bearer %s" % self.token
         response = requests.get(url, headers=headers)
         return response
@@ -130,7 +133,13 @@ class DockerImage:
             self._manifest = response
         return self._manifest
 
-    def exist(self):
+    def is_accessible(self):
+        """Checks if the image is accessible.
+        This method returns False if the existence cannot be determined.
+
+        Returns:
+
+        """
         try:
             self.get_manifest()
             return True
@@ -144,9 +153,16 @@ class DockerImage:
 
     def get_size(self):
         """Gets the size of the docker image by adding the sizes of all layers.
+        This method returns None if the size cannot be determined.
         """
-        layers = self.get_manifest().json().get("layers")
-        total_size = 0
-        for layer in layers:
-            total_size += layer.get("size")
+        try:
+            layers = self.get_manifest().json().get("layers")
+            total_size = 0
+            for layer in layers:
+                total_size += layer.get("size", 0)
+        except Exception as ex:
+            logger.error("Cannot determine image size for %s: %s" % (self.name, str(ex)))
+            import traceback
+            traceback.print_exc()
+            return None
         return total_size
