@@ -11,6 +11,7 @@ class DockerImage:
         https://docs.docker.com/registry/spec/api/
         https://github.com/docker/distribution/blob/master/reference/reference.go
         https://docs.docker.com/engine/reference/commandline/pull/
+        https://ops.tips/blog/inspecting-docker-image-without-pull/
     """
 
     DOCKER_IO_REGISTRY = "registry-1.docker.io"
