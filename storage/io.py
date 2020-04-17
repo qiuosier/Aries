@@ -13,6 +13,57 @@ from . import gs, file, web, s3
 logger = logging.getLogger(__name__)
 
 
+class StoragePrefix(StorageObject):
+    """Represents a collections of object with the same URI prefix
+    """
+    # Maps the scheme to the underlying raw class.
+    registry = {
+        "file": file.LocalPrefix,
+        "gs": gs.GSPrefix,
+        "s3": s3.S3Prefix
+    }
+
+    def __init__(self, uri):
+        """Initializes a StoragePrefix object with a URI prefix.
+
+        Args:
+            uri: URI prefix.
+        """
+        super(StoragePrefix, self).__init__(uri)
+        raw_class = self.registry.get(self.scheme)
+        if not raw_class:
+            raise NotImplementedError("No implementation available for scheme: %s" % self.scheme)
+        self.raw = raw_class(uri)
+
+    @property
+    def objects(self):
+        return self.raw.objects
+
+    @property
+    def size(self):
+        return self.raw.size
+
+    def exists(self):
+        return self.raw.exists()
+
+    def delete(self):
+        return self.raw.delete()
+
+    def copy(self, to):
+        """
+        """
+        logger.debug("Copying files from %s to %s" % (self.uri, to))
+        dest = StorageObject(to)
+        if dest.scheme == self.scheme:
+            try:
+                return self.raw.copy(to)
+            except (AttributeError, UnsupportedOperation):
+                pass
+
+        for storage_file in self.objects:
+            storage_file.copy(storage_file.uri.replace(self.path, to))
+
+
 class StorageFolder(StorageFolderBase):
     """Represents a storage folder.
     The StorageFolder class wraps an underlying raw class, which contains platform dependent implementation.
@@ -83,13 +134,8 @@ class StorageFolder(StorageFolderBase):
 
     @property
     def objects(self):
-        """The objects in the folders
-
-        Warnings:
-            This property is likely to be modified in the future.
-            At this moment, the return type depends on the implementation of the underlying raw class.
+        """Storage file objects in this folder and sub-folders.
         """
-        # TODO: Return StorageFile and/or StorageFolder?
         try:
             return self.raw.objects
         except (AttributeError, UnsupportedOperation):
@@ -162,7 +208,7 @@ class StorageFolder(StorageFolderBase):
                 return self.raw.copy(to, contents_only=contents_only)
             except (AttributeError, UnsupportedOperation):
                 pass
-        # Download the files using copy()
+
         if not contents_only:
             to += self.name
         # logger.debug(self.file_paths)

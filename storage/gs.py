@@ -26,8 +26,9 @@ from functools import wraps
 from google.cloud import storage
 from google.cloud.exceptions import ServerError
 from ..strings import Base64String
-from ..tasks import ShellCommand, FunctionTask
-from .base import BucketStorageObject, StorageFolderBase, CloudStorageIO
+from ..tasks import FunctionTask
+from .base import StorageFolderBase
+from .cloud import BucketStorageObject, CloudStoragePrefix, CloudStorageIO
 logger = logging.getLogger(__name__)
 
 
@@ -131,45 +132,52 @@ class GSObject(BucketStorageObject):
         return self.uri
 
     @api_decorator
-    def blobs(self, delimiter=None):
-        """Gets the blobs in the bucket having the prefix.
-
-        The returning list will contain object in the folder and all sub-folders
-
-        Args:
-            delimiter: Use this to emulate hierarchy.
-            If delimiter is None, the returning list will contain objects in the folder and in all sub-directories.
-            Set delimiter to "/" to eliminate files in sub-directories.
-
-        Returns: A list of GCS blobs.
-
-        See Also: https://googleapis.github.io/google-cloud-python/latest/storage/blobs.html
-
+    def exists(self):
+        """Determines if there is an actual blob corresponds to this object.
         """
-        return list(self.bucket.list_blobs(prefix=self.prefix, delimiter=delimiter))
-
-    def list_files(self, delimiter=None):
-        """Gets all files with the prefix as GSFile objects
-
-        Returns (list):
-        """
-        from .io import StorageFile
-        return [
-            StorageFile("gs://%s/%s" % (self.bucket_name, b.name))
-            for b in self.blobs(delimiter)
-            if not b.name.endswith("/")
-        ]
+        return self.blob.exists()
 
     @api_decorator
-    def list_folders(self):
-        from .io import StorageFolder
-        iterator = self.bucket.list_blobs(prefix=self.prefix, delimiter='/')
-        list(iterator)
-        return [
-            StorageFolder("gs://%s/%s" % (self.bucket_name, p))
-            for p in iterator.prefixes
-        ]
+    def create(self):
+        """Creates an empty blob, if the blob does not exist.
 
+        Returns:
+            Blob: The Google Cloud Storage blob.
+        """
+        blob = storage.Blob(self.prefix, self.bucket)
+        if not blob.exists():
+            blob.upload_from_string("")
+        return blob
+
+    def delete(self):
+        self.delete_blob(self.blob)
+
+    def copy(self, to):
+        self.copy_blob(self.blob, to)
+
+    def copy_blob(self, blob, to):
+        """Copies a blob object in the bucket to a new location.
+
+        Args:
+            blob: A Google Cloud Storage Blob object in the bucket.
+            to: URI of the new blob (gs://...).
+
+        Returns: True if the blob is copied. Otherwise False.
+
+        """
+        destination = GSObject(to)
+        new_name = str(blob.name).replace(self.prefix, destination.prefix, 1)
+        if new_name != str(blob.name) or self.bucket_name != destination.bucket_name:
+            self.bucket.copy_blob(blob, destination.bucket, new_name)
+            return True
+        return False
+
+    @staticmethod
+    def delete_blob(blob):
+        blob.delete()
+
+
+class GSPrefix(CloudStoragePrefix, GSObject):
     # @api_decorator
     def batch_request(self, blobs, method, *args, **kwargs):
         """Sends a batch request to run method of a batch of blobs.
@@ -204,12 +212,61 @@ class GSObject(BucketStorageObject):
                 counter += self.batch_request(batch, method, *args, **kwargs)
                 batch = []
         if batch:
-            counter += self.batch_request(batch, method, *args,**kwargs)
+            counter += self.batch_request(batch, method, *args, **kwargs)
         return counter
 
-    @staticmethod
-    def delete_blob(blob):
-        blob.delete()
+    @api_decorator
+    def blobs(self, delimiter=None):
+        """Gets the blobs in the bucket having the prefix.
+
+        The returning list will contain object in the folder and all sub-folders
+
+        Args:
+            delimiter: Use this to emulate hierarchy.
+            If delimiter is None, the returning list will contain objects in the folder and in all sub-directories.
+            Set delimiter to "/" to eliminate files in sub-directories.
+
+        Returns: A list of GCS blobs.
+
+        See Also: https://googleapis.github.io/google-cloud-python/latest/storage/blobs.html
+
+        """
+        return list(self.bucket.list_blobs(prefix=self.prefix, delimiter=delimiter))
+
+    @property
+    def uri_list(self):
+        """Gets all file URIs with the prefix
+        """
+        return [
+            "gs://%s/%s" % (self.bucket_name, b.name)
+            for b in self.blobs()
+            if not b.name.endswith("/")
+        ]
+
+    def list_files(self, delimiter=None):
+        """Gets all files with the prefix as GSFile objects
+
+        Returns (list):
+        """
+        from .io import StorageFile
+        return [
+            StorageFile("gs://%s/%s" % (self.bucket_name, b.name))
+            for b in self.blobs(delimiter)
+            if not b.name.endswith("/")
+        ]
+
+    @api_decorator
+    def list_folders(self):
+        from .io import StorageFolder
+        iterator = self.bucket.list_blobs(prefix=self.prefix, delimiter='/')
+        list(iterator)
+        return [
+            StorageFolder("gs://%s/%s" % (self.bucket_name, p))
+            for p in iterator.prefixes
+        ]
+
+    def exists(self):
+        return True if self.blob.exists() or self.objects else False
 
     @api_decorator
     def delete(self):
@@ -217,41 +274,6 @@ class GSObject(BucketStorageObject):
         counter = self.batch_operation(self.delete_blob)
         logger.debug("%d files deleted." % counter)
         return counter
-
-    @api_decorator
-    def exists(self):
-        """Determines if there is an actual blob corresponds to this object.
-        """
-        return self.blob.exists()
-
-    @api_decorator
-    def create(self):
-        """Creates an empty blob, if the blob does not exist.
-
-        Returns:
-            Blob: The Google Cloud Storage blob.
-        """
-        blob = storage.Blob(self.prefix, self.bucket)
-        if not blob.exists():
-            blob.upload_from_string("")
-        return blob
-
-    def copy_blob(self, blob, to):
-        """Copies a blob object in the bucket to a new location.
-
-        Args:
-            blob: A Google Cloud Storage Blob object in the bucket.
-            to: URI of the new blob (gs://...).
-
-        Returns: True if the blob is copied. Otherwise False.
-
-        """
-        destination = GSObject(to)
-        new_name = str(blob.name).replace(self.prefix, destination.prefix, 1)
-        if new_name != str(blob.name) or self.bucket_name != destination.bucket_name:
-            self.bucket.copy_blob(blob, destination.bucket, new_name)
-            return True
-        return False
 
     @api_decorator
     def copy(self, to, contents_only=False):
@@ -349,7 +371,7 @@ class GSObject(BucketStorageObject):
         return counter
 
 
-class GSFolder(GSObject, StorageFolderBase):
+class GSFolder(GSPrefix, StorageFolderBase):
     """Represents a Google Cloud Storage Folder
 
     Method Resolution Order: GSFolder, GSObject, StorageFolder, StorageObject

@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from ..test import AriesTest
-    from ..storage import StorageFolder, StorageFile
+    from ..storage import StoragePrefix, StorageFolder, StorageFile
     from ..storage import gs
 except:
     aries_parent = os.path.join(os.path.dirname(__file__), "..", "..")
@@ -19,7 +19,7 @@ except:
         sys.path.append(aries_parent)
     from Aries.storage import gs
     from Aries.test import AriesTest
-    from Aries.storage import StorageFile, StorageFolder
+    from Aries.storage import StoragePrefix, StorageFile, StorageFolder
 
 
 class TempFolder:
@@ -52,6 +52,8 @@ class TestStorage(AriesTest):
 
     @classmethod
     def create_file(cls, relative_path, content):
+        """Creates a file relative to the test root
+        """
         abs_path = os.path.join(cls.TEST_ROOT, relative_path)
         with StorageFile.init(abs_path, "w") as f:
             f.write(content)
@@ -77,6 +79,10 @@ class TestStorage(AriesTest):
 
     def setUp(self):
         super().setUp()
+
+    def test_prefix(self):
+        storage_prefix = StoragePrefix(os.path.join(self.TEST_ROOT, "test_folder"))
+        self.assertEqual(len(storage_prefix.objects), 3)
 
     def test_storage_folder(self):
         # Scheme

@@ -4,7 +4,7 @@ import logging
 import datetime
 import hashlib
 from io import FileIO, SEEK_SET
-from .base import StorageIOSeekable, StorageFolderBase
+from .base import StoragePrefixBase, StorageIOSeekable, StorageFolderBase
 logger = logging.getLogger(__name__)
 
 
@@ -144,5 +144,30 @@ class LocalFile(StorageIOSeekable):
             self.file_io = None
         if not self.file_io:
             mode = "".join([c for c in self.mode if c in "rw+ax"])
+            # Create folder structure if one does not exists
+            dir_name = os.path.dirname(self.path)
+            if not os.path.exists(dir_name):
+                os.makedirs(dir_name)
             self.file_io = FileIO(self.path, mode, closefd=closefd, opener=opener)
         return self
+
+
+class LocalPrefix(StoragePrefixBase):
+    @property
+    def uri_list(self):
+        uri_list = []
+        dir_name = os.path.dirname(self.path)
+        parent = LocalFolder(dir_name)
+        obj_paths = [p for p in parent.object_paths if p.startswith(self.path)]
+        for obj_path in obj_paths:
+            if os.path.isfile(obj_path):
+                uri_list.append(obj_path)
+                continue
+            if obj_path == self.path or obj_path in uri_list:
+                continue
+            if os.path.isdir(obj_path):
+                if not obj_path.endswith("/"):
+                    obj_path += "/"
+                uri_list.extend(LocalPrefix(obj_path).uri_list)
+                continue
+        return uri_list

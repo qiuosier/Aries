@@ -1,12 +1,8 @@
-import os
-import shutil
 import logging
-import datetime
-import traceback
 import boto3
 from botocore.exceptions import ClientError
-# from io import FileIO, SEEK_SET
-from .base import BucketStorageObject, CloudStorageIO, StorageFolderBase
+from .base import StorageFolderBase
+from .cloud import BucketStorageObject, CloudStoragePrefix, CloudStorageIO
 logger = logging.getLogger(__name__)
 
 
@@ -32,9 +28,6 @@ class S3Object(BucketStorageObject):
         s3 = boto3.resource('s3')
         # logger.debug("Getting blob: %s" % self.uri)
         return s3.Object(self.bucket_name, self.prefix)
-
-    def blobs(self, delimiter=""):
-        return list(self.bucket.objects.filter(Prefix=self.prefix, Delimiter=delimiter))
 
     def init_client(self):
         return boto3.client('s3')
@@ -66,10 +59,37 @@ class S3Object(BucketStorageObject):
         return self.client.put_object(Bucket=self.bucket_name, Key=self.prefix)
 
     def delete(self):
+        return self.blob.delete()
+
+
+class S3Prefix(CloudStoragePrefix, S3Object):
+    @property
+    def uri_list(self):
+        keys = []
+        response = self.client.list_objects(Bucket=self.bucket_name, Prefix=self.prefix, Delimiter='')
+        contents = response.get("Contents", [])
+        keys.extend([element.get("Key") for element in contents])
+        return [
+            "s3://%s/%s" % (self.bucket_name, key)
+            for key in keys
+            if not key.endswith("/")
+        ]
+
+    def blobs(self, delimiter=""):
+        return list(self.bucket.objects.filter(Prefix=self.prefix, Delimiter=delimiter))
+
+    def exists(self):
+        response = self.client.list_objects(Bucket=self.bucket_name, Prefix=self.prefix)
+        contents = response.get("Contents", []) if response else None
+        if contents:
+            return True
+        return False
+
+    def delete(self):
         return self.bucket.objects.filter(Prefix=self.prefix).delete()
 
 
-class S3Folder(S3Object, StorageFolderBase):
+class S3Folder(S3Prefix, StorageFolderBase):
     def __init__(self, uri):
         """Initializes a Google Cloud Storage Directory.
 
@@ -84,13 +104,6 @@ class S3Folder(S3Object, StorageFolderBase):
         # Make sure prefix ends with "/", otherwise it is not a "folder"
         if self.prefix and not self.prefix.endswith("/"):
             self.prefix += "/"
-
-    def exists(self):
-        response = self.client.list_objects(Bucket=self.bucket_name, Prefix=self.prefix)
-        contents = response.get("Contents", [])
-        if contents:
-            return True
-        return False
 
     @property
     def folder_paths(self):
@@ -128,7 +141,7 @@ class S3Folder(S3Object, StorageFolderBase):
         ]
 
 
-class S3File(S3Object, CloudStorageIO):
+class S3File(S3Object,CloudStorageIO):
     def __init__(self, uri):
         # file_io will be initialized by open()
         # self.file_io = None
