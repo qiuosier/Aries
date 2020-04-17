@@ -293,9 +293,9 @@ class StorageFolder(StorageFolderBase):
 
         files = []
         for f in self.files:
-            logger.debug(f.name)
             if f.name.startswith(prefix):
                 files.append(f)
+        logger.debug("%s files found with prefix %s" % (len(files), prefix))
         return files
 
 
