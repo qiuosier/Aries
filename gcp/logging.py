@@ -15,6 +15,8 @@ class StackdriverHandler(CloudLoggingHandler):
     """
     def emit(self, record):
         limit = 200 * 1024
+        # Convert the log message to string
+        record.msg = str(record.msg)
         if len(record.msg) > limit:
             record.msg = record.msg[:limit]
         return super().emit(record)
