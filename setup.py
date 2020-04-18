@@ -12,8 +12,8 @@ with open("Aries/README.md", "r") as fh:
     long_description = fh.read()
     long_description = Markdown.from_text(long_description).make_links_absolute("https://github.com/qiuosier/Aries/blob/master/")
 
-release_version = os.popen('cd Aries && git tag | tail -1').read()
-commit_version = os.popen('cd Aries && git rev-list --count master').read()
+release_version = str(os.popen('cd Aries && git tag | tail -1').read()).strip()
+commit_version = str(os.popen('cd Aries && git rev-list --count master').read()).strip()
 
 setuptools.setup(
     name="Astrology-Aries",
