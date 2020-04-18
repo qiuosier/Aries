@@ -37,11 +37,46 @@ class StoragePrefix(StorageObject):
 
     @property
     def objects(self):
+        """StorageFile objects with the same prefix, including files in sub-folders.
+        """
         return self.raw.objects
+
+    @property
+    def files(self):
+        """StorageFile objects having the same prefix but not under any sub-folder after the prefix
+        """
+        if hasattr(self.raw, "files"):
+            return self.raw.files
+        # Use objects to determine files if the files property is not supported by the raw class
+        return [f for f in self.objects if "/" not in f.path.replace(self.prefix, "")]
+
+    @property
+    def folders(self):
+        """StorageFolder objects having the same prefix but not under any sub-folder after the prefix
+        """
+        if hasattr(self.raw, "folders"):
+            return self.raw.folders
+        folder_paths = set()
+        for f in self.objects:
+            relative_path = f.path.replace(self.prefix, "")
+            if "/" in relative_path:
+                dir_name = relative_path.split("/", 1)[0]
+                folder_paths.add(self.prefix + dir_name)
+        return [StorageFolder(p) for p in folder_paths]
 
     @property
     def size(self):
         return self.raw.size
+
+    def is_file(self):
+        """Determine if the object is a file.
+        This will return False if the object does not exist or the object is a folder.
+        """
+        if self.path.endswith("/"):
+            return False
+        if not self.exists():
+            return False
+        return True
 
     def exists(self):
         return self.raw.exists()
@@ -50,7 +85,7 @@ class StoragePrefix(StorageObject):
         return self.raw.delete()
 
     def copy(self, to):
-        """
+        """Copies all the files by replacing the prefix
         """
         logger.debug("Copying files from %s to %s" % (self.uri, to))
         dest = StorageObject(to)

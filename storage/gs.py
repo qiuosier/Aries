@@ -243,17 +243,21 @@ class GSPrefix(CloudStoragePrefix, GSObject):
             if not b.name.endswith("/")
         ]
 
-    def list_files(self, delimiter=None):
-        """Gets all files with the prefix as GSFile objects
-
-        Returns (list):
-        """
+    @property
+    def files(self):
         from .io import StorageFile
-        return [
-            StorageFile("gs://%s/%s" % (self.bucket_name, b.name))
-            for b in self.blobs(delimiter)
-            if not b.name.endswith("/")
-        ]
+        storage_files = []
+        for b in self.blobs("/"):
+            if b.name.endswith("/"):
+                continue
+            storage_file = StorageFile("gs://%s/%s" % (self.bucket_name, b.name))
+            storage_file.raw_io._blob = b
+            storage_files.append(storage_file)
+        return storage_files
+
+    @property
+    def folders(self):
+        return self.list_folders
 
     @api_decorator
     def list_folders(self):
@@ -394,18 +398,6 @@ class GSFolder(GSPrefix, StorageFolderBase):
 
     def exists(self):
         return True if self.blob.exists() or self.file_paths or self.folder_paths else False
-
-    @property
-    def files(self):
-        from .io import StorageFile
-        storage_files = []
-        for b in self.blobs("/"):
-            if b.name.endswith("/"):
-                continue
-            storage_file = StorageFile("gs://%s/%s" % (self.bucket_name, b.name))
-            storage_file.raw_io._blob = b
-            storage_files.append(storage_file)
-        return storage_files
 
     @property
     def folder_paths(self):
