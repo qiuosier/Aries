@@ -257,7 +257,7 @@ class GSPrefix(CloudStoragePrefix, GSObject):
 
     @property
     def folders(self):
-        return self.list_folders
+        return self.list_folders()
 
     @api_decorator
     def list_folders(self):
