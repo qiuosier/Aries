@@ -329,7 +329,7 @@ class PackageLogFilter(logging.Filter):
             self.packages = []
         if isinstance(packages, list):
             self.packages.extend(packages)
-        else:
+        elif packages:
             self.packages.append(packages)
 
         logger.info("Filtering logs except packages: %s" % self.packages)
