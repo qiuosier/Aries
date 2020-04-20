@@ -8,9 +8,16 @@ import setuptools
 import os
 from Aries.files import Markdown
 
-with open("Aries/README.md", "r") as fh:
-    long_description = fh.read()
-    long_description = Markdown.from_text(long_description).make_links_absolute("https://github.com/qiuosier/Aries/blob/master/")
+with open("Aries/README.md", "r") as f:
+    long_description = f.read()
+    long_description = Markdown.from_text(
+        long_description
+    ).make_links_absolute("https://github.com/qiuosier/Aries/blob/master/")
+
+
+with open("Aries/requirements.txt", "r") as f:
+    requirements = f.read().split("\n")
+    requirements = [r.strip() for r in requirements if r.strip()]
 
 release_version = str(os.popen('cd Aries && git tag | tail -1').read()).strip()
 commit_version = str(os.popen('cd Aries && git rev-list --count master').read()).strip()
@@ -26,6 +33,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/qiuosier/Aries",
     packages=setuptools.find_packages(),
+    install_requires=requirements,
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
