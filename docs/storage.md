@@ -16,9 +16,7 @@ Currently, the following schemes are implemented:
 * Amazon S3 Storage (`s3://`)
 
 ## The StorageFile Class
-StorageFile is a file-like object implementing the I/O stream interface with [BufferedIOBase and TextIOBase](https://docs.python.org/3/library/io.html#class-hierarchy). The static `StorageFile.init(uri, mode)` method is designed to replace the built-in `open()` method. It returns a file-like object implementing the `BufferedIOBase` or `TextIOBase`, depending on the `mode` for opening the file.
-
-A `StorageFile` subclass object can be initialized by
+A `StorageFile` object can be initialized by
 ```
 from Aries.storage import StorageFile
 
@@ -29,13 +27,24 @@ f = StorageFile(uri)
 ```
 `StorageFile()` automatically determines the storage type by the scheme in the URI. For local file, URI can also be `/var/text.txt` without the scheme.
 
-However, initializing the `StorageFile` does NOT open the file.
-The `StorageFile` object will have:
-* `open()` and `close()` for opening and closing the file for read/write
-* `exists()` for determining whether the file exists.
+With a `StorageFile`, you can:
+* Get the file size: `StorageFile("path/to/file").size`
+* Get the md5 hex: `StorageFile("path/to/file").md5_hex`
+* Get the last update time: `StorageFile("path/to/file").updated_time`
+* Check if the file exist: `StorageFile("path/to/file").exist()`
+* Create an empty file: `StorageFile("path/to/file").create()`
+* Copy the file to another location: `StorageFile("path/to/file").copy("gs://path/to/destination")`
+* Move the file to another location: `StorageFile("path/to/file").move("gs://path/to/destination")`
+* Read the file (as bytes) into memory: `StorageFile("path/to/file").read()`
+* Delete the file: `StorageFile("path/to/file").delete()`
+
+StorageFile is a file-like object implementing the I/O stream interface with [BufferedIOBase and TextIOBase](https://docs.python.org/3/library/io.html#class-hierarchy). The static `StorageFile.init(uri, mode)` method is designed to replace the built-in `open()` method.
+
+However, initializing the `StorageFile` does NOT open the file. The `StorageFile` object provides `open()` and `close()` methods for opening and closing the file for read/write. The `open()` method returns the `StorageFile` instance itself.
 
 Here is an example of using `StorageFile` with [`pandas`](https://pandas.pydata.org/):
 ```
+from Aries.storage import StorageFile
 import pandas as pd
 df = pd.DataFrame([1, 3, 5])
 
@@ -47,8 +56,9 @@ df.to_csv(f)
 f.close()
 ```
 
-The `StorageFile.init()` static method provides a shortcut for initializing and opening the file. This method returns a `StorageFile` instance. `StorageFile` also support context manager to open and close the file:
+The `StorageFile.init()` static method provides a shortcut for initializing and opening the file. This is designed to replace the built-in python `open()` method. The `init()` method returns a `StorageFile` instance. `StorageFile` also support context manager to open and close the file:
 ```
+from Aries.storage import StorageFile
 import pandas as pd
 df = pd.DataFrame([1, 3, 5])
 
