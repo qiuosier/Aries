@@ -96,7 +96,7 @@ class StoragePrefix(StorageObject):
                 pass
 
         for storage_file in self.objects:
-            storage_file.copy(storage_file.uri.replace(self.path, to))
+            storage_file.copy(storage_file.uri.replace(self.uri, to))
 
 
 class StorageFolder(StorageFolderBase):
