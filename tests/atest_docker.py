@@ -25,7 +25,15 @@ class TestDocker(AriesTest):
         ]
         for registry in registries:
             api = DockerAPI(registry)
-            self.assertEqual("2.0", api.check_v2_support())
+            self.assertTrue(api.check_version().startswith("2."))
+        # api = DockerAPI("gcr.io")
+        # res = api.request("GET", "/v2/")
+        # logger.debug(res.status_code)
+        # logger.debug(res.headers)
+        # # res = api.request("GET", "/v2/library/ubuntu/manifests/latest")
+        # # logger.debug(res.status_code)
+        # # logger.debug(res.headers)
+        # self.fail()
 
     def test_docker_image(self):
         image = DockerImage("ubuntu")

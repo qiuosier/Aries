@@ -46,23 +46,29 @@ class WebAPI:
         self.headers.update(kwargs)
 
     def request(self, method, url, **kwargs):
-        """Sends HTTP request
+        """Sends a request to a URL endpoint.
+        data in self.headers will be added to the request header.
+
+        This method uses the same arguments as the python requests package
+        https://github.com/psf/requests/blob/master/requests/api.py
 
         Args:
-            method:
-            url (str): The URL/Endpoint of the API.
-                This can be a relative URL if base_url is specified in initialization.
-            **kwargs: keyword arguments to be encoded as GET parameters in the URL.
+            method: Request method, e.g. GET, OPTIONS, HEAD, POST, PUT, PATCH, or DELETE
+            url: URL endpoint for the request, which can be relative URL.
+            **kwargs: See https://github.com/psf/requests/blob/master/requests/api.py
 
-        Returns:
+        Returns: Request response
 
         """
-        url = self.build_url(url, **kwargs)
+        url = self.build_url(url)
         method = str(method).lower()
         if not hasattr(requests, method):
             raise ValueError("Invalid method: %s" % method)
         request_func = getattr(requests, method)
-        response = request_func(url, headers=self.headers)
+        headers = kwargs.get("headers", {})
+        headers.update(self.headers)
+        kwargs["headers"] = headers
+        response = request_func(url, **kwargs)
         return response
 
     def get(self, url, **kwargs):
@@ -136,13 +142,10 @@ class WebAPI:
         Returns:
             str: URL with query string.
         """
-        if kwargs and "?" not in url:
-            url += "?"
         for key, val in kwargs.items():
             if "?" not in url:
                 url += "?"
             if isinstance(val, list):
-                pass
                 url += "".join(["&%s=%s" % (key, v) for v in val])
             else:
                 url += "&%s=%s" % (key, val)
