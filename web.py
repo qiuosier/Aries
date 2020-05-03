@@ -21,6 +21,12 @@ class WebAPI:
     
     """
     def __init__(self, base_url="", **kwargs):
+        """Initializes API.
+
+        Args:
+            base_url: Base URL, the common URL prefix for all the API endpoints.
+            **kwargs: keyword arguments to be encoded as GET parameters in the URL.
+        """
         self.kwargs = kwargs
         self.headers = {}
 
@@ -31,7 +37,33 @@ class WebAPI:
             raise ValueError("Base URL should start with http:// or https://")
 
     def add_header(self, **kwargs):
+        """Adds a header to be used in all future HTTP requests
+
+        Args:
+            **kwargs: The key-value pairs to be added as the headers.
+
+        """
         self.headers.update(kwargs)
+
+    def request(self, method, url, **kwargs):
+        """Sends HTTP request
+
+        Args:
+            method:
+            url (str): The URL/Endpoint of the API.
+                This can be a relative URL if base_url is specified in initialization.
+            **kwargs: keyword arguments to be encoded as GET parameters in the URL.
+
+        Returns:
+
+        """
+        url = self.build_url(url, **kwargs)
+        method = str(method).lower()
+        if not hasattr(requests, method):
+            raise ValueError("Invalid method: %s" % method)
+        request_func = getattr(requests, method)
+        response = request_func(url, headers=self.headers)
+        return response
 
     def get(self, url, **kwargs):
         """Makes a get request.
@@ -40,6 +72,7 @@ class WebAPI:
         Args:
             url (str): The URL/Endpoint of the API.
                 This can be a relative URL if base_url is specified in initialization.
+            **kwargs: keyword arguments to be encoded as GET parameters in the URL.
         
         Returns: A Response Object
         """

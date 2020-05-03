@@ -2,11 +2,37 @@ import datetime
 import requests
 import re
 import logging
+from .web import WebAPI
 logger = logging.getLogger(__name__)
+
+
+class DockerAPI(WebAPI):
+    def __init__(self, hostname):
+        super().__init__("https://%s" % hostname)
+
+    def check_v2_support(self):
+        """Checks the API version by sending GET request to /v2/ endpoint.
+
+        Returns: The version of the API. e.g. 2.0
+
+        """
+        response = self.get("/v2/")
+        version = response.headers.get("Docker-Distribution-Api-Version", "").split("/")[-1]
+        return version
 
 
 class DockerImage:
     """
+    Attributes:
+        name: The docker image name, which may contain the hostname if it is not on DockerHub,
+            and optionally the tag or digest.
+            This is the same as the NAME[:TAG|@DIGEST] to be used in the docker pull command.
+            e.g. ubuntu, tensorflow/tensorflow:2.2.0rc4-jupyter, mcr.microsoft.com/windows
+            See Also: https://docs.docker.com/engine/reference/commandline/pull/
+        hostname: The hostname of the Docker registry.
+        path: The path of the docker image under the registry, without tag or digest.
+        tag: The docker image tag, if included in the name.
+
     See Also:
         https://docs.docker.com/registry/spec/api/
         https://github.com/docker/distribution/blob/master/reference/reference.go
@@ -32,7 +58,7 @@ class DockerImage:
 
         Returns:
             A 4-tuple of hostname, path, tag and digest.
-            hostname will have the default of "docker.io"
+            hostname defaults to DOCKER_IO_REGISTRY
         """
         hostname, path = DockerImage.match_host(name)
         if not hostname:
@@ -55,39 +81,45 @@ class DockerImage:
 
     @staticmethod
     def match_host(name):
+        """Parses the docker image name, extracts the hostname and path (which may also include the tag/digest).
+        """
         name_pattern = r"(?:((?:localhost)|(?:[^/]*\.[^/]*)|(?:[^/]*\:[^/]*))/)?(.+)"
         match = re.match(name_pattern, name)
         if not match:
             raise ValueError("Invalid image name: %s" % name)
         groups = match.groups()
         hostname = groups[0]
-        path = groups[1]
-        return hostname, path
+        path_with_tag = groups[1]
+        return hostname, path_with_tag
 
     @staticmethod
     def match_tag(name):
         tag_pattern = r"(.+)\:([\w][\w.-]{0,127})"
         match = re.match(tag_pattern, name)
         if match:
-            name = match.groups()[0]
+            path = match.groups()[0]
             tag = match.groups()[1]
         else:
+            path = name
             tag = "latest"
-        return name, tag
+        return path, tag
 
     @staticmethod
     def match_digest(name):
         digest_pattern = r"(.+)\@([^/]*)"
         match = re.match(digest_pattern, name)
         if match:
-            name = match.groups()[0]
+            path = match.groups()[0]
             digest = match.groups()[1]
         else:
+            path = name
             digest = None
-        return name, digest
+        return path, digest
 
     @property
     def digest(self):
+        """The digest of the docker image
+        """
         if not self._digest:
             self._digest = self.get_manifest().headers.get("Docker-Content-Digest").strip()
         return self._digest
