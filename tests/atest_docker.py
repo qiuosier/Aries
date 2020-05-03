@@ -26,14 +26,6 @@ class TestDocker(AriesTest):
         for registry in registries:
             api = DockerAPI(registry)
             self.assertTrue(api.check_version().startswith("2."))
-        # api = DockerAPI("gcr.io")
-        # res = api.request("GET", "/v2/")
-        # logger.debug(res.status_code)
-        # logger.debug(res.headers)
-        # # res = api.request("GET", "/v2/library/ubuntu/manifests/latest")
-        # # logger.debug(res.status_code)
-        # # logger.debug(res.headers)
-        # self.fail()
 
     def test_docker_image(self):
         image = DockerImage("ubuntu")
@@ -41,13 +33,19 @@ class TestDocker(AriesTest):
         self.assertEqual(image.path, "library/ubuntu")
         self.assertEqual(image.tag, "latest")
 
-        image = DockerImage("ubuntu:18.04")
+        image = DockerImage("ubuntu:16.04")
         self.assertEqual(image.hostname, "registry-1.docker.io")
         self.assertEqual(image.path, "library/ubuntu")
-        self.assertEqual(image.tag, "18.04")
+        self.assertEqual(image.tag, "16.04")
 
         image = DockerImage("us.gcr.io/davelab-gcloud/cancer:0.1-alpha")
         self.assertEqual(image.hostname, "us.gcr.io")
         self.assertEqual(image.path, "davelab-gcloud/cancer")
         self.assertEqual(image.tag, "0.1-alpha")
         self.assertEqual(image.get_size(), 460399799)
+
+        image = DockerImage("quay.io/biocontainers/fastqc:0.11.5--1")
+        self.assertEqual(image.hostname, "quay.io")
+        self.assertEqual(image.path, "biocontainers/fastqc")
+        self.assertEqual(image.tag, "0.11.5--1")
+        self.assertEqual(image.get_size(), 148276937)

@@ -1,4 +1,3 @@
-import datetime
 import requests
 import re
 import logging
@@ -216,9 +215,9 @@ class DockerImage:
 
     def is_accessible(self):
         """Checks if the image is accessible.
-        This method returns False if the existence cannot be determined.
 
-        Returns:
+        Returns: True if the image is accessible.
+            This method returns False if the existence cannot be determined.
 
         """
         try:
@@ -229,10 +228,16 @@ class DockerImage:
 
     def get_size(self):
         """Gets the size of the docker image by adding the sizes of all layers.
-        This method returns None if the size cannot be determined.
+
+        Returns: The size of the docker image in bytes.
+            This method returns None if the size cannot be determined.
         """
         try:
+            # layers is defined in Image Manifest Version 2, Schema 2
+            # See also: https://docs.docker.com/registry/spec/manifest-v2-2/
             layers = self.get_manifest().json().get("layers")
+            if not layers:
+                return self.get_size_via_fs_layers()
             total_size = 0
             for layer in layers:
                 total_size += layer.get("size", 0)
@@ -242,3 +247,28 @@ class DockerImage:
             traceback.print_exc()
             return None
         return total_size
+
+    def get_size_via_fs_layers(self):
+        """Gets the size of the docker image by adding the sizes of all fsLayers
+        This is designed for Image Manifest Version 2, Schema 1
+
+        Returns: The size of the docker image in bytes.
+            This method returns None if the size cannot be determined.
+
+        See Also: https://docs.docker.com/registry/spec/manifest-v2-1/
+
+        """
+        layers = self.get_manifest().json().get("fsLayers")
+        if not layers:
+            logger.error("Cannot determine image size for %s" % self.name)
+            return None
+        size = 0
+        for layer in layers:
+            digest = layer.get("blobSum")
+            if not digest:
+                continue
+            res = self.api.request("HEAD", "/v2/%s/blobs/%s" % (self.path, digest))
+            layer_size = res.headers.get("Content-Length")
+            if layer_size and str(layer_size).isdigit():
+                size += int(layer_size)
+        return size
