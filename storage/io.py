@@ -956,3 +956,4 @@ class StorageFile(StorageObject, BufferedIOWrapper, BufferedIOBase):
             self.write(b)
         else:
             self.write(s)
+        return self
