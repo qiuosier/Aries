@@ -7,8 +7,9 @@ import binascii
 import inspect
 import traceback
 from io import SEEK_SET, UnsupportedOperation
-from io import BufferedIOBase, BufferedRandom, BufferedReader, BufferedWriter, TextIOWrapper
+from io import BufferedIOBase, BufferedRandom, BufferedReader, BufferedWriter, TextIOWrapper, BytesIO
 from .base import StorageObject, StorageFolderBase
+from .cloud import CloudStorageIO
 from . import gs, file, web, s3
 logger = logging.getLogger(__name__)
 
@@ -913,9 +914,45 @@ class StorageFile(StorageObject, BufferedIOWrapper, BufferedIOBase):
         return results
 
     def read(self, size=None):
+        """Reads bytes from the file
+
+        Args:
+            size: The maximum number of bytes to be returned.
+                Less bytes will be returned if the file size is less than the size argument.
+
+        Returns: Bytes content from the file.
+
+        As a shortcut, read() can be called without initializing buffered_io
+
+        """
         # As a shortcut, read() can be called without initializing buffered_io
         if self.closed:
             # The returned content will always be bytes in this case.
             with self.raw_io.open('rb') as f:
                 return f.read(size)
         return self.buffered_io.read(size)
+
+    def write_string(self, s, encoding="utf-8", errors="strict"):
+        """Writes a string into the file.
+
+        Args:
+            s (str): String to be written into the file
+            encoding: Same as encoding in str.encode()
+            errors: Same as errors in str.encode()
+
+        """
+        if not s:
+            return
+        b = s.encode(encoding, errors)
+        if issubclass(self.raw_io.__class__, CloudStorageIO):
+            with BytesIO() as f:
+                f.write(b)
+                f.seek(0)
+                self.raw_io.upload(f)
+        elif self.closed:
+            with self.raw_io.open('wb') as f:
+                f.write(b)
+        elif 'b' in self.mode:
+            self.write(b)
+        else:
+            self.write(s)
