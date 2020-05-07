@@ -28,22 +28,24 @@ class StorageObject:
         """
         self.uri = str(uri)
         parse_result = urlparse(self.uri)
+        self.scheme = parse_result.scheme
         self.hostname = parse_result.hostname
         self.path = parse_result.path
-        self.scheme = parse_result.scheme
+
+        # Use file as scheme if one is not in the URI
+        if not self.scheme:
+            self.scheme = 'file'
+            self.hostname = ""
+            if not uri.startswith("/"):
+                self.uri = os.path.abspath(self.uri)
+            self.path = self.uri
+            self.uri = "file://" + self.uri
 
         # The "prefix" for does not include the beginning "/"
         if self.path.startswith("/"):
             self.prefix = self.path[1:]
         else:
             self.prefix = self.path
-
-        # Use file as scheme if one is not in the URI
-        if not self.scheme:
-            self.scheme = 'file'
-            if not str(self.path).startswith("/"):
-                self.path = os.path.abspath(self.path)
-            self.uri = "file://" + self.uri
 
     def __str__(self):
         """Returns the URI
