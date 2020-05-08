@@ -246,7 +246,7 @@ class StorageFolder(StorageFolderBase):
                 pass
 
         if not contents_only:
-            to += self.name
+            os.path.join(to, self.name)
         # logger.debug(self.file_paths)
         for storage_file in self.files:
             storage_file.copy(os.path.join(to, storage_file.basename))
