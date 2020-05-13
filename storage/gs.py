@@ -195,10 +195,17 @@ class GSPrefix(CloudStoragePrefix, GSObject):
         if not blobs:
             return 0
         counter = 0
-        with self.client.batch():
-            for blob in blobs:
-                method(blob, *args, **kwargs)
-                counter += 1
+        try:
+            with self.client.batch():
+                for blob in blobs:
+                    method(blob, *args, **kwargs)
+                    counter += 1
+        except ValueError as ex:
+            # Suppress the no deferred request errors
+            # This error occurs when there is no file/blob in the batch.
+            if str(ex).strip() == "No deferred requests":
+                return 0
+            raise ex
         return counter
 
     # @api_decorator
