@@ -23,7 +23,7 @@ class DictList(list):
         Returns:
             list: A list of sorted dictionaries.
         """
-        return sorted(self, key=lambda i : i.get(key))
+        return sorted(self, key=lambda i: i.get(key), reverse=reverse)
 
 
 def sort_lists(order_list, label_list, reverse=False):
