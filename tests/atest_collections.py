@@ -47,6 +47,7 @@ class TestDictList(AriesTest):
         self.assertIn("name", keys)
         self.assertEqual(len(keys), 2)
 
+
 class TestLists(AriesTest):
     def test_sort_lists(self):
         """Tests sorting two lists
