@@ -10,6 +10,7 @@ import threading
 import traceback
 import uuid
 import copy
+from .strings import stringify
 logger = logging.getLogger(__name__)
 
 
@@ -525,3 +526,40 @@ class LoggingConfigDict:
 
     def get_config(self):
         return self.config_dict
+
+
+class Traceback:
+    """An extension of the built-in traceback
+    """
+    @staticmethod
+    def local_variables():
+        """Returns the local variables where the most recent exception occurs.
+        """
+        exc_type, exc_value, tb = sys.exc_info()
+        if tb is None:
+            return dict()
+        prev = tb
+        curr = tb.tb_next
+        while curr is not None:
+            prev = curr
+            curr = curr.tb_next
+            # logger.debug(prev.tb_frame.f_locals)
+        return prev.tb_frame.f_locals
+
+    @staticmethod
+    def format_exception(limit=None, chain=True):
+        """Returns the traceback of the most recent exception, and the local variables
+
+        Returns: A string with traceback and local variables.
+        """
+        trace = traceback.format_exc(limit, chain)
+        var = Traceback.local_variables()
+        var_dump = json.dumps(stringify(var), indent=4) if isinstance(var, dict) else str(var)
+        trace += "\nLocal Variables:\n" + var_dump
+        return trace
+
+    @staticmethod
+    def print_exception(limit=None, chain=True):
+        """Prints the traceback of the most recent exception, and the local variables
+        """
+        print(Traceback.format_exception(limit, chain))
