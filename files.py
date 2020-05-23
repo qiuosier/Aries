@@ -262,11 +262,8 @@ class TemporaryFile:
         """
         self.template = template
         self.temp_file = "None"
-    
-    def filename(self):
-        return os.path.basename(self.temp_file)
 
-    def __enter__(self):
+    def new(self):
         """Creates a temp file by copying the template, if any.
 
         Returns: The full path of the temp file.
@@ -285,8 +282,17 @@ class TemporaryFile:
             self.temp_file = f.name
         return self.temp_file
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def remove(self):
         """Removes the temp_file.
         """
         if os.path.exists(self.temp_file):
             os.remove(self.temp_file)
+
+    def filename(self):
+        return os.path.basename(self.temp_file)
+
+    def __enter__(self):
+        return self.new()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.remove()
