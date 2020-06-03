@@ -333,7 +333,7 @@ class PackageLogFilter(logging.Filter):
         elif packages:
             self.packages.append(packages)
 
-        logger.info("Filtering logs except packages: %s" % self.packages)
+        logger.debug("Filtering logs except packages: %s" % self.packages)
         super().__init__()
 
     def filter(self, record):
