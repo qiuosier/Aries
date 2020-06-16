@@ -563,3 +563,74 @@ class Traceback:
         """Prints the traceback of the most recent exception, and the local variables
         """
         print(Traceback.format_exception(limit, chain))
+
+
+class Print:
+    """Contain static methods for printing colored messages."""
+
+    BLUE = '\033[94m'  # Blue
+    GREEN = '\033[92m'  # Green
+    YELLOW = '\033[93m'  # Yellow
+    RED = '\033[91m'  # Red
+
+    HEADER = '\033[95m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+    ENDC = '\033[0m'
+
+    @staticmethod
+    def print(msg, color=None):
+        """Prints a message with color.
+
+        Args:
+            color: One of the class attribute of ColoredPrint, e.g. ColoredPrint.BLUE.
+            msg (str): message.
+
+        """
+        if color:
+            print(color + Print.format(msg) + Print.ENDC)
+        else:
+            print(Print.format(msg))
+
+    @staticmethod
+    def format(msg):
+        # Decode if the message is bytes
+        if isinstance(msg, bytes):
+            msg = msg.decode()
+        # Try to print dict or list objects as json format with indent.
+        # Use pprint if json.dumps() does not work.
+        try:
+            # if isinstance(message, str):
+            #     message = ast.literal_eval(message)
+            if issubclass(type(msg), dict) or issubclass(type(msg), list):
+                msg = json.dumps(msg, sort_keys=True, indent=4)
+        except ValueError:
+            msg = pprint.pformat(msg)
+        # Start the message in a new line if the message contains multiple lines.
+        # This will print the dict and list starting from a new line.
+        if isinstance(msg, str) and "\n" in msg:
+            msg = "\n" + msg
+        else:
+            msg = msg
+        return msg
+
+    @staticmethod
+    def green(msg):
+        """Prints a message in green."""
+        print(Print.GREEN + str(msg) + Print.ENDC)
+
+    @staticmethod
+    def red(msg):
+        """Prints a message in red."""
+        print(Print.RED + str(msg) + Print.ENDC)
+
+    @staticmethod
+    def blue(msg):
+        """Prints a message in blue."""
+        print(Print.BLUE + str(msg) + Print.ENDC)
+
+    @staticmethod
+    def yellow(msg):
+        """Prints a message in yellow."""
+        print(Print.YELLOW + str(msg) + Print.ENDC)
