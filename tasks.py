@@ -240,7 +240,7 @@ class FunctionTask(Task):
         stats.sort_stats('cumulative', 'time').print_stats(0.1)
 
     def run_and_retry(self, max_retry=10, exceptions=Exception, 
-                      base_interval=2, retry_pattern='exponential'):
+                      base_interval=2, retry_pattern='exponential', capture_output='True'):
         """Runs the function and retry a few times if certain exceptions occurs.
         The time interval between the ith and (i+1)th retry is base_interval**i, 
             i.e. interval increases exponentially.
@@ -254,6 +254,9 @@ class FunctionTask(Task):
                     i.e., the interval will be "base_interval ** i" after the ith try.
                 "linear": The time between two retries will increase linear.
                     i.e., the interval will be "base_interval * i" after the ith try.
+            capture_output: Indicate if the outputs and logs of the function should be captured.
+                Outputs and logs will be captured to std_out, std_err and log_out attributes.
+                Setting capture_output to False will improve the performance.
 
         Returns: The return value of the function.
 
@@ -261,7 +264,10 @@ class FunctionTask(Task):
         error = None
         for i in range(max_retry):
             try:
-                results = self.run(suppress_exception=False)
+                if capture_output:
+                    results = self.run(suppress_exception=False)
+                else:
+                    results = self.func(*self.args, **self.kwargs)
             except exceptions as ex:
                 error = ex
                 traceback.print_exc()
