@@ -85,10 +85,10 @@ class CaptureOutput:
     sys_out = None
     sys_err = None
 
-    manager = Manager()
-
-    out_listeners = manager.dict()
-    err_listeners = manager.dict()
+    # Must use lock when iterating or adding items to listeners
+    listener_lock = threading.Lock()
+    __out_listeners = dict()
+    __err_listeners = dict()
 
     def __init__(self, suppress_exception=False, log_level=logging.DEBUG, filters=None):
         """Initializes log handler and attributes to store the outputs.
@@ -113,6 +113,15 @@ class CaptureOutput:
         self.returns = None
 
     @staticmethod
+    def get_listeners(uid):
+        with CaptureOutput.listener_lock:
+            if uid in CaptureOutput.__out_listeners.keys():
+                out_listener = CaptureOutput.__out_listeners[uid]
+                err_listener = CaptureOutput.__out_listeners[uid]
+                return out_listener, err_listener
+            return None, None
+
+    @staticmethod
     def __config_sys_outputs():
         """Configures sys.stdout and sys.stderr.
             If there are listeners, sys.stdout/sys.stderr will be redirect to an instance of OutputWriter,
@@ -124,16 +133,16 @@ class CaptureOutput:
             This method is being executed in __enter__() and __exit__() with listener_lock.
 
         """
-        if CaptureOutput.out_listeners:
-            out_listener_list = [l for l in CaptureOutput.out_listeners.values()]
+        if CaptureOutput.__out_listeners:
+            out_listener_list = [l for l in CaptureOutput.__out_listeners.values()]
             out_listener_list.append(CaptureOutput.sys_out)
             sys.stdout = OutputWriter(out_listener_list)
         else:
             sys.stdout = CaptureOutput.sys_out
             CaptureOutput.sys_out = None
 
-        if CaptureOutput.err_listeners:
-            err_listener_list = [l for l in CaptureOutput.err_listeners.values()]
+        if CaptureOutput.__err_listeners:
+            err_listener_list = [l for l in CaptureOutput.__err_listeners.values()]
             err_listener_list.append(CaptureOutput.sys_err)
             sys.stderr = OutputWriter(err_listener_list)
         else:
@@ -153,9 +162,10 @@ class CaptureOutput:
             CaptureOutput.sys_err = sys.stderr
 
         # Update listeners and re-config output writer.
-        CaptureOutput.out_listeners[self.uuid] = io.StringIO()
-        CaptureOutput.err_listeners[self.uuid] = io.StringIO()
-        self.__config_sys_outputs()
+        with self.listener_lock:
+            CaptureOutput.__out_listeners[self.uuid] = io.StringIO()
+            CaptureOutput.__err_listeners[self.uuid] = io.StringIO()
+            self.__config_sys_outputs()
 
         # Modify root logger level and add log handler.
         root_logger = logging.getLogger()
@@ -180,9 +190,10 @@ class CaptureOutput:
         self.logs = self.log_handler.logs
 
         # Update listeners and re-config output writer.
-        self.std_out = CaptureOutput.out_listeners.pop(self.uuid).getvalue()
-        self.std_err = CaptureOutput.err_listeners.pop(self.uuid).getvalue()
-        self.__config_sys_outputs()
+        with self.listener_lock:
+            self.std_out = CaptureOutput.__out_listeners.pop(self.uuid).getvalue()
+            self.std_err = CaptureOutput.__err_listeners.pop(self.uuid).getvalue()
+            self.__config_sys_outputs()
 
         # Exception will be suppressed if returning True
         if self.suppress_exception:
