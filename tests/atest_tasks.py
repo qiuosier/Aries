@@ -52,6 +52,7 @@ class TestRunRetry(AriesTest):
             task = tasks.FunctionTask(self.func_to_retry)
             task.run_and_retry(2)
 
+
 class TestFunctionTask(AriesTest):
 
     @staticmethod

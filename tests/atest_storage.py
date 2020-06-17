@@ -238,6 +238,8 @@ class TestStorage(AriesTest):
             src_file_path = os.path.join(self.TEST_ROOT, "test_folder_0", "empty_file")
             dst_file_path = os.path.join(new_folder_uri, "copied_file")
             f = StorageFile(src_file_path)
+            logger.debug(f.exists())
+            time.sleep(2)
             f.copy(dst_file_path)
             self.assertTrue(StorageFile(dst_file_path).exists())
 
