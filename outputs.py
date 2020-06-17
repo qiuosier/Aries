@@ -10,6 +10,7 @@ import threading
 import traceback
 import uuid
 import copy
+from multiprocessing import Manager
 from .strings import stringify
 logger = logging.getLogger(__name__)
 
@@ -84,8 +85,10 @@ class CaptureOutput:
     sys_out = None
     sys_err = None
 
-    out_listeners = {}
-    err_listeners = {}
+    manager = Manager()
+
+    out_listeners = manager.dict()
+    err_listeners = manager.dict()
 
     def __init__(self, suppress_exception=False, log_level=logging.DEBUG, filters=None):
         """Initializes log handler and attributes to store the outputs.
@@ -110,11 +113,15 @@ class CaptureOutput:
         self.returns = None
 
     @staticmethod
-    def config_sys_outputs():
+    def __config_sys_outputs():
         """Configures sys.stdout and sys.stderr.
             If there are listeners, sys.stdout/sys.stderr will be redirect to an instance of OutputWriter,
             which will write the outputs to all listeners.
             If there is no listener, sys.stdout/sys.stderr will be restored to the values saved before.
+
+        Remarks:
+            listener_lock is required to run this method to avoid listener dictionaries being modified by other threads.
+            This method is being executed in __enter__() and __exit__() with listener_lock.
 
         """
         if CaptureOutput.out_listeners:
@@ -148,7 +155,7 @@ class CaptureOutput:
         # Update listeners and re-config output writer.
         CaptureOutput.out_listeners[self.uuid] = io.StringIO()
         CaptureOutput.err_listeners[self.uuid] = io.StringIO()
-        self.config_sys_outputs()
+        self.__config_sys_outputs()
 
         # Modify root logger level and add log handler.
         root_logger = logging.getLogger()
@@ -175,7 +182,7 @@ class CaptureOutput:
         # Update listeners and re-config output writer.
         self.std_out = CaptureOutput.out_listeners.pop(self.uuid).getvalue()
         self.std_err = CaptureOutput.err_listeners.pop(self.uuid).getvalue()
-        self.config_sys_outputs()
+        self.__config_sys_outputs()
 
         # Exception will be suppressed if returning True
         if self.suppress_exception:
