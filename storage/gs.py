@@ -71,7 +71,8 @@ def api_call(func=None, *args, **kwargs):
             max_retry=3,
             exceptions=ServerError,
             base_interval=60,
-            retry_pattern='linear'
+            retry_pattern='linear',
+            capture_output=False
         )
 
 
