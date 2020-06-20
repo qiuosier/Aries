@@ -78,4 +78,6 @@ class GoogleOAuth:
             "refresh_token": refresh_token,
             "grant_type": "refresh_token"
         }).json()
+        if response.get("error"):
+            logger.error("Error when getting access token: %s" % response.get("error"))
         return response.get("access_token")
