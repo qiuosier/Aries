@@ -128,7 +128,7 @@ class GoogleSheet(GoogleDriveFile):
 
         Args:
             sheet_name (str): The name of the sheet
-            row_idx (str): The 1-based row number.
+            row_idx (int): The 1-based row number.
             from_col (int): Gets the data starting from a certain column.
                 This can be used to exclude the values header columns.
                 All values of the rows will be returned if from_col is None, 0 or evaluated as False.
@@ -141,6 +141,7 @@ class GoogleSheet(GoogleDriveFile):
         values = self.values("%s!%s:%s" % (sheet_name, row_idx, row_idx)).get("values")
         if not values:
             return []
+        values = values[0]
         if from_col:
             values = values[from_col:] if from_col < len(values) else []
         return values

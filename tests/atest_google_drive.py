@@ -15,11 +15,13 @@ except:
     from Aries.Google.drive import GoogleSheet
 
 
-class TestGoogleDrive(AriesTest):
+class TestGoogleSheet(AriesTest):
 
     google_client_id = None
     google_client_secret = None
     google_refresh_token = None
+    google_access_token = None
+    google_sheet_id = "1ZTzD1VaLKffRIw8JDhZyLJeUSIwbd7AsJtv8u5XyqrM"
 
     @classmethod
     def setUpClass(cls):
@@ -35,9 +37,24 @@ class TestGoogleDrive(AriesTest):
         if not self.google_refresh_token:
             self.skipTest("GOOGLE_REFRESH_TOKEN not found.")
 
-    def test_get_access_token(self):
-        access_token = GoogleOAuth(
-            self.google_client_id,
-            self.google_client_secret
-        ).refresh_access_token(self.google_refresh_token)
-        self.assertIsNotNone(access_token)
+    def get_access_token(self):
+        if not self.google_access_token:
+            self.google_access_token = GoogleOAuth(
+                self.google_client_id,
+                self.google_client_secret
+            ).refresh_access_token(self.google_refresh_token)
+            self.assertIsNotNone(self.google_access_token)
+        return self.google_access_token
+
+    def test_access_google_sheet(self):
+        google_sheet = GoogleSheet(
+            access_token=self.get_access_token(),
+            file_id=self.google_sheet_id
+        )
+        data = google_sheet.get_data_grid()
+        self.assertGreater(len(data), 1)
+        self.assertEqual(data[0][0], "A1")
+
+        row = google_sheet.get_row_data("Sheet1", 2)
+        self.assertEqual(row[2], "C3")
+        self.assertEqual(len(row), 3)
