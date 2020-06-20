@@ -37,8 +37,20 @@ class GoogleDriveFile:
 
 
 class GoogleSheet(GoogleDriveFile):
+    """Represents a Google Sheet file
+    """
     @property
     def sheets(self):
+        """Gets a list of sheets from the API response (in terms of dictionaries).
+
+        Returns:
+            list: A list of dictionaries.
+            Each dictionary contains sheet information as defined at
+            https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/sheets#Sheet
+            This list is the value of the "sheets" key in the response of the response of
+            GET https://sheets.googleapis.com/v4/spreadsheets/{spreadsheetId}
+
+        """
         return self.get().get("sheets")
 
     def get(self, **kwargs):
@@ -83,6 +95,18 @@ class GoogleSheet(GoogleDriveFile):
         )
 
     def get_data_grid(self, sheet_index=0, value_type="formattedValue"):
+        """Gets the values of a sheet
+
+        Args:
+            sheet_index: 0-based index of the sheet. Defaults to 0, the first sheet.
+            value_type: The type of the values. Defaults to "formattedValue".
+                This is a key of the CellData, as defined in
+                https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/cells#CellData
+                Other string types include hyperlink and notes.
+
+        Returns: A 2-D list of values. The type of the values depends on the value_type parameter.
+
+        """
         sheets = self.get(includeGridData=True).get("sheets")
         if not sheets:
             return None
@@ -99,7 +123,43 @@ class GoogleSheet(GoogleDriveFile):
             grid.append(row_values)
         return grid
 
+    def get_row_data(self, sheet_name, row_idx, from_col=None):
+        """Gets the data values of a row from a sheet as a list
+
+        Args:
+            sheet_name (str): The name of the sheet
+            row_idx (str): The 1-based row number.
+            from_col (int): Gets the data starting from a certain column.
+                This can be used to exclude the values header columns.
+                All values of the rows will be returned if from_col is None, 0 or evaluated as False.
+
+        Returns: A list of values.
+            The value of an empty cell will be an empty string.
+
+
+        """
+        values = self.values("%s!%s:%s" % (sheet_name, row_idx, row_idx)).get("values")
+        if not values:
+            return []
+        if from_col:
+            values = values[from_col:] if from_col < len(values) else []
+        return values
+
     def get_column_data(self, sheet_name, col_idx, from_row=None):
+        """Gets the data values of a column from a sheet as a list
+
+        Args:
+            sheet_name (str): The name of the sheet
+            col_idx (str): The column as letter string, e.g. "A" or "AK".
+            from_row (int): Gets the data starting from a certain row.
+                This can be used to exclude the values header rows.
+                All values of the column will be returned if from_row is None, 0 or evaluated as False.
+
+        Returns: A list of values.
+            The value of an empty cell will be an empty string.
+
+
+        """
         values = self.values("%s!%s:%s" % (sheet_name, col_idx, col_idx)).get("values")
         if not values:
             return []
@@ -109,6 +169,21 @@ class GoogleSheet(GoogleDriveFile):
         return values
 
     def append(self, data_range, rows):
+        """Appends rows of values to the sheet after a "table" in the data_range.
+
+        Args:
+            data_range: The A1 notation of a range to search for a logical table of data.
+                Values are appended after the last row of the table.
+                For more details about how the table is detected, see:
+                https://developers.google.com/sheets/api/guides/values#appending_values
+            rows: A 2-D list containing the values to be appended.
+
+        Returns:
+
+        See Also:
+            https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets.values/append
+
+        """
         url = "https://sheets.googleapis.com/v4/spreadsheets/%s/values/%s:append?" \
               "valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS" % (self.file_id, data_range)
         data = {
