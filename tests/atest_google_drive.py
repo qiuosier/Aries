@@ -49,9 +49,9 @@ class TestGoogleSheet(AriesTest):
         self.assertEqual(col[1], "C2")
         self.assertGreaterEqual(len(col), 2)
 
-        values = google_sheet.values("A1:C2")
-        logger.debug(values)
-        self.fail()
+        values = google_sheet.values("A1:C2").get("values")
+        self.assertEqual(len(values), 2)
+        self.assertEqual(values[0][0], "A1")
 
     def get_access_token(self):
         """Gets the Google access token.
