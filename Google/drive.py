@@ -4,11 +4,16 @@ logger = logging.getLogger(__name__)
 
 
 class GoogleDriveFile:
-    def __init__(self, file_id, access_token):
+    def __init__(self, file_id, access_token=None, api_key=None):
         self.file_id = file_id
         self._metadata = None
-        self.api = WebAPI("https://www.googleapis.com/")
-        self.api.add_header(Authorization="Bearer %s" % access_token)
+        if access_token:
+            self.api = WebAPI("https://www.googleapis.com/")
+            self.api.add_header(Authorization="Bearer %s" % access_token)
+        elif api_key:
+            self.api = WebAPI("https://www.googleapis.com/", key=api_key)
+        else:
+            raise ValueError("Either access_token or api_key is required to access Google Drive.")
 
     @property
     def metadata(self):
