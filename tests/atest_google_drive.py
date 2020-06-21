@@ -48,13 +48,13 @@ class TestGoogleSheet(AriesTest):
 
     def test_access_google_sheet(self):
         google_sheet = GoogleSheet(
-            access_token=self.get_access_token(),
-            file_id=self.google_sheet_id
+            file_id=self.google_sheet_id,
+            access_token=self.get_access_token()
         )
         data = google_sheet.get_data_grid()
         self.assertGreater(len(data), 1)
         self.assertEqual(data[0][0], "A1")
 
-        row = google_sheet.get_row_data("Sheet1", 2)
+        row = google_sheet.get_row_data(2, sheet_name="Sheet1")
         self.assertEqual(row[2], "C3")
         self.assertEqual(len(row), 3)

@@ -4,7 +4,7 @@ logger = logging.getLogger(__name__)
 
 
 class GoogleDriveFile:
-    def __init__(self, access_token, file_id):
+    def __init__(self, file_id, access_token):
         self.file_id = file_id
         self._metadata = None
         self.api = WebAPI("https://www.googleapis.com/")
@@ -123,12 +123,12 @@ class GoogleSheet(GoogleDriveFile):
             grid.append(row_values)
         return grid
 
-    def get_row_data(self, sheet_name, row_idx, from_col=None):
+    def get_row_data(self, row_number, sheet_name, from_col=None):
         """Gets the data values of a row from a sheet as a list
 
         Args:
-            sheet_name (str): The name of the sheet
-            row_idx (int): The 1-based row number.
+            row_number (int): The 1-based row number.
+            sheet_name (str): The name of the sheet.
             from_col (int): Gets the data starting from a certain column.
                 This can be used to exclude the values header columns.
                 All values of the rows will be returned if from_col is None, 0 or evaluated as False.
@@ -138,7 +138,7 @@ class GoogleSheet(GoogleDriveFile):
 
 
         """
-        values = self.values("%s!%s:%s" % (sheet_name, row_idx, row_idx)).get("values")
+        values = self.values("%s!%s:%s" % (sheet_name, row_number, row_number)).get("values")
         if not values:
             return []
         values = values[0]
@@ -146,12 +146,12 @@ class GoogleSheet(GoogleDriveFile):
             values = values[from_col:] if from_col < len(values) else []
         return values
 
-    def get_column_data(self, sheet_name, col_idx, from_row=None):
+    def get_column_data(self, col_name, sheet_name, from_row=None):
         """Gets the data values of a column from a sheet as a list
 
         Args:
             sheet_name (str): The name of the sheet
-            col_idx (str): The column as letter string, e.g. "A" or "AK".
+            col_name (str): The column as letter string, e.g. "A" or "AK".
             from_row (int): Gets the data starting from a certain row.
                 This can be used to exclude the values header rows.
                 All values of the column will be returned if from_row is None, 0 or evaluated as False.
@@ -161,7 +161,7 @@ class GoogleSheet(GoogleDriveFile):
 
 
         """
-        values = self.values("%s!%s:%s" % (sheet_name, col_idx, col_idx)).get("values")
+        values = self.values("%s!%s:%s" % (sheet_name, col_name, col_name)).get("values")
         if not values:
             return []
         if from_row:

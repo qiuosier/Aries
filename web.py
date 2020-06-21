@@ -25,7 +25,7 @@ class WebAPI:
 
         Args:
             base_url: Base URL, the common URL prefix for all the API endpoints.
-            **kwargs: keyword arguments to be encoded as GET parameters in the URL.
+            **kwargs: keyword arguments to be encoded as GET parameters in the URL in all future requests.
         """
         self.kwargs = kwargs
         self.headers = {}
