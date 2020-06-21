@@ -41,8 +41,17 @@ class TestGoogleSheet(AriesTest):
         self.assertEqual(data[0][0], "A1")
 
         row = google_sheet.get_row_data(2, sheet_name="Sheet1")
-        self.assertEqual(row[2], "C3")
+        self.assertEqual(row[2], "C2")
         self.assertEqual(len(row), 3)
+
+        col = google_sheet.get_column_data('C', sheet_name="Sheet1")
+        self.assertEqual(col[0], "")
+        self.assertEqual(col[1], "C2")
+        self.assertGreaterEqual(len(col), 2)
+
+        values = google_sheet.values("A1:C2")
+        logger.debug(values)
+        self.fail()
 
     def get_access_token(self):
         """Gets the Google access token.

@@ -5,6 +5,22 @@ logger = logging.getLogger(__name__)
 
 class GoogleDriveFile:
     def __init__(self, file_id, access_token=None, api_key=None):
+        """Initializes the API for accessing Google Drive file.
+
+        Args:
+            file_id: Google Drive file ID. This can be obtained from the URL of the file.
+            access_token: Google OAuth 2.0 access token
+            api_key: Google API key
+
+        Either access_token or api_key is required for accessing file on Google Drive.
+
+        See Also:
+            Using OAuth 2.0 to Access Google APIs
+            https://developers.google.com/identity/protocols/oauth2
+            Setting up API keys
+            https://support.google.com/googleapi/answer/6158862?hl=en&ref_topic=7013279
+
+        """
         self.file_id = file_id
         self._metadata = None
         if access_token:
