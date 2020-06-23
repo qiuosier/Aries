@@ -5,7 +5,7 @@ This build script must be executed outside of the Aries directory.
 See Also: https://packaging.python.org/tutorials/packaging-projects/
 """
 import setuptools
-from Aries.build import setup
+from Aries.setup import setup
 
 
 setuptools.setup(
