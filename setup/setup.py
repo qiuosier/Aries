@@ -13,11 +13,14 @@ def get_version():
     release_version = str(os.popen('cd Aries && git tag | tail -1').read()).strip()
     commit_version = str(os.popen('cd Aries && git rev-list --count master --first-parent').read()).strip()
     minor_version = release_version.rsplit(".", 1)[-1]
-    if minor_version.isdigit():
-        version = "%s.%s" % (release_version, commit_version)
+    if commit_version:
+        if minor_version.isdigit():
+            version = "%s.%s" % (release_version, commit_version)
+        else:
+            version = "%s%s" % (release_version, commit_version)
+        return version
     else:
-        version = "%s%s" % (release_version, commit_version)
-    return version
+        return release_version
 
 
 def get_description(readme):
