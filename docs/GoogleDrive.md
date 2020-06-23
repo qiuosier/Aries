@@ -1,6 +1,8 @@
 # Accessing Files on Google Drive
 The `Aries.Google.drive` module provides simple access to file on Google Drive. At this moment, it is mainly designed for accessing data on Google Sheet.
 
+[![PyPI version](https://badge.fury.io/py/Aries-storage.svg)](https://pypi.org/project/Aries-storage/)
+
 Google provides [Python API](https://developers.google.com/drive/api/v3/quickstart/python) for accessing Google Drive, including Google Sheets. The `Aries.Google.drive` module is designed to simplified the API access for some basic tasks. It does not rely on the Official Python API from Google. Instead, it is built on the [HTTP REST API](https://developers.google.com/drive/api/v3/reference).
 
 See also:
