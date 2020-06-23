@@ -17,10 +17,10 @@ class BucketStorageObject(StorageObject):
     # Expiration time for each client
     cache_expire = dict()
 
-    # Ensure that only one thread can access/modify the cache at one time
+    # Ensure that only one thread can initialize the client at one time
     # Multiple threads initializing the s3 client at the same time may cause a KeyError: 'credential_provider'
     # https://github.com/boto/boto3/issues/1592
-    cache_lock = threading.Lock()
+    client_lock = threading.Lock()
 
     # The number of seconds before the client expires.
     CACHE_EXPIRE_SEC = 1200
@@ -35,22 +35,22 @@ class BucketStorageObject(StorageObject):
     def get_cached(cls, obj_id, init_method):
         """Gets an unexpired object by obj_id from cache, creates one using init_method() if needed.
         """
-        with cls.cache_lock:
-            cached_obj = cls.cache_dict.get(obj_id)
-            now = datetime.datetime.now()
-            if cached_obj:
-                client_expire = cls.cache_expire.get(obj_id)
-                # Use the cached client if it is not expired.
-                if client_expire and client_expire > now:
-                    return cached_obj
-            obj = init_method()
-            cls.cache_dict[obj_id] = obj
-            cls.cache_expire[obj_id] = now + datetime.timedelta(seconds=cls.CACHE_EXPIRE_SEC)
+        cached_obj = cls.cache_dict.get(obj_id)
+        now = datetime.datetime.now()
+        if cached_obj:
+            client_expire = cls.cache_expire.get(obj_id)
+            # Use the cached client if it is not expired.
+            if client_expire and client_expire > now:
+                return cached_obj
+        obj = init_method()
+        cls.cache_dict[obj_id] = obj
+        cls.cache_expire[obj_id] = now + datetime.timedelta(seconds=cls.CACHE_EXPIRE_SEC)
         return obj
 
     def get_client(self):
         obj_id = self.scheme
-        return self.get_cached(obj_id, self.init_client)
+        with self.client_lock:
+            return self.get_cached(obj_id, self.init_client)
 
     def get_bucket(self):
         obj_id = "%s://%s" % (self.scheme, self.bucket_name)
