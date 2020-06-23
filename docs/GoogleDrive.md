@@ -10,7 +10,7 @@ See also:
 * [Google Sheet API Reference](https://developers.google.com/sheets/api/reference/rest)
 
 ## File ID
-Each file in Google Drive, including Google Docs, Google Sheets and Google Slides, is identified by a file ID. File IDs stays the same for the life of the file, even if the file is renamed. For Google Docs/Sheets/Slides, the file ID can be obtained from the URL. For example, in following the URL for a Google sheet:
+Each file in Google Drive, including Google Docs, Google Sheets and Google Slides, is identified by a file ID. File ID stays the same for the life of the file, even if the file is renamed. For Google Docs/Sheets/Slides, the file ID can be obtained from the URL. For example, in following the URL for a Google sheet:
 ```
 https://docs.google.com/spreadsheets/d/1ZTzD1VaLKffRIw8JDhZyLJeUSIwbd7AsJtv8u5XyqrM/
 ```

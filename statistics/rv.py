@@ -1,6 +1,5 @@
 import warnings
 import logging
-import numpy as np
 import scipy.stats
 from pprint import pprint
 logger = logging.getLogger(__name__)
