@@ -40,7 +40,7 @@ jobs:
         mv setup/setup_full.py ../
         cp README.md ../
         cd ..
-        python setup.py sdist bdist_wheel
+        python setup_full.py sdist bdist_wheel
         twine upload dist/*
         rm -rf dist
         rm -rf build
