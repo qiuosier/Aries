@@ -16,7 +16,7 @@ setuptools.setup(
     url="https://github.com/qiuosier/Aries",
     version=setup.get_version(),
     long_description=setup.get_description("Aries/docs/storage.md"),
-    install_requires=setup.get_requirements("Aries/build/requirements_storage.txt", req_aries=True),
+    install_requires=setup.get_requirements("Aries/setup/requirements_storage.txt", req_aries=True),
     long_description_content_type="text/markdown",
     packages=setuptools.find_packages(include=(
         "Aries.storage",

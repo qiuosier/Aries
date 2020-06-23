@@ -17,7 +17,7 @@ setuptools.setup(
     url="https://github.com/qiuosier/Aries",
     version=setup.get_version(),
     long_description=setup.get_description("Aries/README.md"),
-    install_requires=setup.get_requirements("Aries/build/requirements_core.txt"),
+    install_requires=setup.get_requirements("Aries/setup/requirements_core.txt"),
     long_description_content_type="text/markdown",
     packages=setuptools.find_packages(exclude=(
         "Aries.setup",
