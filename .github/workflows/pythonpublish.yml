@@ -37,10 +37,10 @@ jobs:
       # Move setup.py out of Aries
       # Build and publish the package outside of Aries.
       run: |
-        mv setup/setup_full.py ../
+        mv setup/setup_full.py ../setup.py
         cp README.md ../
         cd ..
-        python setup_full.py sdist bdist_wheel
+        python setup.py sdist bdist_wheel
         twine upload dist/*
         rm -rf dist
         rm -rf build
@@ -51,7 +51,7 @@ jobs:
       # Move setup.py out of Aries
       # Build and publish the package outside of Aries.
       run: |
-        mv setup/setup_core.py ../
+        mv setup/setup_core.py ../setup.py
         cp README.md ../
         cd ..
         python setup.py sdist bdist_wheel
@@ -65,7 +65,7 @@ jobs:
       # Move setup.py out of Aries
       # Build and publish the package outside of Aries.
       run: |
-        mv setup/setup_storage.py ../
+        mv setup/setup_storage.py ../setup.py
         cp docs/storage.md ../README.md
         cd ..
         python setup.py sdist bdist_wheel
