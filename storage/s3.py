@@ -1,6 +1,8 @@
 import logging
 import boto3
+import random
 from botocore.exceptions import ClientError
+from ..tasks import FunctionTask
 from .base import StorageFolderBase
 from .cloud import BucketStorageObject, CloudStoragePrefix, CloudStorageIO
 logger = logging.getLogger(__name__)
@@ -30,7 +32,21 @@ class S3Object(BucketStorageObject):
         return s3.Object(self.bucket_name, self.prefix)
 
     def init_client(self):
-        return boto3.client('s3')
+        """Initializes a boto3 client.
+        The initialization will load the AWS credentials.
+        There may be a KeyError when multiple threads are trying to initialize the client at the same time.
+        This method will retry with a random interval if it encounter a key error.
+        """
+        # The following run and retry will use a random base interval
+        # so that different threads will not retry at the same time.
+        client = FunctionTask(boto3.client, 's3').run_and_retry(
+            max_retry=3,
+            base_interval=random.uniform(0.5, 2),
+            exceptions=KeyError,
+            retry_pattern="linear",
+            capture_output=False
+        )
+        return client
 
     def init_bucket(self):
         s3 = boto3.resource('s3')

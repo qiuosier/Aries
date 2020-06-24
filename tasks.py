@@ -240,7 +240,7 @@ class FunctionTask(Task):
         stats.sort_stats('cumulative', 'time').print_stats(0.1)
 
     def run_and_retry(self, max_retry=10, exceptions=Exception, 
-                      base_interval=2, retry_pattern='exponential', capture_output='True'):
+                      base_interval=2, retry_pattern='exponential', capture_output=True):
         """Runs the function and retry a few times if certain exceptions occurs.
         The time interval between the ith and (i+1)th retry is base_interval**i, 
             i.e. interval increases exponentially.
@@ -248,7 +248,8 @@ class FunctionTask(Task):
         Args:
             max_retry (int): The number of times to re-try.
             exceptions: An exception class or A tuple of exception classes.
-            base_interval (int): The interval before the first retry in seconds.
+            base_interval (float): The interval before the first retry in seconds.
+                base_interval should be a value greater than 1 for exponential retry.
             retry_pattern (str): The pattern of the retry interval. 
                 "exponential": The time between two retries will increase exponentially.
                     i.e., the interval will be "base_interval ** i" after the ith try.
