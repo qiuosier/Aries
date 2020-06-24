@@ -30,6 +30,10 @@ jobs:
     - name: Install dependencies
       run: |
         pip install setuptools wheel twine
+    - name: Get Git diff
+        id: git_diff
+        run: |
+          echo ::set-output name=commitpath::$(git diff-tree --no-commit-id --name-only -r ${{ github.sha }})
     - name: Build and publish Aries-Python package
       env:
         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
@@ -59,6 +63,7 @@ jobs:
         rm -rf dist
         rm -rf build
     - name: Build and publish Aries-storage package
+      if: Contains(steps.git_diff.outputs.commitpath, 'storage/')
       env:
         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
         TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}

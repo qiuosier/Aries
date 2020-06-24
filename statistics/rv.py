@@ -1,7 +1,6 @@
 import warnings
 import logging
 import scipy.stats
-from pprint import pprint
 logger = logging.getLogger(__name__)
 
 
@@ -49,19 +48,24 @@ def random_variables():
     rv_list.extend(discrete_rvs())
     return rv_list
 
+
 def fit_test_continuous_rv():
     """A list of default continuous random variables for fit_distribution()
     
     Returns:
         list: A list of continuous random variables
+
+    See Also:
+        https://en.wikipedia.org/wiki/Relationships_among_probability_distributions
+
     """
     names = [
+        "uniform",
+        "expon",
         "norm",
         "lognorm",
         "logistic",
         "laplace",
-        "expon",
-        "uniform",
         "levy",
         "cauchy",
     ]
