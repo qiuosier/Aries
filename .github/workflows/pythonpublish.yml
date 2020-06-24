@@ -31,9 +31,9 @@ jobs:
       run: |
         pip install setuptools wheel twine
     - name: Get Git diff
-        id: git_diff
-        run: |
-          echo ::set-output name=commitpath::$(git diff-tree --no-commit-id --name-only -r ${{ github.sha }})
+      id: git_diff
+      run: |
+        echo ::set-output name=commitpath::$(git diff-tree --no-commit-id --name-only -r ${{ github.sha }})
     - name: Build and publish Aries-Python package
       env:
         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
