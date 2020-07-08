@@ -13,6 +13,10 @@ class StorageObject:
     """Represents a storage object.
     This is the base class for storage folder and storage file.
 
+    Attributes:
+        path: the path of the object, which usually begins with slash.
+        prefix: the prefix of the object, which does not contain the slash at the beginning of the path.
+
     """
     # Use a large buffer to improve performance of cloud storage access.
     BUFFER_SIZE = DEFAULT_BUFFER_SIZE * 128
