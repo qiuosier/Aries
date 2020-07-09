@@ -718,10 +718,10 @@ class StorageFile(StorageObject, BufferedIOWrapper, BufferedIOBase):
         return storage_file
 
     @staticmethod
-    def load_json(uri):
+    def load_json(uri, **kwargs):
         """Loads a json file into a dictionary.
         """
-        return json.loads(StorageFile.init(uri).read())
+        return json.loads(StorageFile.init(uri, **kwargs).read())
 
     @property
     def closed(self):

@@ -70,7 +70,7 @@ class PDFAnalyzer:
     def get_results(self):
         results = None
         for f in StoragePrefix(self.output_uri).files:
-            result = StorageFile.load_json(f.uri)
+            result = StorageFile.load_json(f.uri, encoding='utf-8')
             if results is None:
                 results = result
             else:
