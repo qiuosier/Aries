@@ -1,4 +1,5 @@
 import logging
+import time
 from ..web import WebAPI
 logger = logging.getLogger(__name__)
 
@@ -96,7 +97,15 @@ class GoogleSheet(GoogleDriveFile):
             https://developers.google.com/sheets/api/guides/concepts#partial_responses
         """
         api_url = "https://sheets.googleapis.com/v4/spreadsheets/%s" % self.file_id
-        return self.api.get_json(api_url, **kwargs)
+        response = self.api.get(api_url, **kwargs)
+        counter = 0
+        while response.status_code == 503:
+            counter += 1
+            if counter > 3:
+                break
+            time.sleep(3)
+            response = self.api.get(api_url, **kwargs)
+        return response.json()
 
     def values(self, data_range, **kwargs):
         """Gets the values of a specific range.
