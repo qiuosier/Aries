@@ -75,7 +75,6 @@ class ExcelFile:
         if self.file_path:
             self.workbook = load_workbook(
                 filename=self.file_path,
-                guess_types=True,
                 data_only=True,
                 read_only=read_only
             )
