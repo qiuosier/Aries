@@ -179,5 +179,5 @@ class S3File(S3Object,CloudStorageIO):
 
     def copy(self, to):
         dest = S3File(to)
-        logger.debug("Creating file %s" % to)
+        logger.debug("Creating copy of S3 file at %s" % to)
         return dest.blob.copy(dict(Bucket=self.bucket_name, Key=self.prefix))

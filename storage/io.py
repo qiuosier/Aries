@@ -815,11 +815,12 @@ class StorageFile(StorageObject, BufferedIOWrapper, BufferedIOBase):
         self.raw_io.delete()
 
     def copy(self, to):
-        logger.debug("Copying file to %s" % to)
+
         dest_file = StorageFile(to)
         # Use raw_io copy for same scheme, if possible
         if self.scheme == dest_file.scheme and hasattr(self.raw_io, "copy"):
             return self.raw_io.copy(to)
+        logger.debug("Copying file stream to %s" % to)
         with self.open("rb") as f:
             with dest_file.open('wb') as f_to:
                 return self.copy_stream(f, f_to)
