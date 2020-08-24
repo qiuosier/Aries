@@ -339,7 +339,7 @@ def stringify(obj):
 
     """
     if isinstance(obj, abc.Mapping):
-        obj = copy.deepcopy(obj)
+        # obj = copy.deepcopy(obj)
         obj_dict = {}
         for key, value in obj.items():
             obj_dict[key] = stringify(value)
