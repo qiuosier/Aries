@@ -6,6 +6,7 @@ import logging
 import binascii
 import inspect
 import traceback
+from google.cloud import storage
 from io import SEEK_SET, UnsupportedOperation
 from io import BufferedIOBase, BufferedRandom, BufferedReader, BufferedWriter, TextIOWrapper, BytesIO
 from .base import StorageObject, StorageFolderBase
@@ -960,3 +961,53 @@ class StorageFile(StorageObject, BufferedIOWrapper, BufferedIOBase):
         else:
             self.write(s)
         return self
+
+
+class FileBatch(list):
+
+    BATCH_SIZE = 900
+
+    @property
+    def scheme(self):
+        if not self:
+            return None
+        return self[0].scheme
+
+    def append(self, obj):
+        if not isinstance(obj, StorageFile):
+            raise ValueError(
+                "Only StorageFile object can be appended to FileBatch. (obj: %s)"
+                % type(obj)
+            )
+        if self and self.scheme != obj.scheme:
+            raise ValueError("Objects in BatchFiles must have the same scheme. (obj: %s)" % obj.scheme)
+        super().append(obj)
+
+    def delete(self):
+        blob_count = len(self)
+        logger.debug("Deleting %s files.." % blob_count)
+        i = 0
+        while i < len(self):
+            end = i + self.BATCH_SIZE
+            if end > len(self):
+                end = len(self)
+            batch = self[i:end]
+            i = end
+            if self.scheme == "gs":
+                self.delete_gs_batch(batch)
+            elif self.scheme == "s3":
+                self.delete_s3_batch(batch)
+            else:
+                raise UnsupportedOperation("Scheme %s is not supported." % self.scheme)
+
+    @staticmethod
+    def delete_gs_batch(batch):
+        client = storage.Client()
+        with client.batch():
+            for f in batch:
+                f.blob.delete()
+
+    @staticmethod
+    def delete_s3_batch(batch):
+        bucket = batch[0].raw_io.bucket
+        bucket.delete_objects(Delete=dict(Objects=[{"Key": f.prefix} for f in batch], Quiet=True))
