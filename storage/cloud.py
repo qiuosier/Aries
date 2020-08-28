@@ -115,11 +115,17 @@ class CloudStorageIO(StorageIOSeekable):
         # Stores the temp local FileIO object
         self.__file_io = None
 
+        # Cache the size information
+        # TODO: use cached property
+        self.__size = None
+
     @property
     def size(self):
-        if self.__file_io:
-            return os.fstat(self.__file_io.fileno).st_size
-        return self.get_size()
+        if not self.__size:
+            if self.__file_io:
+                return os.fstat(self.__file_io.fileno).st_size
+            self.__size = self.get_size()
+        return self.__size
 
     def seek(self, pos, whence=0):
         if self.__file_io:

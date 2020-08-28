@@ -744,6 +744,7 @@ class StorageFile(StorageObject, BufferedIOWrapper, BufferedIOBase):
         """Size of the file in bytes.
         None will be returned if the size cannot be determined.
         """
+        # hasattr will actually trigger the evaluation of the "size" property
         if hasattr(self.raw_io, "size"):
             try:
                 return self.raw_io.size
@@ -751,6 +752,7 @@ class StorageFile(StorageObject, BufferedIOWrapper, BufferedIOBase):
                 traceback.print_exc()
                 logger.debug("Failed to get size: %s" % ex)
                 pass
+        logger.debug("%s has no size attribute." % self.raw_io.__class__.__name__)
         return None
 
     @property
