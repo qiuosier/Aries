@@ -24,7 +24,7 @@ import base64
 import binascii
 from functools import wraps
 from google.cloud import storage
-from google.cloud.exceptions import ServerError
+from google.cloud.exceptions import ServerError, Forbidden
 from ..strings import Base64String
 from ..tasks import FunctionTask
 from .base import StorageFolderBase
@@ -110,7 +110,10 @@ class GSObject(BucketStorageObject):
         """
         if self._blob is None:
             # logger.debug("Getting blob: %s" % self.uri)
-            file_blob = api_call(self.bucket.get_blob, self.prefix)
+            # The following line will avoid sending a GET request
+            # but bucket object will not have the real metadata
+            bucket = self.client.bucket(self.bucket_name)
+            file_blob = api_call(bucket.get_blob, self.prefix)
             if file_blob is None:
                 # The following will not make an HTTP request.
                 # It simply instantiates a blob object owned by this bucket.
@@ -126,7 +129,15 @@ class GSObject(BucketStorageObject):
 
     @api_decorator
     def init_bucket(self):
-        return self.client.get_bucket(self.bucket_name)
+        try:
+            # The get_bucket() method requires permission to access the bucket.
+            # The permission is not needed for getting the size or downloading the file.
+            bucket = self.client.get_bucket(self.bucket_name)
+        except Forbidden:
+            # Fallback to initializing a bucket object without sending GET request
+            logger.debug("Account does not have permission to access bucket: %s" % self.bucket_name)
+            bucket = self.client.bucket(self.bucket_name)
+        return bucket
 
     @property
     def gs_path(self):
