@@ -993,9 +993,9 @@ class FileBatch(list):
                 end = len(self)
             batch = self[i:end]
             i = end
-            if self.scheme == "gs":
+            if self.scheme == "gs" and batch:
                 self.delete_gs_batch(batch)
-            elif self.scheme == "s3":
+            elif self.scheme == "s3" and batch:
                 self.delete_s3_batch(batch)
             else:
                 raise UnsupportedOperation("Scheme %s is not supported." % self.scheme)
