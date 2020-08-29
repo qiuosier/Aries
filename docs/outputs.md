@@ -1,9 +1,7 @@
 # Outputs and Logging
-The Aries outputs module provides classes and methods for logging and capturing outputs from python function or method. 
+The `Aries.output` module provides classes and methods for configuring logging and capturing outputs from python function or method. 
 
 ## Logging Configurations
-The `Aries.output` module provide classes for configuring python logging in a few lines.
-
 To configure logging, simply call `LoggingConfig.enable()` as follows:
 ```
 import logging
@@ -40,7 +38,7 @@ By default `LoggingConfig().enable()` changes the log level to DEBUG. You can mo
 LoggingConfig(level=logging.INFO).enable()
 ```
 
-You may also want to output only the log messages from certain packages, for example, your own package. This can be archived by using the packages argument, which accepts a list of strings.
+You may also want to output only the log messages from certain packages, for example, your own package. This can be done by using the packages argument, which accepts a list of strings.
 ```
 LoggingConfig(packages=["tests"]).enable()
 ```
@@ -55,16 +53,18 @@ config = LoggingConfig().enable()
 config.disable()
 ```
 
-Additionally, LoggingConfig also provides context manager and decorators for handling loggings for a particular part of your code.
+Additionally, LoggingConfig also provides context manager and decorator for handling loggings for a particular part of your code.
 
 Context Manager, logging configuration will be effective only inside "with":
 ```
 with LoggingConfig():
+    # Customized logging in this block only
     logger = logging.getLogger(__name__)
     # ...
     # YOUR CODE HERE
     # ...
-# Logging will be restored here
+
+# Logging will be restored/removed from here
 ```
 
 Decorator, logging configuration will only be effective for the function:
@@ -78,4 +78,18 @@ def your_function(*args, **kwargs):
 ```
 
 ## Capturing Outputs
-The `CaptureOutput` class provides an easy way to capture the outputs and loggings of your code.
+The `CaptureOutput` class provides an easy way to capture the outputs and loggings of your code into variables.
+```
+from Aries.outputs import CaptureOutput
+
+with CaptureOutput() as out:
+    do_something()
+
+# The standard outputs, standard errors, logs and exception outputs (if any) 
+# are saved as strings (with line breaks)
+standard_outputs = out.std_out
+standard_errors = out.std_err
+log_messages = out.log_out
+exceptions = out.exc_out
+```
+In multi-threading programs, `CaptureOutput` saves only the logs of the current thread running the code. However, since multiple threads are sharing the same standard output/error, the `std_out` and `std_err` will contain the outputs/errors from all threads in the same process. To capture the stdout/stderr of a particular thread, run the thread in an independent process.
