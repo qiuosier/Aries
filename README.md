@@ -9,12 +9,12 @@ Aries is a Python package providing shortcuts to a wide range of small tasks lik
 
 Aries includes:
 * [Storage](docs/storage.md) sub-package, which provides a unified interface for accessing files on local computer, Google Cloud Storage and Amazon S3 Storage. The storage interface includes shortcuts for listing, copying, deleting files/folder.
-* [Google](docs/GoogleDrive.md) sub-package, providing simple API for accessing data in Google Drive and Google Sheets.
 * [Outputs](docs/outputs.md)(`outputs.py`) module for logging and capturing outputs.
+* [Task](docs/tasks.md)(`tasks.py`) module to manage asynchronous/background functions and commands.
+* [Google](docs/GoogleDrive.md) sub-package, providing simple API for accessing data in Google Drive and Google Sheets.
+* String(`string.py`) module to provide enhanced String types, as well as FileName, Base64String.
 * Excel(`excel.py`) module to create, read and modify Microsoft Excel spreadsheets.
 * Files(`files.py`) module to handle JSON, Markdown and temporary files with templates.
-* String(`string.py`) module to provide enhanced String types, as well as FileName, Base64String.
-* Task(`tasks.py`) module to manage asynchronous/background functions and commands.
 * Web(`web.py`) module to access web APIs and HTML pages.
 
 ## Installation
