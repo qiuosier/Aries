@@ -3,7 +3,7 @@ The `Aries.tasks` module provides mechanisms for running functions or shell comm
 
 **Important**: This module is NOT designed to improving the performance with parallel processing. The Python Global Interpreter Lock (GIL) limits the performance of multi-threading. This module is designed for monitoring the executions of functions and commands, especially those depending on external resources (I/O or network).
 
-Starting from Python 3.4, the `asyncio` module was added for writing concurrent code using the async/await syntax. This module does not use `asyncio`. The focus of this module is monitoring simple async tasks.
+Starting from Python 3.4, the `asyncio` module was added for writing concurrent code using the async/await syntax. `Aries.tasks` module does not use `asyncio`. The focus of `Aries.tasks` module is running and monitoring simple async tasks.
 
 See also: 
 * [Python’s GIL — A Hurdle to Multithreaded Program](https://medium.com/python-features/pythons-gil-a-hurdle-to-multithreaded-program-d04ad9c1a63)
