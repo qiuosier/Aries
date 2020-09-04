@@ -985,7 +985,7 @@ class FileBatch(list):
 
     def delete(self):
         blob_count = len(self)
-        logger.debug("Deleting %s files.." % blob_count)
+        # logger.debug("Deleting %s files.." % blob_count)
         i = 0
         while i < len(self):
             end = i + self.BATCH_SIZE
@@ -999,6 +999,7 @@ class FileBatch(list):
                 self.delete_s3_batch(batch)
             else:
                 raise UnsupportedOperation("Scheme %s is not supported." % self.scheme)
+        logger.debug("Deleted %s files." % blob_count)
 
     @staticmethod
     def delete_gs_batch(batch):
