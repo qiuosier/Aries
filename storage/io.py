@@ -1002,7 +1002,11 @@ class FileBatch(list):
 
     @staticmethod
     def delete_gs_batch(batch):
+        if not len(batch):
+            return
+
         client = storage.Client()
+
         with client.batch():
             for f in batch:
                 f.blob.delete()
