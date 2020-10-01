@@ -43,7 +43,7 @@ class TableRow(list):
             col_index = self.index.get(header)
         else:
             col_index = self.upper_index.get(str(header).upper())
-        if col_index < len(self):
+        if col_index is not None and col_index < len(self):
             return self[col_index]
         else:
             return default
