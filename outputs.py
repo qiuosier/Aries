@@ -4,6 +4,7 @@ like a function or a method.
 import io
 import json
 import logging
+import os
 import pprint
 import sys
 import threading
@@ -365,13 +366,18 @@ class PackageLogFilter(logging.Filter):
 
     @staticmethod
     def get_packages(folder_path):
-        from .storage import StorageFolder
         project_packages = []
-        project_folder = StorageFolder(folder_path)
-        sub_folders = project_folder.folders
+        sub_folders = [
+            os.path.join(folder_path, f) for f in os.listdir(folder_path)
+            if os.path.isdir(os.path.join(folder_path, f))
+        ]
         for sub_folder in sub_folders:
-            if "__init__.py" in sub_folder.file_names:
-                project_packages.append(sub_folder.name)
+            file_names = [
+                f for f in os.listdir(sub_folder)
+                if os.path.isfile(os.path.join(sub_folder, f))
+            ]
+            if "__init__.py" in file_names:
+                project_packages.append(sub_folder)
         return project_packages
 
 
