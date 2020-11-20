@@ -377,7 +377,7 @@ class PackageLogFilter(logging.Filter):
                 if os.path.isfile(os.path.join(sub_folder, f))
             ]
             if "__init__.py" in file_names:
-                project_packages.append(sub_folder)
+                project_packages.append(os.path.basename(sub_folder))
         return project_packages
 
 
