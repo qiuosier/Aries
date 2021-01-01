@@ -261,7 +261,26 @@ class TestStorage(AriesTest):
             self.assertFalse(dst_file.exists())
 
 
-class TestStorageGCP(TestStorage):
+class TestStorageWithCredentials(TestStorage):
+    @classmethod
+    def setUpClass(cls):
+        cls.CREDENTIALS = False
+        return super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        if not cls.CREDENTIALS:
+            return
+        return super().tearDownClass()
+
+    def setUp(self):
+        # Skip test if no CREDENTIALS.
+        if not self.CREDENTIALS:
+            self.skipTest("Credentials not found.")
+        super().setUp()
+        time.sleep(0.5)
+
+class TestStorageGCP(TestStorageWithCredentials):
     SCHEME = "gs"
     HOST = "aries_test"
     TEST_ROOT_PATH = "/storage_test"
@@ -270,25 +289,17 @@ class TestStorageGCP(TestStorage):
 
     @classmethod
     def setUpClass(cls):
-        cls.CREDENTIALS = False
-        # Google credentials are required for setting up the class.
-        gs.setup_credentials("GOOGLE_CREDENTIALS", os.path.join(os.path.dirname(__file__), "gcp.json"))
         try:
+            # Google credentials are required for setting up the class.
+            gs.setup_credentials("GOOGLE_CREDENTIALS", os.path.join(os.path.dirname(__file__), "gcp.json"))
             super().setUpClass()
             cls.CREDENTIALS = True
         except Exception as ex:
             print("%s: %s" % (type(ex), str(ex)))
             traceback.print_exc()
 
-    def setUp(self):
-        # Skip test if GCP_ACCESS is not True.
-        if not self.CREDENTIALS:
-            self.skipTest("GCP Credentials not found.")
-        super().setUp()
-        time.sleep(0.5)
 
-
-class TestStorageAWS(TestStorage):
+class TestStorageAWS(TestStorageWithCredentials):
     SCHEME = "s3"
     HOST = "davelab-test"
     TEST_ROOT_PATH = "/storage_test"
@@ -310,10 +321,3 @@ class TestStorageAWS(TestStorage):
             print("%s: %s" % (type(ex), str(ex)))
             traceback.print_exc()
             raise ex
-
-    def setUp(self):
-        # Skip test if self.CREDENTIALS is not True.
-        if not self.CREDENTIALS:
-            self.skipTest("Credentials for %s not found." % self.__class__.__name__)
-        super().setUp()
-        time.sleep(0.5)
