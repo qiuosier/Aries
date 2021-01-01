@@ -3,6 +3,82 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class OAuth2:
+    def __init__(self, client_id, client_secret, auth_endpoint, token_endpoint) -> None:
+        super().__init__()
+        self.auth_endpoint = auth_endpoint
+        self.token_endpoint = token_endpoint
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.scope = None
+
+    def authentication_url(self, scope, redirect_uri="urn:ietf:wg:oauth:2.0:oob", response_type="code", **kwargs):
+        """Generates the authentication URL for user to authenticate
+
+        Args:
+            scope (str or list): Scopes/Permissions to be requested.
+            redirect_uri: The redirect URI after authentication.
+                The default redirect_uri is a special value,
+                which means to display the authentication code in the browser.
+
+        Returns: A URL for user to authenticate.
+
+        """
+        self.scope = scope
+        if isinstance(scope, list):
+            scope = "%20".join(scope)
+
+        auth_url = "%s?scope=%s&" \
+                   "redirect_uri=%s&" \
+                   "client_id=%s&" \
+                   "response_type=%s" % \
+                   (
+                       self.auth_endpoint,
+                       scope,
+                       redirect_uri,
+                       self.client_id,
+                       response_type
+                   )
+        for key, val in kwargs.items():
+            auth_url += "&%s=%s" % (key, val)
+        return auth_url
+
+    def exchange_token(self, auth_code, redirect_uri="urn:ietf:wg:oauth:2.0:oob", scope=None):
+        data = {
+            "code": auth_code,
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+            "redirect_uri": redirect_uri,
+            "grant_type": "authorization_code"
+        }
+
+        if scope:
+            data["scope"] = scope
+        elif self.scope:
+            data["scope"] = self.scope
+
+        response = requests.post(self.token_endpoint, data).json()
+        return response
+
+    def refresh_access_token(self, refresh_token, scope=None):
+        data = {
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+            "refresh_token": refresh_token,
+            "grant_type": "refresh_token"
+        }
+
+        if scope:
+            data["scope"] = scope
+        elif self.scope:
+            data["scope"] = self.scope
+
+        response = requests.post(self.token_endpoint, data).json()
+        if response.get("error"):
+            logger.error("Error when getting access token: %s" % response.get("error"))
+        return response.get("access_token")
+
+
 class GoogleOAuth:
     """
     See Also:
