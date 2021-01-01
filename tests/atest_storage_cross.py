@@ -36,8 +36,9 @@ class TestStorageCrossPlatform(AriesTest):
         gs_file.delete()
 
         # AWS
-        s3_path = "s3://davelab-test/links.md"
-        local_file.copy(s3_path)
-        s3_file = StorageFile(s3_path)
-        self.assertEqual(local_md5, s3_file.md5_hex)
-        s3_file.delete()
+        if os.environ.get("AWS_SECRET_ACCESS_KEY") and os.environ.get("AWS_ACCESS_KEY_ID"):
+            s3_path = "s3://davelab-test/links.md"
+            local_file.copy(s3_path)
+            s3_file = StorageFile(s3_path)
+            self.assertEqual(local_md5, s3_file.md5_hex)
+            s3_file.delete()

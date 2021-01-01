@@ -299,6 +299,10 @@ class TestStorageAWS(TestStorage):
     def setUpClass(cls):
         cls.CREDENTIALS = False
         # AWS credentials are loaded from environment variable directly.
+        # Skip tests if credentials are not configured.
+        if not os.environ.get("AWS_SECRET_ACCESS_KEY") or not os.environ.get("AWS_ACCESS_KEY_ID"):
+            return
+        
         try:
             super().setUpClass()
             cls.CREDENTIALS = True
