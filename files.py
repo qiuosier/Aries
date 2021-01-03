@@ -253,17 +253,22 @@ class TemporaryFile:
     This class is different from the tempfile.NamedTemporaryFile that it returns a FILE PATH instead of a file object.
 
     """
-    def __init__(self, template=None):
+    def __init__(self, template=None, **kwargs):
         """Initialize with the file path of a template.
 
         Args:
             template: A template for creating the temporary file.
                 The temp file will be a copy of the template.
                 A empty NamedTemporaryFile() will be created if template is None.
+            kwargs: keyword arguments for creating NamedTemporaryFile when template is None.
+                the "delete" argument will be ignored.
 
         """
         self.template = template
         self.temp_file = "None"
+        self.kwargs = kwargs
+        if "delete" in kwargs:
+            kwargs.pop("delete")
 
     def new(self):
         """Creates a temp file by copying the template, if any.
@@ -279,7 +284,7 @@ class TemporaryFile:
             self.temp_file = os.path.join(temp_folder, filename)
             copyfile(self.template, self.temp_file)
         else:
-            f = tempfile.NamedTemporaryFile(delete=False)
+            f = tempfile.NamedTemporaryFile(delete=False, **self.kwargs)
             f.close()
             self.temp_file = f.name
         return self.temp_file
