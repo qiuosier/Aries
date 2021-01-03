@@ -484,6 +484,7 @@ class StorageIOSeekable(StorageIOBase, ABC):
     Seekable storage sub-class should implement:
         seek()
         tell()
+        size
 
     This class has an _offset attribute to help keeping track of the read/write position of the file.
     A sub-class may not use the _offset attribute if the underlying IO keeps track of the position.

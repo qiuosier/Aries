@@ -238,17 +238,19 @@ class Markdown:
 
 
 class TemporaryFile:
-    # TODO: Inherit from NamedTemporaryFile
     """Represents a temporary file.
 
     Examples:
         with TemporaryFile(template) as temp_file:
+            # temp_file is a string of full file path of the temporary file.
+            # The temporary file will be a copy of the template.
             ...
 
-    If "template" is None, a new tempfile.NamedTemporaryFile() will be created.
-
+    If "template" is None, a new empty tempfile.NamedTemporaryFile() will be created.
     This will create a temp_file by copying an existing file (template).
     The temp_file will be deleted when exiting the "with"
+
+    This class is different from the tempfile.NamedTemporaryFile that it returns a FILE PATH instead of a file object.
 
     """
     def __init__(self, template=None):
