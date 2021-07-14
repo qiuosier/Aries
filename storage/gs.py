@@ -482,10 +482,10 @@ class GSFile(GSObject, CloudStorageIO):
         return self.blob.size
 
     def read_bytes(self, start, end):
-        return api_call(self.blob.download_as_string, start=start, end=end)
+        return api_call(self.blob.download_as_bytes, start=start, end=end)
 
     def download(self, to_file_obj):
-        api_call(self.blob.download_to_file, to_file_obj)
+        api_call(self.blob.download_to_filename, to_file_obj.name)
         return to_file_obj
 
     def upload(self, from_file_obj):
