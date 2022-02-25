@@ -463,6 +463,7 @@ class GSFile(GSObject, CloudStorageIO):
         Args:
             uri:
 
+
         GSFile allows seek and read without opening the file.
         However, position/offset will be reset when open() is called.
         The context manager calls open() when enter.
